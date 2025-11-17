@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Map Chat</title>
+  <link href="https://unpkg.com/maplibre-gl@3.0.0/dist/maplibre-gl.css" rel="stylesheet" />
+</head>
+<body>
+  <div id="app">
+    <div id="map-container">
+      <div id="map"></div>
+      <canvas id="deck-canvas"></canvas>
+    </div>
+
+    <div id="chat-container">
+      <div id="chat-header">
+        <h3>Map Control Chat</h3>
+        <span id="connection-status" class="disconnected">●</span>
+      </div>
+
+      <div id="chat-messages"></div>
+
+      <div id="chat-input-container">
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Type a command (e.g., 'zoom in', 'fly to New York')"
+          autocomplete="off"
+        />
+        <button id="send-button">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

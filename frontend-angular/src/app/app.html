@@ -1,0 +1,10 @@
+<div style="display: flex; width: 100vw; height: 100vh;">
+  <div style="flex: 1; position: relative;">
+    <app-map-view (deckInit)="handleDeckInit($event)"></app-map-view>
+  </div>
+  <app-chat-ui
+    [isConnected]="isConnected"
+    [messages]="messages"
+    (sendMessage)="handleSendMessage($event)">
+  </app-chat-ui>
+</div>

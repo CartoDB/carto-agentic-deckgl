@@ -1,0 +1,68 @@
+{
+  "name": "@map-tools/ai-tools",
+  "version": "1.0.0",
+  "description": "Isomorphic JavaScript library for AI-powered map controls using OpenAI function calling",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./definitions": {
+      "import": "./dist/esm/definitions/index.js",
+      "require": "./dist/cjs/definitions/index.js"
+    },
+    "./executors": {
+      "import": "./dist/esm/executors/index.js",
+      "require": "./dist/cjs/executors/index.js"
+    },
+    "./prompts": {
+      "import": "./dist/esm/prompts/index.js",
+      "require": "./dist/cjs/prompts/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c --watch",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "map",
+    "tools",
+    "openai",
+    "deckgl",
+    "maplibre",
+    "isomorphic",
+    "function-calling"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.1.0",
+    "@types/node": "^24.10.0",
+    "rollup": "^4.29.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@deck.gl/core": "^9.2.2",
+    "tslib": "^2.8.1"
+  }
+}
