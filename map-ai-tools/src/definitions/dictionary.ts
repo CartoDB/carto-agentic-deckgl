@@ -14,63 +14,52 @@ export const TOOL_NAMES = {
   AGGREGATE_FEATURES: 'aggregate-features',
 } as const;
 
-export type ToolName = typeof TOOL_NAMES[keyof typeof TOOL_NAMES];
-
-/**
- * Get all available tool names
- */
-export function getToolNames(): ToolName[] {
-  return Object.values(TOOL_NAMES);
-}
-
-// Import schemas
-import flyToSchema from './schemas/fly-to.schema.json';
-import zoomMapSchema from './schemas/zoom-map.schema.json';
-import toggleLayerSchema from './schemas/toggle-layer.schema.json';
-import setPointColorSchema from './schemas/set-point-color.schema.json';
-import colorFeaturesByPropertySchema from './schemas/color-features-by-property.schema.json';
-import queryFeaturesSchema from './schemas/query-features.schema.json';
-import filterFeaturesByPropertySchema from './schemas/filter-features-by-property.schema.json';
-import sizeFeaturesByPropertySchema from './schemas/size-features-by-property.schema.json';
-import aggregateFeaturesSchema from './schemas/aggregate-features.schema.json';
+// Re-export everything from tools.ts
+export {
+  tools,
+  type ToolName,
+  getToolNames,
+  getTool,
+  getToolDefinition,
+  getAllToolDefinitions,
+  getToolDefinitionsByNames,
+  validateToolParams,
+} from './tools';
 
 import type { ToolDefinition } from '../core/types';
+import { tools, getAllToolDefinitions, getToolDefinition, type ToolName } from './tools';
+
+/**
+ * Get schema for a specific tool (OpenAI function calling format)
+ * @deprecated Use getToolDefinition() instead
+ */
+export function getToolSchema(name: ToolName): ToolDefinition {
+  return getToolDefinition(name) as ToolDefinition;
+}
+
+/**
+ * Get all tool schemas (OpenAI function calling format)
+ * @deprecated Use getAllToolDefinitions() instead
+ */
+export function getAllToolSchemas(): ToolDefinition[] {
+  return getAllToolDefinitions() as ToolDefinition[];
+}
+
+/**
+ * Get tool schemas by names (OpenAI function calling format)
+ * @deprecated Use getToolDefinitionsByNames() instead
+ */
+export function getToolSchemasByNames(names: ToolName[]): ToolDefinition[] {
+  return names.map(name => getToolDefinition(name) as ToolDefinition);
+}
 
 /**
  * Map of tool names to their schema definitions
+ * @deprecated Use tools object from './tools' directly
  */
-export const toolSchemas: Record<ToolName, ToolDefinition> = {
-  [TOOL_NAMES.FLY_TO]: flyToSchema as ToolDefinition,
-  [TOOL_NAMES.ZOOM_MAP]: zoomMapSchema as ToolDefinition,
-  [TOOL_NAMES.TOGGLE_LAYER]: toggleLayerSchema as ToolDefinition,
-  [TOOL_NAMES.SET_POINT_COLOR]: setPointColorSchema as ToolDefinition,
-  [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: colorFeaturesByPropertySchema as ToolDefinition,
-  [TOOL_NAMES.QUERY_FEATURES]: queryFeaturesSchema as ToolDefinition,
-  [TOOL_NAMES.FILTER_FEATURES_BY_PROPERTY]: filterFeaturesByPropertySchema as ToolDefinition,
-  [TOOL_NAMES.SIZE_FEATURES_BY_PROPERTY]: sizeFeaturesByPropertySchema as ToolDefinition,
-  [TOOL_NAMES.AGGREGATE_FEATURES]: aggregateFeaturesSchema as ToolDefinition,
-};
-
-/**
- * Get schema for a specific tool
- */
-export function getToolSchema(name: ToolName): ToolDefinition | undefined {
-  return toolSchemas[name];
-}
-
-/**
- * Get all tool schemas
- */
-export function getAllToolSchemas(): ToolDefinition[] {
-  return Object.values(toolSchemas);
-}
-
-/**
- * Get tool schemas by names
- */
-export function getToolSchemasByNames(names: ToolName[]): ToolDefinition[] {
-  return names.map(name => toolSchemas[name]).filter(Boolean);
-}
+export const toolSchemas: Record<ToolName, ToolDefinition> = Object.fromEntries(
+  (Object.keys(tools) as ToolName[]).map(name => [name, getToolDefinition(name)])
+) as Record<ToolName, ToolDefinition>;
 
 /**
  * @deprecated Use TOOL_NAMES instead. This is kept for backward compatibility.

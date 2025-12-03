@@ -33,34 +33,37 @@ Create a unified library that enables any frontend application to:
 
 ## Table of Contents
 
+
 1. [Architecture Overview](#architecture-overview)
 2. [Package: definitions](#package-definitions)
 3. [Schema Definition Approaches](#schema-definition-approaches)
    - [Option A: Zod-Based Approach (Recommended)](#option-a-zod-based-approach-recommended)
-   - [Option B: JSON Schema Approach](#option-b-json-schema-approach)
+   - [Option B: JSON Schema Approach](#option-b-json-schema-approach-current)
 4. [Pros and Cons](#pros-and-cons)
-5. [Package: executors](#package-executors)
-6. [Communication Flow](#communication-flow)
-7. [Frontend Integration](#frontend-integration)
+5. [Migration: JSON to Zod](#migration-json-to-zod)
+6. [Package: executors](#package-executors)
+7. [Communication Flow](#communication-flow)
 8. [Backend Integration](#backend-integration-tbd)
-9. [Custom Tools](#custom-tools-tbd)
-10. [Installation & Getting Started](#installation--getting-started)
-11. [Benefits](#benefits)
+9. [Frontend Integration](#frontend-integration)
+10. [Custom Tools](#custom-tools-tbd)
+11. [Installation & Getting Started](#installation--getting-started)
 
 ## Architecture Overview
 
 ### Package Structure
 
-```mermaid
+```mermaidjs
+
 graph LR
-    subgraph maps-ai-tools[maps-ai-tools monorepo]
+    subgraph "maps-ai-tools monorepo"
         A[maps-ai-tools] --> B[definitions]
-        A --> C[executors]
+        A --> C[executor]
 
-        B --> B1[tools]
-        B --> B2[types]
+        B --> B1[schemas/]
+        B --> B2[dict]
+        B --> B3[get def]
 
-        C --> C1[interface]
+        C --> C1[validators]
         C --> C2[send]
     end
 ```
@@ -99,27 +102,86 @@ This package contains all tool definitions, JSON schemas, and the tools dictiona
 * Provide a centralized tools dictionary for consistent naming
 * Export TypeScript types for type-safe tool usage
 
-### Schema Definition Approaches
+### Package Structure
+
+```typescript
+// definitions/src/types.ts
+
+export interface ToolSchema {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      properties: Record<string, ParameterSchema>;
+      required?: string[];
+    };
+  };
+}
+
+// Specific response types for built-in tools
+
+export interface FlyToResponse {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
+
+export interface ZoomMapResponse {
+  direction: "in" | "out";
+  levels: number;
+  newZoom: number;
+}
+
+export interface ToggleLayerResponse {
+  layerId: string;
+  visible: boolean;
+}
+```
+
+<!-- ### Usage
+
+```typescript
+import {
+  TOOL_NAMES,
+  toolsDictionary,
+  getTools,
+  getToolDefinition,
+} from "@carto/maps-ai-tools/definitions";
+
+// Get all available tools
+const availableTools = getTools();
+// ['fly-to', 'zoom-map', 'toggle-layer', 'add-marker', 'remove-marker']
+
+// Get specific tool schema
+const flyToSchema = getToolDefinition(TOOL_NAMES.FLY_TO);
+
+// Handler
+const executor = fn(toolsDictionary[toolName]);
+``` -->
+
+## Schema Definition Approaches
 
 This section compares two approaches for defining tool schemas. **We recommend Option A (Zod)** for new implementations.
 
-#### Decision Matrix
+### Decision Matrix
 
 | Criteria | Zod (Recommended) | JSON Schema |
 |----------|-------------------|-------------|
 | Type Safety | Automatic inference | Manual maintenance |
 | Validation | Built-in | Custom implementation |
-| OpenAI Compatibility | Native via `z.toJsonSchema()` | Native |
+| OpenAI Compatibility | Via `zod-to-json-schema` | Native |
 | Bundle Size | +~50KB | None |
 | Developer Experience | Excellent | Good |
 | Error Messages | Rich, automatic | Manual formatting |
 | Schema Composition | Native (extend, merge) | Manual |
 
-#### Option A: Zod-Based Approach (Recommended)
+### Option A: Zod-Based Approach (Recommended)
 
 [Zod](https://zod.dev/) is a TypeScript-first schema declaration and validation library. It provides a single source of truth for schemas, types, and validation.
 
-##### Package Structure with Zod
+#### Package Structure with Zod
 
 ```
 definitions/
@@ -134,123 +196,125 @@ definitions/
 └── package.json
 ```
 
-##### Schema Definition with Zod
+#### Schema Definition with Zod
 
 ```typescript
 // definitions/src/schemas/fly-to.ts
 import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
-// Complete tool definition - schema, name, and description in one place
-export const flyToTool = {
-  name: 'fly-to',
-  description: 'Fly the map to a specific location with smooth animation',
-  schema: z.object({
-    lat: z.number().min(-90).max(90).describe('Latitude coordinate (-90 to 90)'),
-    lng: z.number().min(-180).max(180).describe('Longitude coordinate (-180 to 180)'),
-    zoom: z.number().min(0).max(22).default(12).describe('Zoom level (0 to 22)'),
-  }),
-} as const;
+// 1. Define Zod schema (single source of truth)
+export const flyToSchema = z.object({
+  lat: z.number().min(-90).max(90).describe('Latitude coordinate (-90 to 90)'),
+  lng: z.number().min(-180).max(180).describe('Longitude coordinate (-180 to 180)'),
+  zoom: z.number().min(0).max(22).default(12).describe('Zoom level (0 to 22)'),
+});
 
-// Automatic type inference - NO manual interface needed!
-export type FlyToParams = z.infer<typeof flyToTool.schema>;
+// 2. Automatic type inference - NO manual interface needed!
+export type FlyToParams = z.infer<typeof flyToSchema>;
 // Result: { lat: number; lng: number; zoom: number }
 
-// Convert to OpenAI function calling format (native Zod JSON Schema)
+// 3. Convert to JSON Schema for OpenAI function calling
 export const flyToDefinition = {
   type: 'function' as const,
   function: {
-    name: flyToTool.name,
-    description: flyToTool.description,
-    parameters: z.toJsonSchema(flyToTool.schema),
+    name: 'fly-to',
+    description: 'Fly the map to a specific location with smooth animation',
+    parameters: zodToJsonSchema(flyToSchema, {
+      $refStrategy: 'none',  // Inline all definitions
+      target: 'openAI',      // OpenAI-compatible output
+    }),
   },
 };
 ```
 
-##### Full Dictionary Implementation with Zod
+#### Full Dictionary Implementation with Zod
 
 ```typescript
-// definitions/src/tools.ts
+// definitions/src/dictionary.ts
 import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
-// Complete tool definitions - name, description, and schema together
-export const tools = {
-  'fly-to': {
-    name: 'fly-to',
-    description: 'Fly the map to a specific location with smooth animation',
-    schema: z.object({
-      lat: z.number().min(-90).max(90).describe('Latitude coordinate'),
-      lng: z.number().min(-180).max(180).describe('Longitude coordinate'),
-      zoom: z.number().min(0).max(22).default(12).describe('Zoom level'),
-    }),
-  },
-  'zoom-map': {
-    name: 'zoom-map',
-    description: 'Zoom the map in or out by a specified number of levels',
-    schema: z.object({
-      direction: z.enum(['in', 'out']).describe('Zoom direction'),
-      levels: z.number().int().min(1).max(10).default(1).describe('Number of zoom levels'),
-    }),
-  },
-  'toggle-layer': {
-    name: 'toggle-layer',
-    description: 'Show or hide a specific layer on the map',
-    schema: z.object({
-      layerId: z.string().describe('Layer identifier'),
-      visible: z.boolean().describe('Visibility state'),
-    }),
-  },
+// Schema definitions - single source of truth
+export const schemas = {
+  'fly-to': z.object({
+    lat: z.number().min(-90).max(90).describe('Latitude coordinate'),
+    lng: z.number().min(-180).max(180).describe('Longitude coordinate'),
+    zoom: z.number().min(0).max(22).default(12).describe('Zoom level'),
+  }),
+  'zoom-map': z.object({
+    direction: z.enum(['in', 'out']).describe('Zoom direction'),
+    levels: z.number().int().min(1).max(10).default(1).describe('Number of zoom levels'),
+  }),
+  'toggle-layer': z.object({
+    layerId: z.string().describe('Layer identifier'),
+    visible: z.boolean().describe('Visibility state'),
+  }),
 } as const;
 
 // Type-safe tool names
-export type ToolName = keyof typeof tools;
+export const TOOL_NAMES = {
+  FLY_TO: 'fly-to',
+  ZOOM_MAP: 'zoom-map',
+  TOGGLE_LAYER: 'toggle-layer',
+} as const;
+
+export type ToolName = (typeof TOOL_NAMES)[keyof typeof TOOL_NAMES];
 
 // Inferred types for each tool - automatically derived!
-export type FlyToParams = z.infer<typeof tools['fly-to']['schema']>;
-export type ZoomMapParams = z.infer<typeof tools['zoom-map']['schema']>;
-export type ToggleLayerParams = z.infer<typeof tools['toggle-layer']['schema']>;
+export type FlyToParams = z.infer<typeof schemas['fly-to']>;
+export type ZoomMapParams = z.infer<typeof schemas['zoom-map']>;
+export type ToggleLayerParams = z.infer<typeof schemas['toggle-layer']>;
 
-// Helper to convert all tools to OpenAI format
+// Tool descriptions for OpenAI
+const toolDescriptions: Record<ToolName, string> = {
+  'fly-to': 'Fly the map to a specific location with smooth animation',
+  'zoom-map': 'Zoom the map in or out by a specified number of levels',
+  'toggle-layer': 'Show or hide a specific layer on the map',
+};
+
+// Helper to convert all schemas to OpenAI format
 export function getAllToolDefinitions() {
-  return Object.values(tools).map((tool) => ({
+  return Object.entries(schemas).map(([name, schema]) => ({
     type: 'function' as const,
     function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: z.toJsonSchema(tool.schema),
+      name,
+      description: toolDescriptions[name as ToolName],
+      parameters: zodToJsonSchema(schema, { $refStrategy: 'none' }),
     },
   }));
 }
 
-// Get single tool definition for OpenAI
+// Get single tool definition
 export function getToolDefinition(name: ToolName) {
-  const tool = tools[name];
+  const schema = schemas[name];
   return {
     type: 'function' as const,
     function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: z.toJsonSchema(tool.schema),
+      name,
+      description: toolDescriptions[name],
+      parameters: zodToJsonSchema(schema, { $refStrategy: 'none' }),
     },
   };
 }
 
-// Get tool for validation
-export function getTool(name: ToolName) {
-  return tools[name];
+// Get raw Zod schema for validation
+export function getSchema(name: ToolName) {
+  return schemas[name];
 }
 ```
 
-##### Validation with Zod
+#### Validation with Zod
 
 With Zod, validation is built-in and returns typed results:
 
 ```typescript
 // Validation is automatic and type-safe
-import { tools, ToolName } from '@carto/maps-ai-tools/definitions';
+import { schemas, ToolName } from '@carto/maps-ai-tools/definitions';
 
 function validateToolCall(toolName: ToolName, params: unknown) {
-  const tool = tools[toolName];
-  const result = tool.schema.safeParse(params);
+  const schema = schemas[toolName];
+  const result = schema.safeParse(params);
 
   if (!result.success) {
     return {
@@ -273,17 +337,17 @@ if (result.valid) {
 }
 ```
 
-##### Backend Integration with Zod
+#### Backend Integration with Zod
 
 ```typescript
 // backend/services/openai-service.ts
 import OpenAI from 'openai';
-import { getAllToolDefinitions, tools, ToolName } from '@carto/maps-ai-tools/definitions';
+import { getAllToolDefinitions, schemas, ToolName } from '@carto/maps-ai-tools/definitions';
 
 const openai = new OpenAI();
 
 // Get OpenAI-compatible tool definitions
-const toolDefinitions = getAllToolDefinitions();
+const tools = getAllToolDefinitions();
 
 // Process chat with validation
 async function handleChat(userMessage: string) {
@@ -293,7 +357,7 @@ async function handleChat(userMessage: string) {
       { role: 'system', content: 'You are a map assistant.' },
       { role: 'user', content: userMessage },
     ],
-    tools: toolDefinitions,  // OpenAI-compatible from Zod
+    tools,  // OpenAI-compatible from Zod schemas
     tool_choice: 'auto',
   });
 
@@ -305,8 +369,8 @@ async function handleChat(userMessage: string) {
     const params = JSON.parse(toolCall.function.arguments);
 
     // Validate with Zod
-    const tool = tools[toolName];
-    const result = tool.schema.safeParse(params);
+    const schema = schemas[toolName];
+    const result = schema.safeParse(params);
 
     if (!result.success) {
       return {
@@ -329,11 +393,11 @@ async function handleChat(userMessage: string) {
 }
 ```
 
-#### Option B: JSON Schema Approach
+### Option B: JSON Schema Approach (Current)
 
 This is the traditional approach using JSON files for schema definitions.
 
-##### Package Structure with JSON
+#### Package Structure with JSON
 
 ```
 definitions/
@@ -349,7 +413,7 @@ definitions/
 └── package.json
 ```
 
-##### Type Definitions (Manual)
+#### Type Definitions (Manual)
 
 With JSON schemas, types must be maintained separately:
 
@@ -387,7 +451,7 @@ export interface ToggleLayerParams {
 }
 ```
 
-##### Custom Validation (Required)
+#### Custom Validation (Required)
 
 ```typescript
 // definitions/src/validators.ts - Must implement validation manually
@@ -435,7 +499,7 @@ export function validateToolCall(
 }
 ```
 
-#### Comparison: Types and Validation
+### Comparison: Types and Validation
 
 | Aspect | Zod | JSON Schema |
 |--------|-----|-------------|
@@ -446,11 +510,11 @@ export function validateToolCall(
 | **Default Values** | `z.default(value)` | Handled at runtime |
 | **Transformations** | `z.transform()` built-in | Custom logic |
 
-### Pros and Cons
+## Pros and Cons
 
-#### Zod Approach
+### Zod Approach
 
-##### Pros
+#### Pros
 
 * **Single Source of Truth**: Schema, types, and validation are all derived from one definition
 * **Automatic Type Inference**: No manual TypeScript interfaces needed - `z.infer<typeof schema>` generates types
@@ -462,15 +526,16 @@ export function validateToolCall(
 * **No Runtime Type Mismatches**: Types are guaranteed to match validation at compile time
 * **Active Ecosystem**: Large community with integrations (React Hook Form, tRPC, etc.)
 
-##### Cons
+#### Cons
 
 * **Bundle Size**: Adds ~50KB to the bundle (12KB gzipped)
 * **Learning Curve**: Developers need to learn Zod API
-* **Extra Dependency**: Requires `zod` package (but JSON Schema conversion is native)
+* **Extra Dependency**: Requires `zod` and `zod-to-json-schema` packages
+* **JSON Schema Conversion**: Must convert to JSON Schema for OpenAI (adds build step)
 
-#### JSON Schema Approach
+### JSON Schema Approach
 
-##### Pros
+#### Pros
 
 * **Standard Format**: JSON Schema is a widely adopted standard
 * **OpenAI Native**: OpenAI function calling accepts JSON Schema directly
@@ -479,7 +544,7 @@ export function validateToolCall(
 * **Language Agnostic**: JSON files can be shared across different programming languages
 * **Direct Editing**: Non-developers can edit JSON files
 
-##### Cons
+#### Cons
 
 * **Type Drift Risk**: TypeScript interfaces must be manually synchronized with JSON schemas
 * **Custom Validation Required**: Must implement validators from scratch
@@ -488,6 +553,83 @@ export function validateToolCall(
 * **Manual Error Messages**: Must format validation errors manually
 * **No Transformations**: Data normalization requires separate logic
 * **Maintenance Burden**: Three artifacts to maintain (JSON, types, validators)
+
+## Migration: JSON to Zod
+
+If migrating from JSON Schema to Zod:
+
+### 1. Install Dependencies
+
+```bash
+npm install zod zod-to-json-schema
+# or
+pnpm add zod zod-to-json-schema
+```
+
+### 2. Convert Schemas
+
+```typescript
+// Before: fly-to.schema.json
+{
+  "type": "function",
+  "function": {
+    "name": "fly-to",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lng": { "type": "number", "minimum": -180, "maximum": 180 },
+        "zoom": { "type": "number", "minimum": 0, "maximum": 22, "default": 12 }
+      },
+      "required": ["lat", "lng"]
+    }
+  }
+}
+
+// After: fly-to.ts
+import { z } from 'zod';
+
+export const flyToSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  zoom: z.number().min(0).max(22).default(12),
+});
+
+export type FlyToParams = z.infer<typeof flyToSchema>;
+```
+
+### 3. Remove Manual Types
+
+Delete the manual TypeScript interfaces - they're now inferred automatically.
+
+### 4. Replace Validators
+
+```typescript
+// Before: Custom validation
+const errors = validateToolCall(toolName, params);
+
+// After: Zod validation
+const result = schema.safeParse(params);
+if (!result.success) {
+  const errors = result.error.issues.map(i => i.message);
+}
+```
+
+### 5. Update OpenAI Integration
+
+```typescript
+// Use zod-to-json-schema for OpenAI tools
+import { zodToJsonSchema } from 'zod-to-json-schema';
+
+const tools = Object.entries(schemas).map(([name, schema]) => ({
+  type: 'function',
+  function: {
+    name,
+    description: descriptions[name],
+    parameters: zodToJsonSchema(schema, { $refStrategy: 'none' }),
+  },
+}));
+```
 
 ## Package: executors
 
@@ -500,16 +642,10 @@ This package provides utility functions to standardize communication between fro
 - Handle validation and error formatting
 
 ### Package Structure
-
 ```
-executors/
-├── src/
-│   ├── interface.ts       # Standard communication interface
-│   ├── send.ts            # Backend request function
-│   ├── validators.ts      # Input/output validators
-│   ├── errors.ts          # Error handling utilities
-│   └── index.ts
-└── package.json
+
+executors/ ├── src/ │   ├── interface.ts       # Standard communication interface │   ├── send.ts            # Backend request function │   ├── validators.ts      # Input/output validators │   ├── errors.ts          # Error handling utilities │   └── index.ts └── package.json
+
 ```
 
 ### Standard Communication Interface
@@ -691,7 +827,8 @@ export function formatToolResponse<T = unknown>(
 
 ### Sequence Diagram
 
-```mermaid
+```mermaidjs
+
 sequenceDiagram
     participant FE as Frontend
     participant LIB as maps-ai-tools
@@ -747,142 +884,6 @@ sequenceDiagram
     code: 'VALIDATION_ERROR',
     message: 'Invalid coordinates: latitude must be between -90 and 90'
   }
-}
-```
-
-## Frontend Integration
-
-### Setup with Executors
-
-```typescript
-import { Deck } from "@deck.gl/core";
-import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
-import { parseToolResponse, send } from "@carto/maps-ai-tools/executors";
-
-// Initialize deck.gl
-
-const deck = new Deck({
-  canvas: "map",
-  initialViewState: { longitude: -122.4, latitude: 37.8, zoom: 10 },
-});
-
-// Define executors for each tool
-
-const executors: Record<string, (params: any) => void> = {
-  [toolsDictionary.flyTo]: (params) => {
-    deck.setProps({
-      initialViewState: {
-        longitude: params.lng,
-        latitude: params.lat,
-        zoom: params.zoom || 12,
-        transitionDuration: 1000,
-      },
-    });
-  },
-
-  [toolsDictionary.zoomMap]: (params) => {
-    const currentZoom = deck.props.initialViewState?.zoom || 10;
-    const newZoom =
-      params.direction === "in"
-        ? currentZoom + params.levels
-        : currentZoom - params.levels;
-
-    deck.setProps({
-      initialViewState: {
-        ...deck.props.initialViewState,
-        zoom: Math.max(0, Math.min(22, newZoom)),
-        transitionDuration: 500,
-      },
-    });
-  },
-
-  [toolsDictionary.toggleLayer]: (params) => {
-    const layers = deck.props.layers || [];
-    const updatedLayers = layers.map((layer: any) =>
-      layer.id === params.layerId
-        ? layer.clone({ visible: params.visible })
-        : layer
-    );
-    deck.setProps({ layers: updatedLayers });
-  },
-};
-
-// Handle tool responses from backend
-
-async function handleToolResponse(response: ToolResponse) {
-  const { toolName, data, error } = parseToolResponse(response);
-
-  if (error) {
-    console.error(`Tool error: ${error.message}`);
-    return;
-  }
-
-  const executor = executors[toolName];
-  if (executor && data) {
-    executor(data);
-  }
-}
-
-// Connect to backend
-
-const chat = document.querySelector("maps-chat-container");
-
-chat.onSend(async (message) => {
-  const response = await send(
-    { toolName: "", params: { message } },
-    { baseUrl: "http://localhost:3000", endpoint: "/api/chat" }
-  );
-
-  if (response.toolName) {
-    await handleToolResponse(response);
-  }
-});
-```
-
-### React Integration Example
-
-```tsx
-import { useEffect, useRef, useCallback } from "react";
-import { Deck } from "@deck.gl/core";
-import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
-import { parseToolResponse } from "@carto/maps-ai-tools/executors";
-
-function MapApp() {
-  const deckRef = useRef<Deck | null>(null);
-
-  const executors = useCallback(
-    () => ({
-      [toolsDictionary.flyTo]: (params: any) => {
-        deckRef.current?.setProps({
-          initialViewState: {
-            longitude: params.lng,
-            latitude: params.lat,
-            zoom: params.zoom,
-            transitionDuration: 1000,
-          },
-        });
-      },
-      // ... more executors
-    }),
-    []
-  );
-
-  const handleToolResponse = useCallback(
-    (response: any) => {
-      const { toolName, data, error } = parseToolResponse(response);
-      if (!error && data) {
-        executors()[toolName]?.(data);
-      }
-    },
-    [executors]
-  );
-
-  return (
-    <div>
-      <canvas id="map" />
-      <maps-chat-container />
-    </div>
-  );
 }
 ```
 
@@ -1035,6 +1036,142 @@ app.post("/api/chat", async (req, res) => {
     res.json({ message: choice.message.content });
   }
 });
+```
+
+## Frontend Integration
+
+### Setup with Executors
+
+```typescript
+import { Deck } from "@deck.gl/core";
+import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
+import { parseToolResponse, send } from "@carto/maps-ai-tools/executors";
+
+// Initialize deck.gl
+
+const deck = new Deck({
+  canvas: "map",
+  initialViewState: { longitude: -122.4, latitude: 37.8, zoom: 10 },
+});
+
+// Define executors for each tool
+
+const executors: Record<string, (params: any) => void> = {
+  [toolsDictionary.flyTo]: (params) => {
+    deck.setProps({
+      initialViewState: {
+        longitude: params.lng,
+        latitude: params.lat,
+        zoom: params.zoom || 12,
+        transitionDuration: 1000,
+      },
+    });
+  },
+
+  [toolsDictionary.zoomMap]: (params) => {
+    const currentZoom = deck.props.initialViewState?.zoom || 10;
+    const newZoom =
+      params.direction === "in"
+        ? currentZoom + params.levels
+        : currentZoom - params.levels;
+
+    deck.setProps({
+      initialViewState: {
+        ...deck.props.initialViewState,
+        zoom: Math.max(0, Math.min(22, newZoom)),
+        transitionDuration: 500,
+      },
+    });
+  },
+
+  [toolsDictionary.toggleLayer]: (params) => {
+    const layers = deck.props.layers || [];
+    const updatedLayers = layers.map((layer: any) =>
+      layer.id === params.layerId
+        ? layer.clone({ visible: params.visible })
+        : layer
+    );
+    deck.setProps({ layers: updatedLayers });
+  },
+};
+
+// Handle tool responses from backend
+
+async function handleToolResponse(response: ToolResponse) {
+  const { toolName, data, error } = parseToolResponse(response);
+
+  if (error) {
+    console.error(`Tool error: ${error.message}`);
+    return;
+  }
+
+  const executor = executors[toolName];
+  if (executor && data) {
+    executor(data);
+  }
+}
+
+// Connect to backend
+
+const chat = document.querySelector("maps-chat-container");
+
+chat.onSend(async (message) => {
+  const response = await send(
+    { toolName: "", params: { message } },
+    { baseUrl: "http://localhost:3000", endpoint: "/api/chat" }
+  );
+
+  if (response.toolName) {
+    await handleToolResponse(response);
+  }
+});
+```
+
+### React Integration Example
+
+```tsx
+import { useEffect, useRef, useCallback } from "react";
+import { Deck } from "@deck.gl/core";
+import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
+import { parseToolResponse } from "@carto/maps-ai-tools/executors";
+
+function MapApp() {
+  const deckRef = useRef<Deck | null>(null);
+
+  const executors = useCallback(
+    () => ({
+      [toolsDictionary.flyTo]: (params: any) => {
+        deckRef.current?.setProps({
+          initialViewState: {
+            longitude: params.lng,
+            latitude: params.lat,
+            zoom: params.zoom,
+            transitionDuration: 1000,
+          },
+        });
+      },
+      // ... more executors
+    }),
+    []
+  );
+
+  const handleToolResponse = useCallback(
+    (response: any) => {
+      const { toolName, data, error } = parseToolResponse(response);
+      if (!error && data) {
+        executors()[toolName]?.(data);
+      }
+    },
+    [executors]
+  );
+
+  return (
+    <div>
+      <canvas id="map" />
+      <maps-chat-container />
+    </div>
+  );
+}
 ```
 
 ## Custom Tools TBD 

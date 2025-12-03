@@ -1,9 +1,74 @@
 import type { Deck } from '@deck.gl/core';
+import { z } from 'zod';
+import { tools } from '../definitions/tools';
 
 /**
  * Deck.gl instance type re-export for convenience
  */
 export type { Deck } from '@deck.gl/core';
+
+// ============================================================================
+// Zod-inferred parameter types (auto-generated from tool schemas)
+// ============================================================================
+
+/**
+ * Parameters for fly-to tool
+ */
+export type FlyToParams = z.infer<typeof tools['fly-to']['schema']>;
+
+/**
+ * Parameters for zoom-map tool
+ */
+export type ZoomMapParams = z.infer<typeof tools['zoom-map']['schema']>;
+
+/**
+ * Parameters for toggle-layer tool
+ */
+export type ToggleLayerParams = z.infer<typeof tools['toggle-layer']['schema']>;
+
+/**
+ * Parameters for set-point-color tool
+ */
+export type SetPointColorParams = z.infer<typeof tools['set-point-color']['schema']>;
+
+/**
+ * Parameters for color-features-by-property tool
+ */
+export type ColorFeaturesByPropertyParams = z.infer<typeof tools['color-features-by-property']['schema']>;
+
+/**
+ * Parameters for query-features tool
+ */
+export type QueryFeaturesParams = z.infer<typeof tools['query-features']['schema']>;
+
+/**
+ * Parameters for filter-features-by-property tool
+ */
+export type FilterFeaturesByPropertyParams = z.infer<typeof tools['filter-features-by-property']['schema']>;
+
+/**
+ * Parameters for size-features-by-property tool
+ */
+export type SizeFeaturesByPropertyParams = z.infer<typeof tools['size-features-by-property']['schema']>;
+
+/**
+ * Parameters for aggregate-features tool
+ */
+export type AggregateFeaturesParams = z.infer<typeof tools['aggregate-features']['schema']>;
+
+/**
+ * Union type of all tool parameter types
+ */
+export type ToolParams =
+  | FlyToParams
+  | ZoomMapParams
+  | ToggleLayerParams
+  | SetPointColorParams
+  | ColorFeaturesByPropertyParams
+  | QueryFeaturesParams
+  | FilterFeaturesByPropertyParams
+  | SizeFeaturesByPropertyParams
+  | AggregateFeaturesParams;
 
 /**
  * OpenAI function calling tool definition

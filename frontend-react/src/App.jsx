@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { MapView } from "./components/MapView";
 import { ChatUI } from "./components/ChatUI";
 import { TOOL_NAMES, parseToolResponse } from "@carto/maps-ai-tools";
+import { useMapTools } from "./contexts/MapToolsContext";
 import "./styles/main.css";
 
 const WS_URL = "ws://localhost:3000/ws";
@@ -12,13 +13,13 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [mapInstances, setMapInstances] = useState(null);
 
-  // Refs
+  // Context for persistent tool state
+  const mapTools = useMapTools();
+
+  // Refs for WebSocket and streaming
   const wsRef = useRef(null);
   const streamingMessageRef = useRef({ id: null, content: '' });
   const messageIdCounter = useRef(0);
-  const colorFiltersRef = useRef(new Map()); // Map<layerId, filters[]> for stacking color filters
-  const originalLayerDataRef = useRef(new Map()); // Map<layerId, originalGeoJSON> for filter reset
-  const sizeRulesRef = useRef(new Map()); // Map<layerId, {property, rules[], defaultSize}> for size by property
 
   // Helper to add messages with unique IDs
   const addMessage = useCallback((msg) => {
@@ -153,47 +154,18 @@ function App() {
         const defaultColor = [200, 0, 80, 180];
         const currentLayers = deck.props.layers || [];
 
-        // Get or create filter list for this layer
-        if (!colorFiltersRef.current.has(layerId)) {
-          colorFiltersRef.current.set(layerId, []);
-        }
-        const filters = colorFiltersRef.current.get(layerId);
-
-        // Add/update filter (same property+operator+value = update color)
+        // Add filter using context (merges with existing filters)
         const filterKey = `${property}:${operator}:${value}`;
-        const existingIdx = filters.findIndex(f => f.key === filterKey);
         const newFilter = { key: filterKey, property, operator, value, color: filterColor };
+        const filters = mapTools.addColorFilter(layerId, newFilter);
 
-        if (existingIdx >= 0) {
-          filters[existingIdx] = newFilter;
-        } else {
-          filters.push(newFilter);
-        }
-
-        // Generic property matcher
-        const matchesFilter = (feature, filter) => {
-          const propValue = String(feature.properties[filter.property] || '');
-          switch (filter.operator) {
-            case 'equals': return propValue === filter.value;
-            case 'startsWith': return propValue.startsWith(filter.value);
-            case 'contains': return propValue.includes(filter.value);
-            case 'regex': return new RegExp(filter.value).test(propValue);
-            default: return false;
-          }
-        };
+        // Use context's color accessor
+        const colorAccessor = mapTools.createColorAccessor(layerId, defaultColor);
 
         const updatedLayers = currentLayers.map(layer => {
           if (layer && layer.id === layerId) {
             return layer.clone({
-              getFillColor: (feature) => {
-                // Check all filters, first match wins
-                for (const filter of filters) {
-                  if (matchesFilter(feature, filter)) {
-                    return filter.color;
-                  }
-                }
-                return defaultColor;
-              },
+              getFillColor: colorAccessor,
               updateTriggers: { getFillColor: JSON.stringify(filters) }
             });
           }
@@ -282,14 +254,8 @@ function App() {
           return { success: false, message: `Layer "${layerId}" not found` };
         }
 
-        // Store original data on first access, or get stored original
-        let originalData = originalLayerDataRef.current.get(layerId);
-        if (!originalData) {
-          originalData = layer.props.data;
-          if (originalData && originalData.features) {
-            originalLayerDataRef.current.set(layerId, originalData);
-          }
-        }
+        // Get or store original data using context
+        const originalData = mapTools.getOrSetOriginalData(layerId, layer.props.data);
 
         if (!originalData || !originalData.features) {
           return { success: false, message: 'No feature data available' };
@@ -366,9 +332,9 @@ function App() {
           return { success: false, message: `Layer "${layerId}" not found` };
         }
 
-        // If reset, use uniform size
+        // If reset, use uniform size and clear stored rules
         if (reset) {
-          sizeRulesRef.current.delete(layerId);
+          mapTools.clearSizeRules(layerId);
           const updatedLayers = currentLayers.map(l => {
             if (l && l.id === layerId) {
               return l.clone({
@@ -390,27 +356,24 @@ function App() {
           return { success: false, message: 'Property and sizeRules are required. Use reset=true to clear size rules.' };
         }
 
-        // Store size rules for this layer
-        sizeRulesRef.current.set(layerId, { property, rules: sizeRules, defaultSize });
+        // Merge new size rules with existing using context
+        mapTools.mergeSizeRules(layerId, property, sizeRules, defaultSize);
 
-        // Build size lookup map for fast access
-        const sizeMap = new Map();
-        sizeRules.forEach(rule => {
-          sizeMap.set(rule.value, rule.size);
-        });
+        // Create size accessor using context
+        const sizeAccessor = mapTools.createSizeAccessor(layerId, property);
+
+        // Get all rules for update trigger and message
+        const allRules = mapTools.getSizeRulesArray(layerId);
 
         // Update layer with dynamic size in PIXELS
         const updatedLayers = currentLayers.map(l => {
           if (l && l.id === layerId) {
             return l.clone({
-              getPointRadius: (feature) => {
-                const propValue = String(feature.properties[property] || '');
-                return sizeMap.get(propValue) ?? defaultSize;
-              },
+              getPointRadius: sizeAccessor,
               pointRadiusUnits: 'pixels',
               pointRadiusMinPixels: 1,
               pointRadiusMaxPixels: 200,
-              updateTriggers: { getPointRadius: JSON.stringify(sizeRules) }
+              updateTriggers: { getPointRadius: JSON.stringify(allRules) }
             });
           }
           return l;
@@ -420,10 +383,10 @@ function App() {
         requestAnimationFrame(() => deck.redraw(true));
         setTimeout(() => deck.redraw(true), 50);
 
-        const rulesDescription = sizeRules.map(r => `${r.value}=${r.size}px`).join(', ');
+        const rulesDescription = allRules.map(r => `${r.value}=${r.size}px`).join(', ');
         return {
           success: true,
-          message: `Size updated by ${property}: ${rulesDescription} (default: ${defaultSize}px)`
+          message: `Size rules merged: ${rulesDescription} (default: ${defaultSize}px)`
         };
       },
 
@@ -438,7 +401,7 @@ function App() {
         }
 
         // Get GeoJSON data - use original if available, otherwise current
-        let data = originalLayerDataRef.current.get(layerId) || layer.props.data;
+        let data = mapTools.getOriginalData(layerId) || layer.props.data;
         if (!data || !data.features) {
           return { success: false, message: 'No feature data available' };
         }
@@ -474,7 +437,7 @@ function App() {
         };
       }
     };
-  }, [mapInstances]);
+  }, [mapInstances, mapTools]);
 
   // Handle streaming message chunks
   const handleStreamChunk = useCallback((data) => {

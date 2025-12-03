@@ -1,16 +1,25 @@
 // Re-export types
 export * from './core/types';
 
-// Re-export definitions (NEW_ARCHITECTURE.md)
+// Re-export Zod-based definitions (primary API)
+export {
+  tools,
+  getToolNames,
+  getTool,
+  getToolDefinition,
+  getAllToolDefinitions,
+  getToolDefinitionsByNames,
+  validateToolParams,
+} from './definitions';
+
+// Re-export backwards compatibility exports
 export {
   BUILTIN_TOOLS,
   TOOL_NAMES,
   toolsDictionary,
   toolSchemas,
   getToolDefinitions,
-  getToolDefinition,
-  getAllToolDefinitions,
-  getToolNames,
+  // Deprecated aliases
   getToolSchema,
   getAllToolSchemas,
   getToolSchemasByNames,
@@ -71,7 +80,7 @@ export {
 // Re-export core classes
 export { ToolRegistry } from './core/tool-registry';
 export { MapToolsExecutor } from './core/executor-factory';
-export { validateParameters } from './core/validation';
+export { validateParameters, validateWithZod, type ValidationResult } from './core/validation';
 
 // Main factory function
 import { MapToolsConfig } from './core/types';
