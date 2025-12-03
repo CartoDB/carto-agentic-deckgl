@@ -12,10 +12,10 @@
     "vite": "^7.1.7"
   },
   "dependencies": {
+    "@carto/maps-ai-tools": "file:../map-ai-tools",
     "@deck.gl/carto": "^9.2.2",
     "@deck.gl/core": "^9.2.2",
     "@deck.gl/layers": "^9.2.2",
-    "@map-tools/ai-tools": "file:../map-ai-tools",
     "maplibre-gl": "^5.11.0"
   }
 }

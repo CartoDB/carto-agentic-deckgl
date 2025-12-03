@@ -30,9 +30,12 @@ export function validateParameters(
     // Type validation
     if (paramSchema.type) {
       const actualType = Array.isArray(paramValue) ? 'array' : typeof paramValue;
-      if (paramSchema.type !== actualType) {
+      const expectedType = paramSchema.type;
+      // Treat 'integer' as 'number' since JavaScript doesn't distinguish
+      const normalizedExpectedType = expectedType === 'integer' ? 'number' : expectedType;
+      if (normalizedExpectedType !== actualType) {
         errors.push(
-          `Invalid type for ${paramName}: expected ${paramSchema.type}, got ${actualType}`
+          `Invalid type for ${paramName}: expected ${expectedType}, got ${actualType}`
         );
       }
     }

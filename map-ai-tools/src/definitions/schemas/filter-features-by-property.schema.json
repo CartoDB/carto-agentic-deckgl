@@ -1,0 +1,37 @@
+{
+  "type": "function",
+  "function": {
+    "name": "filter-features-by-property",
+    "description": "Filter the visible features on a layer based on property values. Only matching features will be displayed. Use reset=true to show all features again.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "layerId": {
+          "type": "string",
+          "description": "The ID of the layer to filter. Default is 'points-layer'.",
+          "default": "points-layer"
+        },
+        "property": {
+          "type": "string",
+          "description": "The feature property to filter by (e.g., 'name', 'type', 'region'). Not required when reset=true."
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["equals", "startsWith", "contains", "regex"],
+          "description": "The comparison operator. Default is 'equals'.",
+          "default": "equals"
+        },
+        "value": {
+          "type": "string",
+          "description": "The value to compare against. Not required when reset=true."
+        },
+        "reset": {
+          "type": "boolean",
+          "description": "Set to true to clear all filters and show all features. Default is false.",
+          "default": false
+        }
+      },
+      "required": []
+    }
+  }
+}

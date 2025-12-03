@@ -1,6 +1,7 @@
 import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import json from '@rollup/plugin-json';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
@@ -30,6 +31,7 @@ export default [
     plugins: [
       resolve(),
       commonjs(),
+      json(),
       typescript({
         declaration: true,
         outDir: 'dist/esm',
@@ -52,6 +54,7 @@ export default [
     plugins: [
       resolve(),
       commonjs(),
+      json(),
       typescript({
         declaration: false,
         outDir: 'dist/cjs',

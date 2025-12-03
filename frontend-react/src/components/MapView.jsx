@@ -13,7 +13,7 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
-export const MapView = ({ onDeckInit }) => {
+export const MapView = ({ onMapInit }) => {
   const mapRef = useRef(null);
   const deckRef = useRef(null);
 
@@ -85,9 +85,9 @@ export const MapView = ({ onDeckInit }) => {
         deck.redraw(true);
         console.log('✓ Points layer loaded with', data.features.length, 'points');
 
-        // Notify parent component that deck is ready
-        if (onDeckInit) {
-          onDeckInit(deck);
+        // Notify parent component that deck and map are ready
+        if (onMapInit) {
+          onMapInit({ deck, map });
         }
       } catch (error) {
         console.error('Error loading GeoJSON:', error);
@@ -102,7 +102,7 @@ export const MapView = ({ onDeckInit }) => {
         mapRef.current.remove();
       }
     };
-  }, [onDeckInit]);
+  }, [onMapInit]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>

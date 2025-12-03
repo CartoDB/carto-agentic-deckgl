@@ -1,796 +1,1050 @@
-# Frontend Tools Library Architecture
-
-**Status**: Architectural Design Document
-**Version**: 2.0
-**Last Updated**: 2025-01-21
+**Status**: Architectural Design Document **Version**: 3.0
 
 ## Executive Summary
 
-This document defines the architecture for a **framework-agnostic frontend tools library** that enables AI-powered management of CARTO map layers across web applications.
+This document defines the architecture for `@carto/maps-ai-tools`, a **monorepo library** designed to standardize AI tool definitions and communication between frontend and backend applications.
 
 ### Purpose
 
-Create an SDK/Registry that allows any frontend application (React, Vue, Angular, VanillaJS) to:
-- Integrate AI chat interfaces with map visualizations
-- Execute AI-generated commands to control map layers
-- Manage CARTO geospatial layers through natural language
-- Work with different map engines (default: Deck.gl)
+Create a unified library that enables any frontend application to:
 
-### Three-Layer Architecture
+* Define AI tools with JSON schemas for OpenAI function calling
+* Standardize communication interfaces between frontend and backend
+* Provide a dictionary of available tools for consistent naming
+* Handle tool execution with consistent request/response patterns
+* Include ready-to-use UI components for chat and map interactions
+
+### Monorepo Structure
+
+```
+@carto/maps-ai-tools/
+├── definitions/   # JSON schemas + tools dictionary
+└── executors/     # Communication utilities
+```
+
+### Key Architectural Principles
+
+
+1. **Standardized Tool Definitions**: All tools defined via JSON schemas with a centralized dictionary
+2. **Unified Communication Interface**: Standard request/response patterns between frontend and backend
+3. **[Deck.gl](http://Deck.gl) Focused**: Optimized for [deck.gl](http://deck.gl) as CARTO's primary map engine
+4. **Framework Agnostic**: Works with React, Vue, Angular, VanillaJS
+5. **Backend Independence**: Frontend-tools library works with any backend implementation approach
+
+## Table of Contents
+
+
+1. [Architecture Overview](#architecture-overview)
+2. [Package: definitions](#package-definitions)
+3. [Package: utils](#package-utils)
+4. [Package: ui](#package-ui)
+5. [Communication Flow](#communication-flow)
+6. [Backend Integration](#backend-integration)
+7. [Frontend Integration](#frontend-integration)
+8. [Custom Tools](#custom-tools)
+9. [Installation & Getting Started](#installation--getting-started)
+
+## Architecture Overview
+
+### High-Level Architecture
+
+```mermaidjs
+
+graph TB
+    subgraph "maps-ai-tools"
+        DOC[Documentation]
+        subgraph "definitions"
+            SCHEMAS[JSON Schemas OpenAI]
+            CREATE_DEF[Get SDK definition]
+            DICT[Tools Dictionary]
+
+        end
+
+        subgraph "executor"
+
+            SEND[Send backend request and interface response]
+        end
+
+    end
+
+    subgraph "Backend"
+        BE_PROMPT[Prompt Handler]
+        subgraph "Agent"
+            BE_SYSTEM[System Prompt]
+            BE_USER[User Prompt]
+            BE_DEF[Def. Tools]
+        end
+    end
+
+
+        subgraph "Frontend"
+            FE_EXEC[Executor]
+            FE_HANDLER[Handler]
+        end
+
+    DICT -->  CREATE_DEF
+    SCHEMAS -->  CREATE_DEF -->  BE_DEF
+
+    DICT --> FE_HANDLER
+
+    FE_EXEC -->|user prompt| SEND --> |user prompt| BE_PROMPT --> |carto_ai_api| FE_HANDLER
+```
+
+### Package Structure
+
+```mermaidjs
+
+graph LR
+    subgraph "maps-ai-tools monorepo"
+        A[maps-ai-tools] --> B[definitions]
+        A --> C[executor]
+
+        B --> B1[schemas/]
+        B --> B2[dict]
+        B --> B3[get def]
+
+        C --> C1[validators]
+        C --> C2[send]
+    end
+```
+
+### Three-Layer System
 
 ```
 ┌───────────────────────────────────────────────────┐
 │  Client Layer (Application)                       │
 │  • React/Vue/Angular/VanillaJS apps               │
-│  • AI Chat Interface                              │
-│  • Map Visualization                              │
-│  • CARTO Layer Display                            │
+│  • Executes tools via standardized interface      │
+│  • deck.gl for map visualization                  │
 └───────────────────────────────────────────────────┘
                        ↕
 ┌───────────────────────────────────────────────────┐
-│  Frontend-tools Layer (SDK/Registry)              │
-│  • Tool Registry & Executors                      │
-│  • Map Engine Adapters (Deck.gl primary)          │
-│  • Framework-agnostic API                         │
-│  • Tool Schema Validation                         │
+│  maps-ai-tools Layer (Monorepo Library)           │
+│  • definitions: Tool schemas & dictionary         │
+│  • executors: Communication interface             │
 └───────────────────────────────────────────────────┘
                        ↕
 ┌───────────────────────────────────────────────────┐
-│  Backend Layer (AI API)                           │
-│  • Tool Schema Definitions                        │
-│  • OpenAI Integration                             │
-│  • CARTO Layer Management API                     │
-│  • Natural Language Processing                    │
+│  Backend Layer (AI API) _TBD_                     │
+│  • Uses tool definitions from library OR via API  │
+│  • OpenAI Integration with function calling       │
+│  • Returns standardized ToolResponse              │
 └───────────────────────────────────────────────────┘
 ```
 
-### Key Architectural Principles
+## Package: definitions
 
-1. **Backend Independence**: Backend (AI API) does NOT import the frontend-tools library. It only defines and exposes tool schemas as JSON.
+This package contains all tool definitions, JSON schemas, and the tools dictionary.
 
-2. **Framework Agnostic**: Frontend-tools library works with any JavaScript framework or VanillaJS through a unified API.
+### Purpose
 
-3. **Map Engine Flexibility**: Primary support for Deck.gl, with adapter pattern enabling other engines for specific customer needs.
+* Define the structure and validation rules for each tool
+* Provide a centralized tools dictionary for consistent naming
+* Export TypeScript types for type-safe tool usage
 
-4. **Clean Separation**: Each layer has clear responsibilities and communicates through well-defined interfaces.
+### Package Structure
 
-### Core Components
-
-- **Tool Schemas**: OpenAI function calling definitions (JSON) exposed by backend
-- **Tool Registry**: Frontend-tools component that manages available tools
-- **Tool Executors**: Framework-agnostic functions that execute map operations
-- **Map Adapters**: Engine-specific implementations (DeckGLAdapter primary)
-- **CARTO Integration**: Layer management for CARTO geospatial platform
-
-## Table of Contents
-
-1. [Introduction](#introduction)
-2. [High-Level Architecture](#high-level-architecture)
-3. [Backend-Library Separation](#backend-library-separation)
-4. [Map-Agnostic Architecture](#map-agnostic-architecture)
-5. [Core Interfaces](#core-interfaces)
-6. [DeckGLAdapter Implementation](#deckgladapter-implementation)
-7. [Other Map Engines](#other-map-engines)
-8. [Benefits and Recommendations](#benefits-and-recommendations)
-
-## Introduction
-
-This document defines the architecture for `@map-tools/ai-tools` (or `@carto/frontend-tools`), a framework-agnostic SDK that enables AI-powered control of geospatial visualizations.
-
-### Problem Statement
-
-Web applications need to integrate AI chat interfaces with interactive maps to allow users to control CARTO layers through natural language. This requires:
-
-1. **Framework Flexibility**: Support React, Vue, Angular, and VanillaJS applications
-2. **Map Engine Flexibility**: Primary support for Deck.gl, but accommodate customers using other engines
-3. **Backend Independence**: AI API should not be coupled to frontend map libraries
-4. **CARTO Integration**: Seamless management of CARTO geospatial layers
-
-### Solution Overview
-
-The frontend-tools library provides:
-
-- **Tool Registry**: Manages available AI tools (zoom, pan, toggle layers, etc.)
-- **Map Adapters**: Engine-specific implementations (Deck.gl primary)
-- **Framework-agnostic API**: Works with any JavaScript framework
-- **Schema-driven**: Tools defined by backend JSON schemas, executed by frontend
-
-### Target Audience
-
-- **Application Developers**: Building CARTO-powered web apps with AI features
-- **CARTO Platform Team**: Managing backend AI API and layer services
-- **Solution Engineers**: Implementing customer projects with various tech stacks
-
-## High-Level Architecture
-
-### Three-Layer System
-
-The architecture consists of three distinct layers, each with clear responsibilities and boundaries:
-
-```mermaid
-graph TB
-    subgraph Client["Client Layer (Application)"]
-        APP[Web Application<br/>React/Vue/Angular/Vanilla]
-        CHAT[AI Chat Interface]
-        MAP[Map Visualization]
-        UI[User Interface]
-    end
-
-    subgraph SDK["Frontend-tools Layer (SDK)"]
-        REGISTRY[Tool Registry]
-        ADAPTERS[Map Engine Adapters]
-        EXECUTORS[Tool Executors]
-        VALIDATOR[Schema Validator]
-    end
-
-    subgraph Backend["Backend Layer (AI API)"]
-        SCHEMAS[Tool Schema Definitions]
-        OPENAI[OpenAI Integration]
-        CARTO[CARTO Platform API]
-        NLP[Natural Language Processing]
-    end
-
-    APP --> CHAT
-    CHAT --> MAP
-
-    CHAT -.->|User Message| Backend
-    Backend -.->|Tool Call Commands| SDK
-    SDK --> MAP
-
-    REGISTRY --> EXECUTORS
-    EXECUTORS --> ADAPTERS
-    ADAPTERS -.->|Map Operations| MAP
-
-    SCHEMAS --> OPENAI
-    OPENAI --> NLP
-    NLP -.->|CARTO Operations| CARTO
-
-    style Client fill:#E8F5E9
-    style SDK fill:#E3F2FD
-    style Backend fill:#FFF3E0
+```
+definitions/
+├── src/
+│   ├── schemas/
+│   │   ├── fly-to.schema.json
+│   │   ├── zoom-map.schema.json
+│   │   └── toggle-layer.schema.json
+│   ├── dictionary.ts      # Available tools registry
+│   ├── get-definition.ts  # Get available definition
+│   ├── types.ts           # TypeScript interfaces
+│   └── index.ts
+└── package.json
 ```
 
-### Layer Responsibilities
+### Tools Dictionary
 
-#### Client Layer (Application)
-
-**Purpose**: Host application providing UI and map visualization
-
-**Responsibilities**:
-- Render AI chat interface
-- Display map with CARTO layers
-- Initialize frontend-tools SDK
-- Handle user interactions
-- Communicate with backend AI API
-
-**Technologies**: React, Vue, Angular, VanillaJS (framework-agnostic)
-
-**Key Point**: Application chooses map engine (Deck.gl recommended)
-
-#### Frontend-tools Layer (SDK/Registry)
-
-**Purpose**: Framework-agnostic tool execution engine
-
-**Responsibilities**:
-- Fetch tool schemas from backend
-- Register tools with executors
-- Validate tool parameters against schemas
-- Execute map operations via adapters
-- Provide framework-agnostic API
-
-**Technologies**: TypeScript, published as npm package
-
-**Key Point**: Does NOT depend on backend; works with any map engine via adapters
-
-#### Backend Layer (AI API)
-
-**Purpose**: AI orchestration and CARTO platform integration
-
-**Responsibilities**:
-- Define tool schemas (OpenAI function calling format)
-- Expose schemas via API endpoint
-- Process natural language through OpenAI
-- Send tool_call commands to applications
-- Manage CARTO layer operations
-
-**Technologies**: Node.js, OpenAI API, CARTO platform
-
-**Key Point**: Does NOT import frontend-tools library; only defines schemas
-
-### Communication Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant App as Client App
-    participant SDK as Frontend-tools
-    participant Backend as AI API
-    participant OpenAI
-    participant CARTO as CARTO Platform
-
-    Note over App,SDK: 1. Initialization
-    App->>Backend: GET /api/tools/definitions
-    Backend-->>App: Tool Schemas (JSON)
-    App->>SDK: Register tools with schemas
-    SDK-->>App: Ready
-
-    Note over User,CARTO: 2. User Interaction
-    User->>App: "Show retail stores in California"
-    App->>Backend: WebSocket: chat_message
-    Backend->>OpenAI: Chat completion with tool schemas
-    OpenAI-->>Backend: tool_call: toggle_layer
-    Backend-->>App: WebSocket: tool_call message
-
-    Note over App,CARTO: 3. Tool Execution
-    App->>SDK: execute('toggle_layer', params)
-    SDK->>SDK: Validate parameters
-    SDK->>SDK: Execute via DeckGLAdapter
-    SDK-->>App: Layer toggled
-    App->>User: Map updated
-
-    Note over Backend,CARTO: 4. CARTO Integration (if needed)
-    Backend->>CARTO: Fetch layer data
-    CARTO-->>Backend: GeoJSON/data
-    Backend-->>App: Layer data
-    App->>SDK: Add layer with data
-```
-
-### Key Architecture Decisions
-
-1. **No Backend Dependency on Frontend-tools**
-   - Backend defines schemas as pure JSON
-   - Frontend-tools fetches schemas at runtime
-   - Independent versioning and deployment
-
-2. **Map Engine Abstraction**
-   - Primary: DeckGLAdapter (Deck.gl)
-   - Optional: Other adapters for specific customers
-   - Adapter pattern isolates engine-specific code
-
-3. **Framework Agnostic**
-   - SDK works with React, Vue, Angular, VanillaJS
-   - No framework-specific code in SDK
-   - Applications integrate via standard JavaScript API
-
-4. **Schema-Driven**
-   - Backend is source of truth for tool definitions
-   - Frontend validates and executes based on schemas
-   - Dynamic tool updates without frontend changes
-
-## Backend-Library Separation
-
-### Principle
-
-**Backend (AI API) does NOT import the frontend-tools library**. This ensures clean separation and independent versioning.
-
-### Architecture
-
-```mermaid
-graph LR
-    Backend[Backend AI API]
-    API[API Endpoint<br/>/api/tools/definitions]
-    App[Application]
-    SDK[Frontend-tools SDK]
-
-    Backend -->|Defines| Schemas[Tool Schemas<br/>Pure JSON]
-    Schemas --> API
-    Schemas --> OpenAI[OpenAI Service]
-
-    App -->|GET| API
-    API -->|JSON Response| App
-    App -->|Initialize| SDK
-
-    OpenAI -->|tool_calls| App
-    App -->|Execute| SDK
-
-    style Backend fill:#FFF3E0
-    style SDK fill:#E3F2FD
-    style App fill:#E8F5E9
-```
-
-### Backend Responsibilities
-
-**What Backend DOES**:
-- Define tool schemas as pure JSON (OpenAI function calling format)
-- Expose schemas via REST API endpoint (`GET /api/tools/definitions`)
-- Send tool schemas to OpenAI for function calling
-- Stream tool_call messages to applications via WebSocket
-- Integrate with CARTO platform for layer data
-
-**What Backend DOES NOT DO**:
-- Import `@map-tools/ai-tools` or `@carto/frontend-tools`
-- Execute tools (no map instance)
-- Know about map engines (Deck.gl, Leaflet, etc.)
-- Couple to frontend implementation details
-
-### Application Responsibilities
-
-**What Applications DO**:
-- Fetch tool schemas from backend API on initialization
-- Import and initialize frontend-tools SDK
-- Register tools: combine schemas with executors
-- Create map instance (Deck.gl recommended)
-- Execute tools when receiving tool_call messages from backend
-- Update UI based on execution results
-
-### Example: Tool Schema (Backend)
+The tools dictionary provides standardized, type-safe tool names:
 
 ```typescript
-// backend/src/definitions/tool-schemas.ts
-export const TOOL_SCHEMAS = [
-  {
-    type: 'function',
-    function: {
-      name: 'toggle_layer',
-      description: 'Show or hide a CARTO map layer',
-      parameters: {
-        type: 'object',
-        properties: {
-          layer_id: {
-            type: 'string',
-            description: 'Unique identifier of the CARTO layer'
-          },
-          visible: {
-            type: 'boolean',
-            description: 'Whether layer should be visible'
-          }
+// definitions/src/dictionary.ts
+
+export const TOOL_NAMES = {
+  FLY_TO: 'fly-to',
+  ZOOM_MAP: 'zoom-map',
+  TOGGLE_LAYER: 'toggle-layer',
+  ADD_MARKER: 'add-marker',
+  REMOVE_MARKER: 'remove-marker',
+} as const
+
+export const toolsDictionary = {
+  // Tool name constants from local JSON schema files
+  [TOOL_NAMES.FLY_TO]: () => import('..'),
+  [TOOL_NAMES.ZOOM_MAP]: () => import('..'),
+  [TOOL_NAMES.TOGGLE_LAYER]: () => import('..'),
+  [TOOL_NAMES.ADD_MARKER]: () => import('..'),
+  [TOOL_NAMES.REMOVE_MARKER]: () => import('..'),
+  // Like alternative way to define tools
+  // 'update-marker': fetch('..') // dynamic import from URL
+} as const
+
+// Get all available tool names
+function getTools(): string[] {
+    return Object.keys(toolsDictionary);
+},
+
+// Get all tool definitions
+async function getAllToolDefinitions(): Promise<ToolSchema[]> {
+    return Promise.all(Object.keys(toolsDictionary).map(getToolDef));
+},
+
+// Get schema for a specific tool
+async function getToolDefinition(name: string): Promise<ToolSchema | undefined> {
+    return toolsDictionary[name]();
+}
+```
+
+### JSON Schema Example
+
+```json
+// schemas/fly-to.schema.json
+{
+  "type": "function",
+  "function": {
+    "name": "fly-to",
+    "description": "Fly the map to a specific location with smooth animation",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "lat": {
+          "type": "number",
+          "description": "Latitude coordinate (-90 to 90)",
+          "minimum": -90,
+          "maximum": 90
         },
-        required: ['layer_id', 'visible']
-      }
+        "lng": {
+          "type": "number",
+          "description": "Longitude coordinate (-180 to 180)",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "zoom": {
+          "type": "number",
+          "description": "Zoom level (0 to 22)",
+          "minimum": 0,
+          "maximum": 22,
+          "default": 12
+        }
+      },
+      "required": ["lat", "lng"]
     }
   }
-];
-```
-
-### Example: Application Integration (Frontend)
-
-```javascript
-// Application initialization
-import { createMapTools, DeckGLAdapter } from '@carto/frontend-tools';
-
-async function initApp() {
-  // 1. Fetch schemas from backend
-  const response = await fetch('https://api.carto.com/tools/definitions');
-  const { tools: schemas } = await response.json();
-
-  // 2. Initialize Deck.gl map
-  const deck = new Deck({
-    canvas: document.getElementById('map'),
-    initialViewState: { longitude: -122.4, latitude: 37.8, zoom: 10 }
-  });
-
-  // 3. Create adapter and tools
-  const adapter = new DeckGLAdapter(deck);
-  const mapTools = createMapTools({
-    mapController: adapter,
-    schemas: schemas  // External schemas from backend
-  });
-
-  // 4. Handle tool calls
-  websocket.on('tool_call', async (data) => {
-    await mapTools.execute(data.tool, data.parameters);
-  });
 }
 ```
 
-### Benefits
-
-1. **Independent Versioning**: Backend and frontend-tools can version separately
-2. **Reduced Coupling**: Backend has zero knowledge of map libraries
-3. **Dynamic Updates**: Backend can add/modify tools without frontend changes
-4. **Multi-Application**: Single backend serves multiple client applications
-5. **Smaller Backend**: No map library dependencies reduce bundle size
-
-## Map-Agnostic Architecture
-
-### Principle
-
-Frontend-tools library supports multiple map engines through an **adapter pattern**. **Deck.gl is the primary/default engine**, with other engines supported for specific customer needs.
-
-### Adapter Pattern
-
-```mermaid
-graph TB
-    App[Application]
-    SDK[Frontend-tools SDK]
-
-    App -->|Chooses Engine| Adapter
-
-    subgraph Adapters
-        DeckGL[DeckGLAdapter<br/>PRIMARY]
-        Leaflet[LeafletAdapter]
-        OpenLayers[OpenLayersAdapter]
-    end
-
-    SDK --> IMapController[IMapController<br/>Interface]
-    IMapController <--> Adapter
-
-    DeckGL --> DeckInst[Deck.gl Instance]
-    Leaflet --> LeafletInst[Leaflet Instance]
-    OpenLayers --> OLInst[OpenLayers Instance]
-
-    style DeckGL fill:#4CAF50
-    style Leaflet fill:#E0E0E0
-    style OpenLayers fill:#E0E0E0
-```
-
-### Why Adapter Pattern?
-
-- **Primary Engine**: Deck.gl is recommended and fully supported
-- **Customer Flexibility**: Some customers may require other engines
-- **Isolation**: Engine-specific code isolated in adapters
-- **Testability**: Mock adapters for testing without real map instances
-
-## Core Interfaces
-
-### IMapController
-
-Abstract interface that all map engine adapters must implement:
+### TypeScript Interfaces
 
 ```typescript
-export interface IMapController {
-  /**
-   * Get current view state (center, zoom, rotation)
-   */
-  getViewState(): ViewState;
+// definitions/src/types.ts
 
-  /**
-   * Set view state with optional animation
-   */
-  setViewState(viewState: Partial<ViewState>, options?: TransitionOptions): void;
-
-  /**
-   * Get all layers on the map
-   */
-  getLayers(): IMapLayer[];
-
-  /**
-   * Toggle layer visibility
-   */
-  setLayerVisibility(layerId: string, visible: boolean): void;
-
-  /**
-   * Add a layer to the map
-   */
-  addLayer(layer: IMapLayer): void;
-
-  /**
-   * Remove a layer from the map
-   */
-  removeLayer(layerId: string): void;
-
-  /**
-   * Force map redraw (if needed by engine)
-   */
-  refresh(): void;
-
-  /**
-   * Engine capabilities for feature detection
-   */
-  readonly capabilities: MapCapabilities;
+export interface ToolSchema {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      properties: Record<string, ParameterSchema>;
+      required?: string[];
+    };
+  };
 }
-```
 
-### ViewState
+// Specific response types for built-in tools
 
-```typescript
-export interface ViewState {
-  longitude: number;
-  latitude: number;
+export interface FlyToResponse {
+  lat: number;
+  lng: number;
   zoom: number;
-  pitch?: number;     // 3D tilt (not all engines support)
-  bearing?: number;   // Rotation (not all engines support)
 }
-```
 
-### IMapLayer
+export interface ZoomMapResponse {
+  direction: "in" | "out";
+  levels: number;
+  newZoom: number;
+}
 
-```typescript
-export interface IMapLayer {
-  id: string;
-  type: string;
+export interface ToggleLayerResponse {
+  layerId: string;
   visible: boolean;
-  opacity?: number;
-  data?: any;
-  properties?: Record<string, any>;
 }
 ```
 
-### MapCapabilities
+<!-- ### Usage
 
 ```typescript
-export interface MapCapabilities {
-  supports3D: boolean;
-  supportsRotation: boolean;
-  supportsAnimation: boolean;
-  requiresManualRedraw: boolean;
-  maxZoom: number;
-  minZoom: number;
+import {
+  TOOL_NAMES,
+  toolsDictionary,
+  getTools,
+  getToolDefinition,
+} from "@carto/maps-ai-tools/definitions";
+
+// Get all available tools
+const availableTools = getTools();
+// ['fly-to', 'zoom-map', 'toggle-layer', 'add-marker', 'remove-marker']
+
+// Get specific tool schema
+const flyToSchema = getToolDefinition(TOOL_NAMES.FLY_TO);
+
+// Handler
+const executor = fn(toolsDictionary[toolName]);
+``` -->
+
+## Package: executors
+
+This package provides utility functions to standardize communication between frontend and backend.
+
+### Purpose
+
+- Define standard request/response interfaces
+- Standardize backend communication
+- Handle validation and error formatting
+
+### Package Structure
+```
+
+executors/ ├── src/ │   ├── interface.ts       # Standard communication interface │   ├── send.ts            # Backend request function │   ├── validators.ts      # Input/output validators │   ├── errors.ts          # Error handling utilities │   └── index.ts └── package.json
+
+```
+
+### Standard Communication Interface
+
+```typescript
+// utils/src/interface.ts
+
+export interface ToolRequest {
+  toolName: string;
+  params: Record<string, unknown>;
+}
+
+export interface ToolResponse<T = unknown> {
+  toolName: string;
+  data?: T;
+  message?: string;
+  error?: ToolError;
+}
+
+export interface ToolError {
+  code: string;
+  message: string;
+  details?: unknown;
 }
 ```
 
-## DeckGLAdapter Implementation
-
-**Primary adapter** for Deck.gl engine (recommended for CARTO applications).
-
-### Implementation
+### Send Function
 
 ```typescript
-import { Deck } from '@deck.gl/core';
-import type { IMapController, ViewState, IMapLayer, MapCapabilities } from './types';
+// utils/src/send.ts
 
-export class DeckGLAdapter implements IMapController {
-  private deck: Deck;
+import { ToolRequest, ToolResponse } from "./interface";
 
-  constructor(deckInstance: Deck) {
-    this.deck = deckInstance;
-  }
+export interface SendOptions {
+  baseUrl: string;
+  endpoint?: string;
+  headers?: Record<string, string>;
+}
 
-  getViewState(): ViewState {
-    const vs = (this.deck as any).viewState ||
-               (this.deck as any).props?.initialViewState || {};
+export async function send<T = unknown>(
+  request: ToolRequest,
+  options: SendOptions
+): Promise<ToolResponse<T>> {
+  const { baseUrl, endpoint = "/api/chat", headers = {} } = options;
+
+  try {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      return {
+        toolName: request.toolName,
+        error: {
+          code: "HTTP_ERROR",
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        },
+      };
+    }
+
+    const response = await response.json();
 
     return {
-      longitude: vs.longitude || 0,
-      latitude: vs.latitude || 0,
-      zoom: vs.zoom || 10,
-      pitch: vs.pitch,
-      bearing: vs.bearing
+      toolName: request.toolName,
+      data: response.data,
+      message: response.message,
+    };
+  } catch (error) {
+    return {
+      toolName: request.toolName,
+      error: {
+        code: "NETWORK_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+    };
+  }
+}
+```
+
+### Validators
+
+```typescript
+// utils/src/validators.ts
+
+import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
+
+export interface ValidationResult {
+  valid: boolean;
+  errors?: string[];
+}
+
+export function validateToolCall(
+  toolName: string,
+  params: Record<string, unknown>
+): ValidationResult {
+  const schema = toolsDictionary.get(toolName);
+
+  if (!schema) {
+    return {
+      valid: false,
+      errors: [`Unknown tool: ${toolName}`],
     };
   }
 
-  setViewState(viewState: Partial<ViewState>, options?: TransitionOptions): void {
-    const current = this.getViewState();
+  const errors: string[] = [];
+  const { properties, required = [] } = schema.function.parameters;
 
-    this.deck.setProps({
-      initialViewState: {
-        ...current,
-        ...viewState,
-        transitionDuration: options?.duration || 1000,
-        transitionInterruption: 1
-      }
-    });
-
-    // Deck.gl requires multiple redraws for visibility
-    this.refresh();
-  }
-
-  getLayers(): IMapLayer[] {
-    const layers = (this.deck.props as any).layers || [];
-
-    return layers.map((layer: any) => ({
-      id: layer.id,
-      type: layer.constructor.name,
-      visible: layer.props?.visible !== false,
-      opacity: layer.props?.opacity,
-      data: layer.props?.data,
-      properties: { ...layer.props }
-    }));
-  }
-
-  setLayerVisibility(layerId: string, visible: boolean): void {
-    const currentLayers = (this.deck.props as any).layers || [];
-
-    const updatedLayers = currentLayers.map((layer: any) => {
-      if (layer && layer.id === layerId) {
-        return layer.clone({ visible });
-      }
-      return layer;
-    });
-
-    this.deck.setProps({ layers: updatedLayers });
-    this.refresh();
-  }
-
-  addLayer(layer: IMapLayer): void {
-    const currentLayers = (this.deck.props as any).layers || [];
-    this.deck.setProps({ layers: [...currentLayers, layer as any] });
-  }
-
-  removeLayer(layerId: string): void {
-    const currentLayers = (this.deck.props as any).layers || [];
-    const filtered = currentLayers.filter((layer: any) => layer.id !== layerId);
-    this.deck.setProps({ layers: filtered });
-  }
-
-  refresh(): void {
-    // Deck.gl quirk: needs multiple scheduled redraws for visibility
-    if (typeof window !== 'undefined') {
-      window.requestAnimationFrame(() => this.deck.redraw(true));
-      setTimeout(() => this.deck.redraw(true), 50);
-      setTimeout(() => this.deck.redraw(true), 1100);
+  // Check required parameters
+  for (const param of required) {
+    if (!(param in params)) {
+      errors.push(`Missing required parameter: ${param}`);
     }
   }
 
-  get capabilities(): MapCapabilities {
-    return {
-      supports3D: true,
-      supportsRotation: true,
-      supportsAnimation: true,
-      requiresManualRedraw: true,  // Deck.gl quirk
-      maxZoom: 24,
-      minZoom: 0
-    };
+  // Validate parameter types and constraints
+  for (const [name, value] of Object.entries(params)) {
+    const propSchema = properties[name];
+    if (propSchema) {
+      // Type checking
+      if (propSchema.type === "number" && typeof value !== "number") {
+        errors.push(`Parameter ${name} must be a number`);
+      }
+      // Range checking
+      if (typeof value === "number") {
+        if (propSchema.minimum !== undefined && value < propSchema.minimum) {
+          errors.push(`Parameter ${name} must be >= ${propSchema.minimum}`);
+        }
+        if (propSchema.maximum !== undefined && value > propSchema.maximum) {
+          errors.push(`Parameter ${name} must be <= ${propSchema.maximum}`);
+        }
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors: errors.length > 0 ? errors : undefined,
+  };
+}
+```
+
+### Error Handling
+
+```typescript
+// utils/src/errors.ts
+
+import { ToolError, ToolResponse } from "./interface";
+
+// Common error codes
+export const ErrorCodes = {
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+  TOOL_NOT_FOUND: "TOOL_NOT_FOUND",
+  EXECUTION_ERROR: "EXECUTION_ERROR",
+  NETWORK_ERROR: "NETWORK_ERROR",
+  UNAUTHORIZED: "UNAUTHORIZED",
+} as const;
+
+// Handle error
+// TBD
+export function formatToolResponse<T = unknown>(
+  toolName: string,
+  response: Partial<ToolResponse<T>>
+): ToolResponse<T> {
+  return {
+    toolName,
+    data: response.data,
+    message: response.message,
+    error: response.error,
+  };
+}
+```
+
+## Communication Flow
+
+### Sequence Diagram
+
+```mermaidjs
+
+sequenceDiagram
+    participant FE as Frontend
+    participant LIB as maps-ai-tools
+    participant BE as Backend
+    participant AI as AI Model
+
+    LIB->>FE: Import definitions & utils
+    LIB->>BE: Import definitions & utils
+
+    FE->>BE: User Prompt
+    BE->>AI: System Prompt + User Prompt + Tool Definitions
+    AI->>BE: Tool Call (JSON)
+    BE->>LIB: Validate with schema
+    LIB->>BE: Validated params
+    BE->>BE: Execute tool
+    BE->>LIB: Standard Response (toolName, data, message)
+    LIB->>FE: Standard Response (toolName, data, message)
+    FE->>FE: Execute in UI (e.g., fly-to, add marker)
+```
+
+### Message Types
+
+#### User Prompt (Frontend → Backend)
+
+```typescript
+{
+  type: 'chat_message',
+  content: 'Fly to New York City and zoom in',
+  timestamp: 1706300000000
+}
+```
+
+#### Tool Call Response (Backend → Frontend)
+
+```typescript
+{
+  toolName: 'fly-to',
+  data: {
+    lat: 40.7128,
+    lng: -74.0060,
+    zoom: 12
+  },
+  message: 'Flying to New York City'
+}
+```
+
+#### Error Response
+
+```typescript
+{
+  toolName: 'fly-to',
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Invalid coordinates: latitude must be between -90 and 90'
   }
 }
 ```
 
-### Usage Example
+## Backend Integration
+
+Two approaches are supported for integrating the library with your backend.
+
+### Approach 1: Library Import
+
+Import the definitions package directly in your backend:
 
 ```typescript
-import { Deck } from '@deck.gl/core';
-import { DeckGLAdapter, createMapTools } from '@carto/frontend-tools';
+// Backend code
 
-// Initialize Deck.gl
+import { toolsDictionary, getToolDefinitions } from '@carto/maps-ai-tools/definitions';
+import { validateToolCall, formatToolResponse } from '@carto/maps-ai-tools/executors';
+
+// Get definitions for AI model
+const definitions = getToolDefinitions();
+
+// Build system prompt with tool definitions
+const systemPrompt = `You have access to these tools: ${JSON.stringify(definitions)}`;
+
+// Process AI response
+async function processAIToolCall(toolCall: { name: string; arguments: string }) {
+  const params = JSON.parse(toolCall.arguments);
+  const validated = validateToolCall(toolCall.name, params);
+
+  if (!validated.valid) {
+    return formatToolResponse(toolCall.name, {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: validated.errors?.join(', ') || 'Validation failed'
+      }
+    });
+  }
+
+  // Return validated params to frontend for execution
+  return formatToolResponse(toolCall.name, {
+    data: params,
+    message: `Executing ${toolCall.name}`
+  });
+}
+
+// OpenAI integration
+
+const completion = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: [...],
+  tools: schemas,  // Use schemas from library
+  tool_choice: 'auto'
+});
+```
+
+### Approach 2: API Request
+
+Backend exposes tool definitions via REST API, no library import needed:
+
+```typescript
+// Backend exposes endpoint
+
+app.get("/api/tools/definitions", (req, res) => {
+  // Definitions defined manually or loaded from JSON files
+  res.json({
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "fly-to",
+          description: "Fly to a location",
+          parameters: {
+            /* ... */
+          },
+        },
+      },
+      // ... more tools
+    ],
+  });
+});
+
+// Frontend fetches definitions
+
+const response = await fetch("/api/tools/definitions");
+const { tools } = await response.json();
+```
+
+### Backend Example (Express + OpenAI)
+
+```typescript
+import express from "express";
+import OpenAI from "openai";
+import { getToolDefinitions } from "@carto/maps-ai-tools/definitions";
+import {
+  validateToolCall,
+  formatToolResponse,
+} from "@carto/maps-ai-tools/utils";
+
+const app = express();
+const openai = new OpenAI();
+
+// Expose tool definitions
+
+app.get("/api/tools/definitions", (req, res) => {
+  res.json({ tools: getToolDefinitions() });
+});
+
+// Handle chat messages
+
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: "You are a map assistant..." },
+      { role: "user", content: message },
+    ],
+    tools: getToolDefinitions(),
+    tool_choice: "auto",
+  });
+
+  const choice = completion.choices[0];
+
+  if (choice.message.tool_calls) {
+    const toolCall = choice.message.tool_calls[0];
+    const params = JSON.parse(toolCall.function.arguments);
+
+    // Validate and return to frontend
+    const validated = validateToolCall(toolCall.function.name, params);
+
+    if (validated.valid) {
+      res.json(
+        formatToolResponse(toolCall.function.name, {
+          success: true,
+          data: params,
+        })
+      );
+    } else {
+      res.json(
+        formatToolResponse(toolCall.function.name, {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: validated.errors?.join(", "),
+          },
+        })
+      );
+    }
+  } else {
+    res.json({ message: choice.message.content });
+  }
+});
+```
+
+## Frontend Integration
+
+### Setup with Executors
+
+```typescript
+import { Deck } from "@deck.gl/core";
+import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
+import { parseToolResponse, send } from "@carto/maps-ai-tools/executors";
+
+// Initialize deck.gl
+
 const deck = new Deck({
-  canvas: document.getElementById('map'),
-  initialViewState: { longitude: -74.0, latitude: 40.7, zoom: 11 }
+  canvas: "map",
+  initialViewState: { longitude: -122.4, latitude: 37.8, zoom: 10 },
 });
 
-// Create adapter
-const adapter = new DeckGLAdapter(deck);
+// Define executors for each tool
 
-// Create tools (with schemas from backend)
-const mapTools = createMapTools({
-  mapController: adapter,
-  schemas: await fetchSchemasFromBackend()
-});
+const executors: Record<string, (params: any) => void> = {
+  [toolsDictionary.flyTo]: (params) => {
+    deck.setProps({
+      initialViewState: {
+        longitude: params.lng,
+        latitude: params.lat,
+        zoom: params.zoom || 12,
+        transitionDuration: 1000,
+      },
+    });
+  },
 
-// Execute tools
-await mapTools.execute('zoom_map', { direction: 'in', levels: 2 });
-await mapTools.execute('fly_to_location', {
-  coordinates: [-122.4, 37.8],
-  zoom: 12
+  [toolsDictionary.zoomMap]: (params) => {
+    const currentZoom = deck.props.initialViewState?.zoom || 10;
+    const newZoom =
+      params.direction === "in"
+        ? currentZoom + params.levels
+        : currentZoom - params.levels;
+
+    deck.setProps({
+      initialViewState: {
+        ...deck.props.initialViewState,
+        zoom: Math.max(0, Math.min(22, newZoom)),
+        transitionDuration: 500,
+      },
+    });
+  },
+
+  [toolsDictionary.toggleLayer]: (params) => {
+    const layers = deck.props.layers || [];
+    const updatedLayers = layers.map((layer: any) =>
+      layer.id === params.layerId
+        ? layer.clone({ visible: params.visible })
+        : layer
+    );
+    deck.setProps({ layers: updatedLayers });
+  },
+};
+
+// Handle tool responses from backend
+
+async function handleToolResponse(response: ToolResponse) {
+  const { toolName, data, error } = parseToolResponse(response);
+
+  if (error) {
+    console.error(`Tool error: ${error.message}`);
+    return;
+  }
+
+  const executor = executors[toolName];
+  if (executor && data) {
+    executor(data);
+  }
+}
+
+// Connect to backend
+
+const chat = document.querySelector("maps-chat-container");
+
+chat.onSend(async (message) => {
+  const response = await send(
+    { toolName: "", params: { message } },
+    { baseUrl: "http://localhost:3000", endpoint: "/api/chat" }
+  );
+
+  if (response.toolName) {
+    await handleToolResponse(response);
+  }
 });
 ```
 
-## Other Map Engines
+### React Integration Example
 
-While **Deck.gl is the primary/recommended engine**, the adapter pattern allows supporting other engines for specific customer requirements.
+```tsx
+import { useEffect, useRef, useCallback } from "react";
+import { Deck } from "@deck.gl/core";
+import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
+import { parseToolResponse } from "@carto/maps-ai-tools/executors";
 
-### Conceptual Adapters
+function MapApp() {
+  const deckRef = useRef<Deck | null>(null);
 
-#### LeafletAdapter
+  const executors = useCallback(
+    () => ({
+      [toolsDictionary.flyTo]: (params: any) => {
+        deckRef.current?.setProps({
+          initialViewState: {
+            longitude: params.lng,
+            latitude: params.lat,
+            zoom: params.zoom,
+            transitionDuration: 1000,
+          },
+        });
+      },
+      // ... more executors
+    }),
+    []
+  );
 
-For customers using Leaflet (2D map library):
+  const handleToolResponse = useCallback(
+    (response: any) => {
+      const { toolName, data, error } = parseToolResponse(response);
+      if (!error && data) {
+        executors()[toolName]?.(data);
+      }
+    },
+    [executors]
+  );
+
+  return (
+    <div>
+      <canvas id="map" />
+      <maps-chat-container />
+    </div>
+  );
+}
+```
+
+## Custom Tools
+
+Extend the library with your own custom tools.
+
+### Custom Tool Definition
 
 ```typescript
-export class LeafletAdapter implements IMapController {
-  private map: L.Map;
+// custom-tools.ts
 
-  constructor(leafletMap: L.Map) {
-    this.map = leafletMap;
-  }
+import type { ToolSchema } from "@carto/maps-ai-tools/definitions";
 
-  // Implement IMapController methods
-  // Note: Leaflet doesn't support 3D/pitch
-  getViewState(): ViewState { /* ... */ }
-  setViewState(viewState, options): void { /* ... */ }
-  // etc.
+export const customToolSchema: ToolSchema = {
+  type: "function",
+  function: {
+    name: "highlight-feature",
+    description: "Highlight a specific feature on the map",
+    parameters: {
+      type: "object",
+      properties: {
+        featureId: {
+          type: "string",
+          description: "The ID of the feature to highlight",
+        },
+        color: {
+          type: "string",
+          description: "Highlight color in hex format",
+          default: "#FF0000",
+        },
+        duration: {
+          type: "number",
+          description: "Duration in milliseconds",
+          default: 3000,
+        },
+      },
+      required: ["featureId"],
+    },
+  },
+};
 
-  get capabilities(): MapCapabilities {
-    return {
-      supports3D: false,           // Leaflet is 2D only
-      supportsRotation: false,
-      supportsAnimation: true,
-      requiresManualRedraw: false,
-      maxZoom: 18,
-      minZoom: 0
-    };
+// Custom tools dictionary
+
+export const customDictionary = {
+  highlightFeature: "highlight-feature",
+  showPopup: "show-popup",
+  measureDistance: "measure-distance",
+} as const;
+```
+
+### Using Custom Tools
+
+```typescript
+import {
+  toolsDictionary,
+  getToolDefinition,
+} from "@carto/maps-ai-tools/definitions";
+import { customToolSchema, customDictionary } from "./custom-tools";
+
+// Combine built-in and custom tools
+const allDefinitions = [
+  getToolDefinition(toolsDictionary.flyTo),
+  getToolDefinition(toolsDictionary.zoomMap),
+  customToolSchema,
+];
+
+// Combined executors
+const allExecutors = {
+  [toolsDictionary.flyTo]: (params) => {
+    /* ... */
+  },
+  [toolsDictionary.zoomMap]: (params) => {
+    /* ... */
+  },
+  [customDictionary.highlightFeature]: (params) => {
+    // Custom executor implementation
+    const { featureId, color, duration } = params;
+    // ... highlight logic
+  },
+};
+```
+
+## Installation & Getting Started
+
+### Installation
+
+```bash
+# Install the library
+npm install @carto/maps-ai-tools
+# or
+yarn add @carto/maps-ai-tools
+# or
+pnpm add @carto/maps-ai-tools
+```
+
+### Quick Start (Frontend)
+
+```typescript
+// 1. Import packages
+
+import { toolsDictionary } from "@carto/maps-ai-tools/definitions";
+import { parseToolResponse, send } from "@carto/maps-ai-tools/executors";
+
+// 2. Initialize deck.gl
+
+import { Deck } from "@deck.gl/core";
+
+const deck = new Deck({
+  canvas: "map",
+  initialViewState: { longitude: -74.0, latitude: 40.7, zoom: 10 },
+});
+
+// 3. Define executors
+
+const executors = {
+  [toolsDictionary.flyTo]: (params) => {
+    deck.setProps({
+      initialViewState: {
+        longitude: params.lng,
+        latitude: params.lat,
+        zoom: params.zoom || 12,
+        transitionDuration: 1000,
+      },
+    });
+  },
+  // ... more executors
+};
+
+// 4. Handle responses from backend
+
+function handleToolResponse(response) {
+  const { toolName, data, error } = parseToolResponse(response);
+  if (executors[toolName] && !error) {
+    executors[toolName](data);
   }
 }
 ```
 
-#### OpenLayersAdapter
-
-For customers using OpenLayers:
+### Quick Start (Backend)
 
 ```typescript
-export class OpenLayersAdapter implements IMapController {
-  private map: OLMap;
+// 1. Import packages
 
-  constructor(olMap: OLMap) {
-    this.map = olMap;
+import { getToolDefinitions } from "@carto/maps-ai-tools/definitions";
+import {
+  validateToolCall,
+  formatToolResponse,
+} from "@carto/maps-ai-tools/executors";
+import OpenAI from "openai";
+
+// 2. Get tool schemas
+
+const schemas = getToolDefinitions();
+
+// 3. Use with OpenAI
+
+const openai = new OpenAI();
+
+async function handleChat(userMessage: string) {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: "You are a helpful map assistant." },
+      { role: "user", content: userMessage },
+    ],
+    tools: schemas,
+    tool_choice: "auto",
+  });
+
+  const choice = completion.choices[0];
+
+  if (choice.message.tool_calls) {
+    const toolCall = choice.message.tool_calls[0];
+    const params = JSON.parse(toolCall.function.arguments);
+
+    return formatToolResponse(toolCall.function.name, {
+      success: true,
+      data: params,
+    });
   }
 
-  // Implement IMapController methods
-  // OpenLayers supports rotation but not pitch
-
-  get capabilities(): MapCapabilities {
-    return {
-      supports3D: false,
-      supportsRotation: true,      // Supports bearing
-      supportsAnimation: true,
-      requiresManualRedraw: false,
-      maxZoom: 28,
-      minZoom: 0
-    };
-  }
+  return { message: choice.message.content };
 }
 ```
 
-### Engine Comparison
+## Benefits
 
-| Feature | Deck.gl (Primary) | Leaflet | OpenLayers |
-|---------|-------------------|---------|------------|
-| **3D Support** | ✅ Yes | ❌ No | ❌ No |
-| **Rotation** | ✅ Yes | ❌ No | ✅ Yes |
-| **Animation** | ✅ Yes | ✅ Yes | ✅ Yes |
-| **WebGL** | ✅ Yes | ❌ No | ⚠️ Optional |
-| **CARTO Integration** | ✅ Excellent | ⚠️ Limited | ⚠️ Limited |
-| **Bundle Size** | 500KB | 40KB | 280KB |
+### Standardization
 
-**Recommendation**: Use Deck.gl for all CARTO applications unless specific customer requirements necessitate another engine.
+* **Consistent tool naming** via tools dictionary
+* **Uniform request/response format** across all tools
+* **Type-safe** development with TypeScript interfaces
 
-## Benefits and Recommendations
+### Developer Experience
 
-### Benefits of This Architecture
+* **Validation helpers** catch errors before execution
+* **Clear error messages** with standardized error codes
 
-1. **Framework Agnostic**
-   - Works with React, Vue, Angular, VanillaJS
-   - Applications choose their framework
-   - SDK has no framework dependencies
+### Flexibility
 
-2. **Backend Independence**
-   - Backend (AI API) doesn't import frontend-tools
-   - Independent versioning and deployment
-   - Smaller backend bundle
+* **Custom tools** can be added alongside built-in tools
+* **Framework agnostic** works with any JavaScript framework
+* **Backend choice** between library import or API approach
 
-3. **Map Engine Flexibility**
-   - Primary: Deck.gl (recommended)
-   - Optional: Other engines for specific customers
-   - Adapter pattern isolates engine code
+### Maintainability
 
-4. **Schema-Driven**
-   - Backend defines tool schemas (single source of truth)
-   - Applications fetch schemas dynamically
-   - Tools can be added without frontend changes
+* **Centralized definitions** make updates easy
+* **Monorepo structure** allows independent versioning
+* **Schema-driven** enables dynamic tool updates
 
-5. **Clean Separation**
-   - Clear layer boundaries
-   - Each layer has defined responsibilities
-   - Easy to test and maintain
-
-### Recommendations
-
-#### For New Projects
-
-✅ **Use this architecture:**
-- Start with Deck.gl adapter
-- Fetch schemas from backend API
-- Choose framework based on team expertise
-- Leverage CARTO platform integration
-
-#### For Existing Projects
-
-✅ **Adopt gradually:**
-- Backend: Expose tool schemas via API
-- Frontend: Integrate frontend-tools SDK
-- Keep existing map engine, add adapter if needed
-- Migrate tools one at a time
-
-#### For Customer Projects
-
-✅ **Default to Deck.gl:**
-- Best CARTO integration
-- Full 3D and WebGL support
-- Most features available
-
-⚠️ **Other engines only if:**
-- Customer has existing Leaflet/OpenLayers codebase
-- Specific technical constraints require different engine
-- Limited features acceptable (no 3D, limited CARTO integration)
-
-### Architecture Principles Summary
-
-1. **Backend exposes schemas, doesn't import library**
-2. **Frontend-tools is framework-agnostic**
-3. **Deck.gl is primary engine, others optional**
-4. **Three clear layers: Client, SDK, Backend**
-5. **Schema-driven: Backend is source of truth**
-
----
-
-**Document Status**: Architectural Design Document
-**Maintained By**: CARTO Platform Team
-**Last Updated**: 2025-01-21

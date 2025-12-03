@@ -1,0 +1,57 @@
+{
+  "type": "function",
+  "function": {
+    "name": "color-features-by-property",
+    "description": "Color features conditionally based on a property value. Filters can be stacked - features matching multiple filters will use the first matching color.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "layerId": {
+          "type": "string",
+          "description": "The ID of the layer to color. Default is 'points-layer'.",
+          "default": "points-layer"
+        },
+        "property": {
+          "type": "string",
+          "description": "The feature property to filter by (e.g., 'name', 'type', 'region')"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["equals", "startsWith", "contains", "regex"],
+          "description": "The comparison operator. Default is 'equals'.",
+          "default": "equals"
+        },
+        "value": {
+          "type": "string",
+          "description": "The value to compare against"
+        },
+        "r": {
+          "type": "integer",
+          "description": "Red color component (0-255)",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "g": {
+          "type": "integer",
+          "description": "Green color component (0-255)",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "b": {
+          "type": "integer",
+          "description": "Blue color component (0-255)",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "a": {
+          "type": "integer",
+          "description": "Alpha (opacity) component (0-255). Default is 180.",
+          "minimum": 0,
+          "maximum": 255,
+          "default": 180
+        }
+      },
+      "required": ["property", "value", "r", "g", "b"]
+    }
+  }
+}

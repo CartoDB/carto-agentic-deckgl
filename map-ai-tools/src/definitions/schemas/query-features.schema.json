@@ -1,0 +1,37 @@
+{
+  "type": "function",
+  "function": {
+    "name": "query-features",
+    "description": "Query and count features based on property values. Use this to get statistics about features on the map.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "layerId": {
+          "type": "string",
+          "description": "The ID of the layer to query. Default is 'points-layer'.",
+          "default": "points-layer"
+        },
+        "property": {
+          "type": "string",
+          "description": "The feature property to filter by (e.g., 'name', 'type', 'region')"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["equals", "startsWith", "contains", "regex", "all"],
+          "description": "The comparison operator. Use 'all' to count all features. Default is 'equals'.",
+          "default": "equals"
+        },
+        "value": {
+          "type": "string",
+          "description": "The value to compare against (not required when operator is 'all')"
+        },
+        "includeNames": {
+          "type": "boolean",
+          "description": "Whether to include sample feature names in the response. Default is false.",
+          "default": false
+        }
+      },
+      "required": ["property"]
+    }
+  }
+}

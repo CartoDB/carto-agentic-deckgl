@@ -15,7 +15,7 @@ Interactive map application with AI-powered natural language control. Users inte
 ### Backend (Node.js + TypeScript)
 ```bash
 cd backend
-npm run dev          # Start development server with hot reload (nodemon + ts-node)
+npm run dev          # Start development server with hot reload (tsx watch)
 npm run build        # Compile TypeScript to dist/
 npm start            # Run production build from dist/
 npx tsc --noEmit     # Type check without emitting files
@@ -85,12 +85,10 @@ Frontend: Display text + Execute tool_calls via ToolExecutor
 - `websocket/websocket-server.ts`: WebSocket connection handling with session IDs
 
 **Frontend:**
-- `main.js`: Application entry point, wires up WebSocket → ToolExecutor → MapController
+- `main.js`: Application entry point, creates map, defines tool executors, wires up WebSocket
 - `map/deckgl-map.js`: Creates deck.gl + MapLibre instances, defines GeoJSON layer
-- `map/map-controller.js`: Wraps deck.gl operations (zoom, flyTo, toggleLayer) with proper rendering
-- `commands/tool-executor.js`: Executes OpenAI function calls as map operations
 - `chat/websocket-client.js`: WebSocket client with auto-reconnect and message routing
-- `chat/chat-ui.js`: Manages chat interface and message display (user, assistant, action messages)
+- `chat/chat-ui.js`: Manages chat interface and message display
 
 ### WebSocket Message Types
 

@@ -1,0 +1,38 @@
+{
+  "type": "function",
+  "function": {
+    "name": "set-point-color",
+    "description": "Set a uniform color for all points on a layer. Use this to change the color of all points at once.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "r": {
+          "type": "integer",
+          "description": "Red color component (0-255)",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "g": {
+          "type": "integer",
+          "description": "Green color component (0-255)",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "b": {
+          "type": "integer",
+          "description": "Blue color component (0-255)",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "a": {
+          "type": "integer",
+          "description": "Alpha (opacity) component (0-255). Default is 200.",
+          "minimum": 0,
+          "maximum": 255,
+          "default": 200
+        }
+      },
+      "required": ["r", "g", "b"]
+    }
+  }
+}

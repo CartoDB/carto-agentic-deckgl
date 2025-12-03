@@ -4,21 +4,20 @@ export const TOGGLE_LAYER_TOOL: ToolDefinition = {
   type: 'function',
   function: {
     name: 'toggle_layer',
-    description: 'Show or hide map layers. Currently supports the points layer showing US cities.',
+    description: 'Show or hide a map layer by its name. Available layers: Airports.',
     parameters: {
       type: 'object',
       properties: {
-        layer_id: {
+        layerName: {
           type: 'string',
-          enum: ['points-layer'],
-          description: 'The layer identifier. Use "points-layer" for the US cities layer.'
+          description: 'The name of the layer to toggle (e.g., "Airports")'
         },
         visible: {
           type: 'boolean',
-          description: 'true to show the layer, false to hide it'
+          description: 'Whether the layer should be visible (true) or hidden (false)'
         }
       },
-      required: ['layer_id', 'visible']
+      required: ['layerName', 'visible']
     }
   }
 };

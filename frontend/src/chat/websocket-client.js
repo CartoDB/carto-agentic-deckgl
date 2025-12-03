@@ -75,14 +75,11 @@ export class WebSocketClient {
     }
   }
 
-  // NEW: Handle tool calls
+  // NEW: Handle tool calls - pass through the full response
   handleToolCall(data) {
-    this.onMessage({
-      type: 'tool_call',
-      tool: data.tool,
-      parameters: data.parameters,
-      callId: data.callId
-    });
+    // Backend sends: { type, success, tool_name, data, message, error, callId }
+    // Pass through directly for parseToolResponse to handle
+    this.onMessage(data);
   }
 
   // NEW: Handle errors

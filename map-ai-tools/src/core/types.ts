@@ -41,10 +41,16 @@ export interface ViewState {
 }
 
 /**
+ * MapLibre map instance type (using any to avoid dependency)
+ */
+export type MapInstance = any;
+
+/**
  * Context passed to tool executors
  */
 export interface ExecutionContext {
   deck: Deck;
+  map?: MapInstance;
   metadata?: Record<string, any>;
 }
 
@@ -81,6 +87,7 @@ export interface ToolInterceptors {
  */
 export interface MapToolsConfig {
   deck: Deck;
+  map?: MapInstance;  // Optional MapLibre map instance for view sync
   tools?: string[];  // Tool names to include (default: all)
   customTools?: CustomToolDefinition[];
   toolInterceptors?: ToolInterceptors;

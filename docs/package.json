@@ -1,0 +1,23 @@
+{
+  "name": "maps-ai-tools-docs",
+  "version": "1.0.0",
+  "description": "Documentation and presentations for @carto/maps-ai-tools",
+  "scripts": {
+    "build:pptx": "marp maps-ai-tools-presentation.md -o maps-ai-tools-presentation.pptx",
+    "build:pdf": "marp maps-ai-tools-presentation.md -o maps-ai-tools-presentation.pdf",
+    "build:html": "marp maps-ai-tools-presentation.md -o maps-ai-tools-presentation.html",
+    "build:notes:pptx": "marp interlocutor-notes.md -o interlocutor-notes.pptx",
+    "build:notes:pdf": "marp interlocutor-notes.md -o interlocutor-notes.pdf",
+    "build:notes:html": "marp interlocutor-notes.md -o interlocutor-notes.html",
+    "build:all": "npm run build:pptx && npm run build:pdf && npm run build:html && npm run build:notes:pptx && npm run build:notes:html",
+    "preview": "marp maps-ai-tools-presentation.md --preview",
+    "preview:notes": "marp interlocutor-notes.md --preview",
+    "watch": "marp maps-ai-tools-presentation.md --watch"
+  },
+  "devDependencies": {
+    "@marp-team/marp-cli": "^3.4.0"
+  },
+  "keywords": ["marp", "presentation", "carto", "maps-ai-tools"],
+  "author": "CARTO",
+  "license": "MIT"
+}
