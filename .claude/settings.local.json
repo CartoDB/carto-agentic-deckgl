@@ -43,7 +43,8 @@
       "Bash(npm run build:html:*)",
       "Bash(npm run build:notes:pptx:*)",
       "Bash(tree:*)",
-      "WebFetch(domain:zod.dev)"
+      "WebFetch(domain:zod.dev)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
