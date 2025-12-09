@@ -57,6 +57,7 @@ export default [
       json(),
       typescript({
         declaration: false,
+        declarationMap: false,
         outDir: 'dist/cjs',
         rootDir: 'src'
       }),

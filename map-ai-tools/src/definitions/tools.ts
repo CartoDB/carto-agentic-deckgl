@@ -1,5 +1,4 @@
-import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import * as z from 'zod';
 
 /**
  * Size rule for dynamic feature sizing
@@ -143,7 +142,7 @@ export function getToolDefinition(name: ToolName) {
     function: {
       name: tool.name,
       description: tool.description,
-      parameters: zodToJsonSchema(tool.schema, { target: 'openApi3' }),
+      parameters: z.toJSONSchema(tool.schema, { target: 'openapi-3.0' }),
     },
   };
 }
