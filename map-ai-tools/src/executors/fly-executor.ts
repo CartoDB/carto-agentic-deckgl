@@ -1,28 +1,18 @@
 import { ToolExecutor } from '../core/types';
 
 interface FlyToParams {
-  coordinates: [number, number];
+  lat: number;
+  lng: number;
   zoom?: number;
 }
 
 export const executeFlyTo: ToolExecutor<FlyToParams> = (params, context) => {
-  const { coordinates, zoom = 10 } = params;
-  const { deck } = context;
+  const { lat, lng, zoom = 12 } = params;
+  const { deck, map } = context;
 
   try {
-    // Validate coordinates
-    if (!Array.isArray(coordinates) || coordinates.length !== 2) {
-      return {
-        success: false,
-        message: 'Invalid coordinates format. Expected [longitude, latitude]',
-        error: new Error('Coordinates must be an array of two numbers')
-      };
-    }
-
-    const [longitude, latitude] = coordinates;
-
     // Validate coordinate values
-    if (typeof longitude !== 'number' || typeof latitude !== 'number') {
+    if (typeof lng !== 'number' || typeof lat !== 'number') {
       return {
         success: false,
         message: 'Coordinates must be numbers',
@@ -30,7 +20,7 @@ export const executeFlyTo: ToolExecutor<FlyToParams> = (params, context) => {
       };
     }
 
-    if (longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
+    if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
       return {
         success: false,
         message: 'Coordinates out of valid range',
@@ -38,16 +28,25 @@ export const executeFlyTo: ToolExecutor<FlyToParams> = (params, context) => {
       };
     }
 
-    // Update view state with animation
+    // Update deck.gl view state with animation
     deck.setProps({
       initialViewState: {
-        longitude,
-        latitude,
+        longitude: lng,
+        latitude: lat,
         zoom,
         transitionDuration: 1000,
         transitionInterruption: 1
       }
     });
+
+    // Sync MapLibre if map instance is available
+    if (map) {
+      map.flyTo({
+        center: [lng, lat],
+        zoom,
+        duration: 1000
+      });
+    }
 
     // Force redraws to ensure visibility (browser-only)
     if (typeof window !== 'undefined' && (window as any).requestAnimationFrame) {
@@ -58,8 +57,8 @@ export const executeFlyTo: ToolExecutor<FlyToParams> = (params, context) => {
 
     return {
       success: true,
-      message: `Flew to coordinates [${longitude.toFixed(4)}, ${latitude.toFixed(4)}]`,
-      data: { coordinates, zoom }
+      message: `Flew to coordinates [${lng.toFixed(4)}, ${lat.toFixed(4)}] at zoom ${zoom}`,
+      data: { lat, lng, zoom }
     };
   } catch (error) {
     return {

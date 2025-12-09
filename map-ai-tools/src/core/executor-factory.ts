@@ -30,6 +30,7 @@ export class MapToolsExecutor {
     // Setup execution context
     this.context = {
       deck: config.deck,
+      map: config.map,
       metadata: config.metadata
     };
 

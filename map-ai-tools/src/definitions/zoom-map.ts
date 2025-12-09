@@ -14,7 +14,7 @@ export const ZOOM_MAP_TOOL: ToolDefinition = {
           description: 'Zoom direction: "in" to zoom in, "out" to zoom out'
         },
         levels: {
-          type: 'integer',
+          type: 'number',
           minimum: 1,
           maximum: 10,
           default: 1,

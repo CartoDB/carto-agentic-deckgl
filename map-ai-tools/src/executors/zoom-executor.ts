@@ -7,7 +7,7 @@ interface ZoomParams {
 
 export const executeZoom: ToolExecutor<ZoomParams> = (params, context) => {
   const { direction, levels = 1 } = params;
-  const { deck } = context;
+  const { deck, map } = context;
 
   try {
     // Get current view state from deck props
@@ -28,15 +28,25 @@ export const executeZoom: ToolExecutor<ZoomParams> = (params, context) => {
       };
     }
 
-    // Update view state with animation
-    deck.setProps({
-      initialViewState: {
-        ...viewState,
+    const newViewState = {
+      ...viewState,
+      zoom: newZoom,
+      transitionDuration: 1000,
+      transitionInterruption: 1
+    };
+
+    // Update deck.gl view state with animation
+    deck.setProps({ initialViewState: newViewState });
+
+    // Sync MapLibre if map instance is available
+    if (map) {
+      map.jumpTo({
+        center: [viewState.longitude, viewState.latitude],
         zoom: newZoom,
-        transitionDuration: 1000,
-        transitionInterruption: 1
-      }
-    });
+        bearing: viewState.bearing || 0,
+        pitch: viewState.pitch || 0
+      });
+    }
 
     // Force redraws to ensure visibility (browser-only)
     if (typeof window !== 'undefined' && (window as any).requestAnimationFrame) {
