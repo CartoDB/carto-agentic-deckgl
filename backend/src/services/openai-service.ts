@@ -6,6 +6,7 @@ import {
   TOOL_NAMES,
   formatToolResponse,
   ErrorCodes,
+  validateWithZod,
 } from '@carto/maps-ai-tools';
 import type { ToolResponse } from '@carto/maps-ai-tools';
 
@@ -131,7 +132,7 @@ export class OpenAIService {
     }
 
     this.client = new OpenAI({ apiKey });
-    this.model = process.env.OPENAI_MODEL || 'gpt-4o';
+    this.model = process.env.OPENAI_MODEL || 'gpt-5-mini';
 
     // Get tools from definitions package
     this.tools = getAllToolDefinitions();
@@ -157,7 +158,7 @@ export class OpenAIService {
         ],
         stream: true,
         tools: this.tools,
-        max_tokens: 500,
+        max_completion_tokens: 500,
         temperature: 0.7,
       });
 
@@ -211,14 +212,35 @@ export class OpenAIService {
 
           // Process accumulated tool calls with standardized response format
           if (toolCallsAccumulator.size > 0) {
-            for (const [index, toolCall] of toolCallsAccumulator.entries()) {
+            for (const [, toolCall] of toolCallsAccumulator.entries()) {
               try {
                 const args = JSON.parse(toolCall.function.arguments);
                 const toolName = toolCall.function.name;
 
-                // Send standardized ToolResponse format (NEW_ARCHITECTURE.md)
+                // Validate tool parameters using Zod schema
+                console.log(`[OpenAI] Validating tool call: ${toolName}`, args);
+                const validation = validateWithZod(toolName, args);
+
+                if (!validation.valid) {
+                  // Send validation error to frontend
+                  console.error(`[OpenAI] Validation failed for ${toolName}:`, validation.errors);
+                  ws.send(JSON.stringify({
+                    type: 'tool_call',
+                    toolName,
+                    error: {
+                      code: 'VALIDATION_ERROR',
+                      message: `Invalid parameters: ${validation.errors.join(', ')}`
+                    },
+                    callId: toolCall.id
+                  }));
+                  continue; // Skip this tool call
+                }
+
+                console.log(`[OpenAI] Validation passed for ${toolName}`);
+
+                // Send standardized ToolResponse format with validated data
                 const response: ToolResponse = formatToolResponse(toolName, {
-                  data: args,
+                  data: validation.data, // Use validated & typed data
                   message: `Executing ${toolName}`
                 });
 
@@ -229,6 +251,15 @@ export class OpenAIService {
                 }));
               } catch (error) {
                 console.error('[OpenAI] Error parsing tool call arguments:', error);
+                ws.send(JSON.stringify({
+                  type: 'tool_call',
+                  toolName: toolCall.function.name,
+                  error: {
+                    code: 'PARSE_ERROR',
+                    message: `Failed to parse tool arguments: ${(error as Error).message}`
+                  },
+                  callId: toolCall.id
+                }));
               }
             }
           }
