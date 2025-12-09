@@ -1,28 +1,37 @@
 import { ToolDefinition } from '../core/types';
 
-export const FLY_TO_LOCATION_TOOL: ToolDefinition = {
+export const FLY_TO_TOOL: ToolDefinition = {
   type: 'function',
   function: {
-    name: 'fly_to_location',
-    description: 'Navigate the map to a specific location using coordinates. The AI should convert city names or locations to coordinates.',
+    name: 'fly_to',
+    description: 'Fly the map to a specific location with smooth animation. Use this to navigate to coordinates.',
     parameters: {
       type: 'object',
       properties: {
-        coordinates: {
-          type: 'array',
-          items: { type: 'number' },
-          minItems: 2,
-          maxItems: 2,
-          description: 'Geographic coordinates as [longitude, latitude] in decimal degrees. Example: [-74.006, 40.7128] for New York City'
+        lat: {
+          type: 'number',
+          description: 'Latitude coordinate (-90 to 90)',
+          minimum: -90,
+          maximum: 90
+        },
+        lng: {
+          type: 'number',
+          description: 'Longitude coordinate (-180 to 180)',
+          minimum: -180,
+          maximum: 180
         },
         zoom: {
           type: 'number',
-          description: 'Zoom level (0-20, default: 10)',
+          description: 'Zoom level (0 to 22). Default is 12.',
           minimum: 0,
-          maximum: 20
+          maximum: 22,
+          default: 12
         }
       },
-      required: ['coordinates']
+      required: ['lat', 'lng']
     }
   }
 };
+
+// Keep old name for backwards compatibility
+export const FLY_TO_LOCATION_TOOL = FLY_TO_TOOL;

@@ -1,6 +1,6 @@
 {
-  "name": "@map-tools/ai-tools",
-  "version": "1.0.0",
+  "name": "@carto/maps-ai-tools",
+  "version": "2.0.0",
   "description": "Isomorphic JavaScript library for AI-powered map controls using OpenAI function calling",
   "type": "module",
   "main": "./dist/cjs/index.js",
@@ -55,6 +55,7 @@
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^12.1.0",
     "@types/node": "^24.10.0",
@@ -64,5 +65,17 @@
   "dependencies": {
     "@deck.gl/core": "^9.2.2",
     "tslib": "^2.8.1"
+  },
+  "peerDependencies": {
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.24.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": false
+    },
+    "zod-to-json-schema": {
+      "optional": false
+    }
   }
 }

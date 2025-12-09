@@ -1,333 +1,260 @@
-# Interactive Map with AI-Powered Chat Control
+# @carto/maps-ai-tools
 
-A full-stack web application featuring a deck.gl map visualization with AI-powered natural language control via WebSocket communication and OpenAI integration.
+> A framework-agnostic JavaScript library for AI-powered map controls using OpenAI function calling with deck.gl and MapLibre GL.
 
-## 🎯 Features
+**Note:** This is a proof-of-concept and first approach for `@carto/maps-ai-tools`. The API and features are subject to change as we iterate on the design.
 
-- **Interactive Map**: deck.gl-powered map with CARTO Voyager basemap and MapLibre GL
-- **GeoJSON Visualization**: Display of 20 major US cities with accurate coordinates
-- **Real-Time Chat**: WebSocket-based chat interface with streaming responses
-- **AI-Powered Natural Language Commands**: Control the map through conversational chat
-  - OpenAI function calling for intelligent command interpretation
-  - Contextual conversation memory across multiple messages
-  - Zoom in/out with natural language ("zoom in a bit", "zoom out 3 levels")
-  - Fly to cities by name ("go to San Francisco", "show me Miami")
-  - Toggle layer visibility ("hide the points", "show cities")
+## Table of Contents
 
-## 📁 Project Structure
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Available Tools](#available-tools)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Features
+
+* **Framework Agnostic**: Works with React, Vue, Angular, or Vanilla JavaScript
+* **9 Built-in AI Tools**: Comprehensive map control capabilities out of the box
+* **OpenAI Function Calling**: Seamless integration with streaming responses
+* **Type-Safe Validation**: Zod-based schemas with automatic JSON Schema generation
+* **Isomorphic Design**: Works on both frontend and backend
+* **Real-Time Communication**: WebSocket-based chat with streaming AI responses
+* **deck.gl + MapLibre**: Powerful WebGL visualization with vector tile basemaps
+
+## Project Structure
 
 ```
-frontend-tools/
-├── frontend/                 # Vite vanilla JS frontend
-│   ├── public/
-│   │   └── data/
-│   │       └── us-points.geojson    # 20 major US cities
+ps-frontend-tools-poc/
+├── map-ai-tools/              # Core library (@carto/maps-ai-tools v2.0.0)
 │   ├── src/
-│   │   ├── main.js                  # App entry point
-│   │   ├── chat/
-│   │   │   ├── chat-ui.js           # Chat interface with streaming support
-│   │   │   └── websocket-client.js  # WebSocket client with auto-reconnect
-│   │   ├── map/
-│   │   │   ├── deckgl-map.js        # deck.gl + MapLibre setup
-│   │   │   └── map-controller.js    # Map manipulation API
-│   │   ├── commands/
-│   │   │   └── tool-executor.js     # Executes OpenAI function calls
-│   │   └── styles/
-│   │       └── main.css
-│   └── index.html
-│
-└── backend/                  # Node.js TypeScript backend
-    ├── .env.example          # Environment variables template
-    ├── src/
-    │   ├── index.ts
-    │   ├── server.ts
-    │   ├── types/
-    │   │   └── messages.ts
-    │   ├── websocket/
-    │   │   └── websocket-server.ts
-    │   └── services/
-    │       ├── openai-service.ts           # OpenAI streaming integration
-    │       ├── conversation-manager.ts     # Per-session conversation history
-    │       ├── message-handler.ts          # Message orchestration
-    │       └── tool-definitions.ts         # OpenAI function schemas
-    └── tsconfig.json
+│   │   ├── core/              # Types, registry, executor factory
+│   │   ├── definitions/       # Zod-based tool schemas
+│   │   ├── executors/         # Tool execution implementations
+│   │   └── prompts/           # System prompt generation
+│   └── dist/                  # Built ESM + CJS outputs
+├── backend/                   # Node.js + TypeScript backend
+│   └── src/
+│       ├── services/          # OpenAI, conversation, message handling
+│       └── websocket/         # WebSocket server
+└── integration-examples/      # Framework integration examples
+    ├── frontend/              # Vanilla JS + Vite
+    ├── frontend-react/        # React 19 + Vite
+    ├── frontend-vue/          # Vue 3 + Vite + TypeScript
+    └── frontend-angular/      # Angular 20
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- Node.js v18+
-- npm
-- OpenAI API key (get one at https://platform.openai.com/api-keys)
+* Node.js v18+
+* npm or pnpm
+* OpenAI API key ([get one here](https://platform.openai.com/api-keys))
 
-### Installation & Configuration
+### Installation
 
-1. **Install Backend Dependencies**:
-```bash
-cd backend
-npm install
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/CartoDB/ps-frontend-tools-poc.git
+   cd ps-frontend-tools-poc
+   ```
 
-2. **Configure Environment Variables**:
-```bash
-cd backend
-cp .env.example .env
-```
+2. Build the core library:
+   ```bash
+   cd map-ai-tools
+   npm install
+   npm run build
+   ```
 
-Edit `.env` and add your OpenAI API key:
-```
-OPENAI_API_KEY=sk-proj-your-actual-api-key-here
-OPENAI_MODEL=gpt-4o          # Optional: Defaults to gpt-4o
-PORT=3000                    # Optional: Defaults to 3000
-```
+3. Set up the backend:
+   ```bash
+   cd ../backend
+   npm install
+   cp .env.example .env
+   ```
 
-3. **Install Frontend Dependencies**:
-```bash
-cd ../frontend
-npm install
-```
+4. Configure your OpenAI API key in `backend/.env`:
+   ```env
+   OPENAI_API_KEY=sk-proj-your-api-key-here
+   OPENAI_MODEL=gpt-4o          # Optional, defaults to gpt-4o
+   PORT=3000                    # Optional, defaults to 3000
+   ```
+
+5. Choose and install an example frontend:
+   ```bash
+   cd ../integration-examples/frontend-react
+   npm install
+   ```
 
 ### Running the Application
 
-1. **Start Backend Server** (Terminal 1):
-```bash
-cd backend
-npm run dev
-```
+1. **Start the backend** (Terminal 1):
+   ```bash
+   cd backend
+   npm run dev
+   ```
+   Backend runs on http://localhost:3000
 
-The backend will start on http://localhost:3000
-- Health check: http://localhost:3000/health
-- WebSocket endpoint: ws://localhost:3000/ws
+2. **Start a frontend example** (Terminal 2):
+   ```bash
+   cd integration-examples/frontend-react
+   npm run dev
+   ```
+   Frontend runs on http://localhost:5174
 
-2. **Start Frontend Dev Server** (Terminal 2):
-```bash
-cd frontend
-npm run dev
-```
+3. Open your browser and start chatting with the map!
 
-The frontend will typically start on http://localhost:5173
+## Usage
 
-3. **Open Browser**:
-Navigate to http://localhost:5173 (or the URL shown in your terminal)
+### Natural Language Commands
 
-## 💬 Natural Language Examples
+The AI understands conversational commands for map control:
 
-The application uses OpenAI to understand natural language commands. You can chat conversationally!
+**Navigation**
+- "fly to San Francisco"
+- "go to Miami and zoom in"
+- "take me to New York"
 
-### Zoom Commands
+**Zoom Control**
 - "zoom in"
-- "zoom in a bit"
 - "zoom out 3 levels"
 - "can you zoom in more?"
 
-### Navigation Commands
-- "fly to San Francisco"
-- "go to Miami"
-- "show me New York and zoom in"
-- "take me to Los Angeles"
-
-**Available Cities**:
-- New York, Los Angeles, Chicago, San Francisco
-- Seattle, Miami, Boston, Denver
-- Plus more cities in the GeoJSON dataset
-
-### Layer Commands
+**Layer Control**
 - "hide the points"
-- "show the cities"
-- "toggle the points layer"
+- "show the airports layer"
+- "toggle the cities"
 
-### Conversational Flow
-The AI remembers context within the session:
-```
-You: "go to San Francisco"
-AI: [flies to San Francisco]
+**Styling**
+- "make the points red"
+- "color airports by country"
+- "size points by population"
 
-You: "now go to Miami"
-AI: [understands context and flies to Miami]
-```
+**Data Queries**
+- "how many airports are in the US?"
+- "show only international airports"
+- "group airports by region"
 
-## 🔧 Development
+### Programmatic Usage
 
-### Backend
+```javascript
+import {
+  TOOL_NAMES,
+  parseToolResponse,
+  getAllToolDefinitions
+} from '@carto/maps-ai-tools';
 
-**TypeScript Type Checking**:
-```bash
-cd backend
-npx tsc --noEmit
-```
+// Get tool definitions for OpenAI
+const tools = getAllToolDefinitions();
 
-**Build for Production**:
-```bash
-npm run build
-```
-
-**Start Production Server**:
-```bash
-npm start
-```
-
-### Frontend
-
-**Build for Production**:
-```bash
-cd frontend
-npm run build
-```
-
-**Preview Production Build**:
-```bash
-npm run preview
+// Execute tools based on AI responses
+const executors = {
+  [TOOL_NAMES.FLY_TO]: (params) => {
+    deck.setProps({
+      initialViewState: {
+        latitude: params.lat,
+        longitude: params.lng,
+        zoom: params.zoom || 12,
+        transitionDuration: 1000
+      }
+    });
+  },
+  [TOOL_NAMES.ZOOM_MAP]: (params) => {
+    // Handle zoom in/out
+  }
+};
 ```
 
-## 📚 Tech Stack
+## Available Tools
 
-### Frontend
-- **Vite** - Build tool and dev server
-- **deck.gl** - WebGL-powered map visualization
-- **@deck.gl/carto** - CARTO basemap integration
-- **MapLibre GL JS** - Base map rendering
-- **Vanilla JavaScript** - No frameworks
+| Tool | Description |
+|------|-------------|
+| `fly-to` | Navigate to coordinates with smooth animation |
+| `zoom-map` | Zoom in or out by specified levels |
+| `toggle-layer` | Show or hide map layers by name |
+| `set-point-color` | Set uniform color for all points (RGBA) |
+| `color-features-by-property` | Color features conditionally based on property values |
+| `query-features` | Count or query features matching criteria |
+| `filter-features-by-property` | Display only features matching criteria |
+| `size-features-by-property` | Size features dynamically based on property values |
+| `aggregate-features` | Group and count features by property |
+
+## Tech Stack
+
+### Core Library
+- **TypeScript** - Type-safe development
+- **Zod** - Schema validation with JSON Schema generation
+- **deck.gl** - WebGL-powered visualization
+- **Rollup** - ESM and CommonJS builds
 
 ### Backend
 - **Node.js** - Runtime environment
-- **TypeScript** - Type-safe development
-- **Express** - Web server framework
+- **Express** - Web server
 - **ws** - WebSocket library
-- **OpenAI API** - Natural language processing with function calling
-- **CORS** - Cross-origin resource sharing
+- **OpenAI API** - AI with function calling
 
-## 🔍 Architecture
+### Frontend Examples
+- **Vite** - Fast build tool
+- **deck.gl** - Map rendering
+- **MapLibre GL** - Vector tile basemaps
+- **React/Vue/Angular** - Framework options
+
+## Architecture
 
 ### Communication Flow
 
 ```
-Browser                WebSocket               Backend              OpenAI API
-  │                       │                      │                     │
-  ├──── User Message ────>│                      │                     │
-  │                       ├──── Forward ────────>│                     │
-  │                       │                      ├─── Streaming ──────>│
-  │                       │                      │    Chat Request     │
-  │                       │                      │                     │
-  │                       │                      │<─── Text Chunks ────┤
-  │<──── Text Chunk ──────┤<──── Stream ─────────┤    + Tool Calls     │
-  │                       │                      │                     │
-  │<──── Tool Call ───────┤<──── Tool Call ──────┤                     │
-  │                       │                      │                     │
-  └─ Execute Tool         │                      │                     │
-     (MapController)      │                      │                     │
+User Message → Frontend WebSocket → Backend
+                                      ↓
+                         OpenAI API (streaming + function calling)
+                                      ↓
+Backend streams back: text chunks + tool_call messages
+                                      ↓
+Frontend: Display text + Execute tool_calls via Executors
+                                      ↓
+                         deck.gl updates map view
 ```
 
-### Map Update Flow with AI
+### Library Design
 
-```
-User types "go to San Francisco and zoom in"
-     │
-     ├─> Chat UI sends to WebSocket
-     │
-     └─> Backend → OpenAI API
-         │
-         ├─> OpenAI Function Calling determines:
-         │   - fly_to_location(location: "San Francisco")
-         │   - zoom_map(direction: "in", levels: 1)
-         │
-         └─> Backend streams back:
-             ├─> Text chunks (assistant's response)
-             └─> Tool call messages
-                 │
-                 └─> Frontend ToolExecutor
-                     ├─> MapController.flyTo()
-                     └─> MapController.zoomIn()
-                         │
-                         └─> deck.gl updates view (with forced redraws)
-                             │
-                             └─> MapLibre syncs basemap
-```
+The library follows a modular architecture:
 
-## 📝 Implementation Notes
+- **Tool Definitions**: Zod schemas define tool parameters and generate OpenAI function schemas
+- **Executors**: Pure functions that receive validated params and execution context (deck, map)
+- **Registry**: Central registration for built-in and custom tools
+- **Prompts**: System prompt generation for LLM integration
 
-### Critical Gotchas Handled
+## Troubleshooting
 
-1. **Coordinate Order**: GeoJSON uses [longitude, latitude] order (not lat, lon)
-2. **MapLibre Synchronization**: deck.gl view state properly synced with MapLibre via `onViewStateChange`
-3. **WebSocket Reconnection**: Automatic reconnection with exponential backoff
-4. **CARTO Basemaps**: Using BASEMAP.VOYAGER constant (no API tokens required)
-5. **deck.gl Rendering**: Points layer visibility requires:
-   - Waiting for MapLibre `load` event
-   - Explicit `visible: true` and `opacity: 1` properties
-   - Multiple `deck.redraw(true)` calls with scheduled timeouts
-6. **View State Updates**: Must use `initialViewState` with `transitionDuration` (not `viewState` prop) to trigger animations
-7. **OpenAI Conversation Context**: Assistant responses must be added to conversation history without `tool_calls` property (OpenAI requires tool response messages after tool_calls, which we don't send)
+### Backend Issues
+- **Port in use**: Check if port 3000 is available
+- **API errors**: Verify `OPENAI_API_KEY` in `.env`
+- **TypeScript errors**: Run `npx tsc --noEmit`
 
-### Current Implementation
+### Frontend Issues
+- **WebSocket errors**: Ensure backend is running on port 3000
+- **Map not rendering**: Check WebGL2 support in browser
+- **Points not visible**: Wait for MapLibre `load` event, check console for errors
 
-- ✅ OpenAI streaming integration with function calling
-- ✅ Natural language command processing
-- ✅ Conversation context memory across messages
-- ✅ Real-time map control with smooth animations
-- ✅ Client-side tool execution
-- ✅ Proper rendering and view state management
+### Common Gotchas
+- Coordinates use GeoJSON order: `[longitude, latitude]`
+- deck.gl requires explicit `redraw(true)` calls for visibility
+- Use `initialViewState` with `transitionDuration` for animations
 
-### Future Enhancements
+## Contributing
 
-- 🔄 Multi-user support with shared sessions
-- 🔄 Command history and undo functionality
-- 🔄 Additional map layers and data sources
-- 🔄 Voice input support
-- 🔄 Saved favorite locations
+We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
+- Development setup
+- Code style guidelines
+- Pull request process
+- Adding new tools
 
-## 🐛 Troubleshooting
+## License
 
-### Backend won't start
-- Ensure no other process is using port 3000
-- Check that all dependencies are installed: `npm install`
-- Verify `.env` file exists with valid `OPENAI_API_KEY`
-- Verify TypeScript compiles: `npx tsc --noEmit`
-
-### OpenAI API errors
-- Verify API key is valid and has credits
-- Check OpenAI status page: https://status.openai.com/
-- Ensure `OPENAI_MODEL` in `.env` is a valid model (default: gpt-4o)
-- Check backend console for detailed error messages
-
-### Chat not responding
-- Verify backend is running and connected to OpenAI
-- Check browser console for WebSocket errors
-- Ensure backend logs show "OpenAI Starting streamChatCompletion"
-- Verify conversation history isn't causing context length errors
-
-### Frontend won't connect to backend
-- Verify backend is running on port 3000
-- Check browser console for WebSocket errors
-- Ensure CORS is enabled in backend
-- Check network tab for WebSocket connection status
-
-### Map doesn't render
-- Check browser console for errors
-- Verify browser supports WebGL2
-- Ensure GeoJSON file exists at `/public/data/us-points.geojson`
-- Wait a few seconds after page load for MapLibre to initialize
-
-### Points not appearing on initial load
-- Refresh the page - points should appear after MapLibre loads
-- Check browser console for "Points layer loaded with 20 points" message
-- Verify GeoJSON coordinates are [lon, lat] format
-- Check Network tab to ensure us-points.geojson loads successfully
-
-### Map doesn't update when AI executes commands
-- Check that tool execution messages appear in chat (green checkmarks)
-- Verify browser console shows tool execution logs
-- Try manually zooming/panning to trigger a redraw
-- Check that deck.gl and MapLibre are properly initialized
-
-## 📄 License
-
-ISC
-
-## 🤝 Contributing
-
-This is a demo project created for learning purposes.
-
----
-
-**Built with ❤️ using deck.gl, CARTO, OpenAI, and WebSocket**
+MIT

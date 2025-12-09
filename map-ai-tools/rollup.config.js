@@ -1,10 +1,11 @@
 import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import json from '@rollup/plugin-json';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
-const external = ['@deck.gl/core']; // deck.gl should not be bundled
+const external = ['@deck.gl/core', 'zod', 'zod-to-json-schema']; // dependencies should not be bundled
 
 // Plugin to create package.json in dist/cjs
 const createCjsPackageJson = () => ({
@@ -30,6 +31,7 @@ export default [
     plugins: [
       resolve(),
       commonjs(),
+      json(),
       typescript({
         declaration: true,
         outDir: 'dist/esm',
@@ -52,6 +54,7 @@ export default [
     plugins: [
       resolve(),
       commonjs(),
+      json(),
       typescript({
         declaration: false,
         outDir: 'dist/cjs',

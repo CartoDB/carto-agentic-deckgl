@@ -1,7 +1,7 @@
 // backend/src/websocket/websocket-server.ts
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
-import { handleMessage } from '../services/message-handler';
+import { handleMessage } from '../services/message-handler.js';
 import { randomUUID } from 'crypto';
 
 const sessions = new Map<WebSocket, string>();
@@ -14,14 +14,6 @@ export function setupWebSocket(server: any) {
     sessions.set(ws, sessionId);
 
     console.log(`[WebSocket] New connection from ${request.socket.remoteAddress} (session: ${sessionId})`);
-
-    // Send welcome message
-    ws.send(JSON.stringify({
-      type: 'stream_chunk',
-      content: 'Connected to AI-powered map assistant',
-      messageId: `welcome_${Date.now()}`,
-      isComplete: true
-    }));
 
     ws.on('message', async (data: Buffer) => {
       try {

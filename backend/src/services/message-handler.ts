@@ -1,8 +1,8 @@
 // backend/src/services/message-handler.ts
 import { WebSocket } from 'ws';
-import { ClientMessage } from '../types/messages';
-import { OpenAIService } from './openai-service';
-import { ConversationManager } from './conversation-manager';
+import { ClientMessage } from '../types/messages.js';
+import { OpenAIService } from './openai-service.js';
+import { ConversationManager } from './conversation-manager.js';
 
 // Lazy initialization to ensure .env is loaded first
 let openaiService: OpenAIService | null = null;

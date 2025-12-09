@@ -7,7 +7,7 @@ export class ToolRegistry {
   private executors: Map<string, any> = new Map();
 
   constructor() {
-    // Register built-in tools
+    // Register built-in tools (now Zod-based)
     Object.entries(BUILTIN_TOOLS).forEach(([name, definition]) => {
       this.tools.set(name, definition);
     });

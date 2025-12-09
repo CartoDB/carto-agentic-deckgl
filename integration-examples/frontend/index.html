@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Map Chat</title>
+    <link
+      href="https://unpkg.com/maplibre-gl@3.0.0/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* CSS Variables for UI components */
+      :root {
+        --maps-ai-primary: #2563eb;
+        --maps-ai-primary-hover: #1d4ed8;
+        --maps-ai-bg: #ffffff;
+        --maps-ai-bg-secondary: #f8fafc;
+        --maps-ai-text: #1e293b;
+        --maps-ai-text-secondary: #64748b;
+        --maps-ai-border: #e2e8f0;
+        --maps-ai-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        --maps-ai-shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+      }
+
+      #app {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      #map-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #deck-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      /* Position adjustments for UI components */
+      #chat-ui-container {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 380px;
+        max-height: calc(100vh - 32px);
+        z-index: 100;
+      }
+
+      #zoom-ui-container {
+        position: absolute;
+        bottom: 32px;
+        right: 16px;
+        z-index: 100;
+      }
+
+      #layer-ui-container {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 100;
+      }
+
+      #tool-status-container {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 100;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="map-container">
+        <div id="map"></div>
+        <canvas id="deck-canvas"></canvas>
+      </div>
+
+      <!-- UI Components - Custom implementations -->
+      <div id="chat-ui-container"></div>
+      <div id="zoom-ui-container"></div>
+      <div id="layer-ui-container"></div>
+      <div id="tool-status-container"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

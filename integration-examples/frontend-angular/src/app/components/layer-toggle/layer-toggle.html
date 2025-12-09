@@ -1,0 +1,17 @@
+<div class="layer-toggle">
+  <div class="layer-toggle-header">Layers</div>
+  <div class="layer-list">
+    <label
+      *ngFor="let layer of layers"
+      class="layer-item"
+      [class.disabled]="disabled">
+      <input
+        type="checkbox"
+        [checked]="layer.visible"
+        [disabled]="disabled"
+        (change)="toggleLayer(layer)"
+      />
+      <span class="layer-name">{{ layer.name }}</span>
+    </label>
+  </div>
+</div>
