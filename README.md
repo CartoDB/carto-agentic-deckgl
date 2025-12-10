@@ -124,7 +124,7 @@ The AI understands conversational commands for map control:
 **Zoom Control**
 - "zoom in"
 - "zoom out 3 levels"
-- "can you zoom in more?"
+- "zoom out to world view"
 
 **Layer Control**
 - "hide the points"
@@ -132,14 +132,14 @@ The AI understands conversational commands for map control:
 - "toggle the cities"
 
 **Styling**
-- "make the points red"
-- "color airports by country"
-- "size points by population"
+- "color by country, divergent palette"
+- "color by country, grey palette"
+- "update size points by airport type"
 
 **Data Queries**
 - "how many airports are in the US?"
 - "show only international airports"
-- "group airports by region"
+- "Give me a comprensive list of airport attributes"
 
 ### Programmatic Usage
 

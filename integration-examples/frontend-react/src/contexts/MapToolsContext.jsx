@@ -1,10 +1,38 @@
-import { createContext, useContext, useRef, useCallback, useMemo } from 'react';
+import { createContext, useContext, useRef, useCallback, useMemo, useState } from 'react';
 
 /**
  * Context for managing persistent map tool state
- * Stores color filters, size rules, and original layer data across tool executions
+ * Stores layer registry, visibility, colors, filters, size rules, and original data
  */
 const MapToolsContext = createContext(null);
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Convert hex color to RGBA array
+ */
+function hexToRgba(hex, alpha = 180) {
+  if (!hex) return null;
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? [
+    parseInt(result[1], 16),
+    parseInt(result[2], 16),
+    parseInt(result[3], 16),
+    alpha
+  ] : null;
+}
+
+/**
+ * Convert RGBA array to hex color string
+ */
+function rgbaToHex(rgba) {
+  if (!rgba || rgba.length < 3) return null;
+  return '#' + [rgba[0], rgba[1], rgba[2]]
+    .map(x => x.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 /**
  * Provider component for MapToolsContext
@@ -15,6 +43,115 @@ export function MapToolsProvider({ children }) {
   const originalLayerDataRef = useRef(new Map()); // Map<layerId, originalGeoJSON>
   const sizeRulesRef = useRef(new Map()); // Map<layerId, Map<propertyValue, size>>
   const defaultSizesRef = useRef(new Map()); // Map<layerId, defaultSize>
+
+  // New refs for layer state management
+  const layerRegistryRef = useRef(new Map()); // Map<layerId, {id, name, color}>
+  const layerVisibilityRef = useRef(new Map()); // Map<layerId, boolean>
+  const layerBaseColorRef = useRef(new Map()); // Map<layerId, [r,g,b,a]>
+  const activeFiltersRef = useRef(new Map()); // Map<layerId, {property, operator, value} | null>
+
+  // State to trigger re-renders when layer state changes
+  const [layerStateVersion, setLayerStateVersion] = useState(0);
+  const triggerLayerUpdate = useCallback(() => {
+    setLayerStateVersion(v => v + 1);
+  }, []);
+
+  // ============================================================================
+  // Layer Registry Management
+  // ============================================================================
+
+  /**
+   * Register a layer with its initial configuration
+   */
+  const registerLayer = useCallback((config) => {
+    // config: { id, name, color, visible? }
+    if (!layerRegistryRef.current.has(config.id)) {
+      layerRegistryRef.current.set(config.id, {
+        id: config.id,
+        name: config.name,
+        color: config.color || '#c80050',
+      });
+      layerVisibilityRef.current.set(config.id, config.visible ?? true);
+      layerBaseColorRef.current.set(config.id, hexToRgba(config.color) || [200, 0, 80, 180]);
+      triggerLayerUpdate();
+    }
+  }, [triggerLayerUpdate]);
+
+  /**
+   * Get all layers with current state for UI
+   * Note: depends on layerStateVersion to trigger re-renders when state changes
+   */
+  const getLayers = useCallback(() => {
+    const layers = [];
+    layerRegistryRef.current.forEach((config, layerId) => {
+      layers.push({
+        ...config,
+        visible: layerVisibilityRef.current.get(layerId) ?? true,
+        color: rgbaToHex(layerBaseColorRef.current.get(layerId)) || config.color,
+      });
+    });
+    return layers;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerStateVersion]);
+
+  // ============================================================================
+  // Layer Visibility Management
+  // ============================================================================
+
+  const getLayerVisibility = useCallback((layerId) => {
+    return layerVisibilityRef.current.get(layerId) ?? true;
+  }, []);
+
+  const setLayerVisibility = useCallback((layerId, visible) => {
+    layerVisibilityRef.current.set(layerId, visible);
+    triggerLayerUpdate();
+  }, [triggerLayerUpdate]);
+
+  // ============================================================================
+  // Layer Base Color Management
+  // ============================================================================
+
+  const getLayerBaseColor = useCallback((layerId) => {
+    return layerBaseColorRef.current.get(layerId) ?? [200, 0, 80, 180];
+  }, []);
+
+  const setLayerBaseColor = useCallback((layerId, rgba) => {
+    layerBaseColorRef.current.set(layerId, rgba);
+    triggerLayerUpdate();
+  }, [triggerLayerUpdate]);
+
+  // ============================================================================
+  // Active Filter Management
+  // ============================================================================
+
+  const getActiveFilter = useCallback((layerId) => {
+    return activeFiltersRef.current.get(layerId) ?? null;
+  }, []);
+
+  const setActiveFilter = useCallback((layerId, filter) => {
+    activeFiltersRef.current.set(layerId, filter);
+  }, []);
+
+  const clearActiveFilter = useCallback((layerId) => {
+    activeFiltersRef.current.delete(layerId);
+  }, []);
+
+  // ============================================================================
+  // Get Full Layer State (for debugging/inspection)
+  // ============================================================================
+
+  const getLayerState = useCallback((layerId) => {
+    return {
+      visible: layerVisibilityRef.current.get(layerId) ?? true,
+      baseColor: layerBaseColorRef.current.get(layerId) ?? [200, 0, 80, 180],
+      colorFilters: colorFiltersRef.current.get(layerId) ?? [],
+      activeFilter: activeFiltersRef.current.get(layerId) ?? null,
+      sizeRules: sizeRulesRef.current.get(layerId)
+        ? Array.from(sizeRulesRef.current.get(layerId).entries()).map(([value, size]) => ({ value, size }))
+        : [],
+      defaultSize: defaultSizesRef.current.get(layerId) ?? 8,
+    };
+  }, []);
 
   // ============================================================================
   // Color Filters Management
@@ -172,7 +309,14 @@ export function MapToolsProvider({ children }) {
   const resetLayerState = useCallback((layerId) => {
     clearColorFilters(layerId);
     clearSizeRules(layerId);
-  }, [clearColorFilters, clearSizeRules]);
+    clearActiveFilter(layerId);
+    // Reset visibility and color to defaults
+    layerVisibilityRef.current.set(layerId, true);
+    const registry = layerRegistryRef.current.get(layerId);
+    if (registry) {
+      layerBaseColorRef.current.set(layerId, hexToRgba(registry.color) || [200, 0, 80, 180]);
+    }
+  }, [clearColorFilters, clearSizeRules, clearActiveFilter]);
 
   /**
    * Reset all state
@@ -181,11 +325,35 @@ export function MapToolsProvider({ children }) {
     colorFiltersRef.current.clear();
     sizeRulesRef.current.clear();
     defaultSizesRef.current.clear();
-    // Note: We keep originalLayerDataRef as it's source data
+    activeFiltersRef.current.clear();
+    // Reset visibility and colors to defaults for all layers
+    layerRegistryRef.current.forEach((config, layerId) => {
+      layerVisibilityRef.current.set(layerId, true);
+      layerBaseColorRef.current.set(layerId, hexToRgba(config.color) || [200, 0, 80, 180]);
+    });
+    // Note: We keep originalLayerDataRef and layerRegistryRef as they're source data
   }, []);
 
   // Memoize context value
   const value = useMemo(() => ({
+    // Layer registry
+    registerLayer,
+    getLayers,
+    getLayerState,
+
+    // Layer visibility
+    getLayerVisibility,
+    setLayerVisibility,
+
+    // Layer base color
+    getLayerBaseColor,
+    setLayerBaseColor,
+
+    // Active filter
+    getActiveFilter,
+    setActiveFilter,
+    clearActiveFilter,
+
     // Color filters
     getColorFilters,
     addColorFilter,
@@ -210,6 +378,10 @@ export function MapToolsProvider({ children }) {
     resetLayerState,
     resetAllState,
   }), [
+    registerLayer, getLayers, getLayerState,
+    getLayerVisibility, setLayerVisibility,
+    getLayerBaseColor, setLayerBaseColor,
+    getActiveFilter, setActiveFilter, clearActiveFilter,
     getColorFilters, addColorFilter, clearColorFilters, createColorAccessor,
     getOriginalData, setOriginalData, getOrSetOriginalData,
     getSizeRules, getDefaultSize, setDefaultSize, mergeSizeRules,
