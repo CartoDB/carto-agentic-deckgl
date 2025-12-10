@@ -6,11 +6,7 @@ export {
   getToolDefinitions,
   getToolDefinition,
   TOOL_NAMES,
-  toolsDictionary,
   BUILTIN_TOOLS,
 } from '@carto/maps-ai-tools';
 
 export type { ToolName } from '@carto/maps-ai-tools';
-
-// Alias for backward compatibility
-export { getAllToolDefinitions as getToolSchemas } from '@carto/maps-ai-tools';

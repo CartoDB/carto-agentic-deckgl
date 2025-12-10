@@ -1,4 +1,3 @@
-import { ToolDefinition } from './types';
 import { tools, type ToolName, validateToolParams as zodValidate } from '../definitions/tools';
 
 /**
@@ -41,22 +40,5 @@ export function validateWithZod(toolName: string, params: unknown): ValidationRe
   return {
     valid: false,
     errors
-  };
-}
-
-/**
- * Validate parameters against tool schema
- * @deprecated Use validateWithZod() for better type safety and validation
- */
-export function validateParameters(
-  toolName: string,
-  params: any,
-  _definition: ToolDefinition
-): { valid: boolean; errors: string[] } {
-  // Use Zod validation under the hood
-  const result = validateWithZod(toolName, params);
-  return {
-    valid: result.valid,
-    errors: result.errors
   };
 }
