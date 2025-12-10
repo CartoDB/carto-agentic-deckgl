@@ -1,6 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { MapView } from "./components/MapView";
 import { ChatUI } from "./components/ChatUI";
+import { ZoomControls } from "./components/ZoomControls";
+import { LayerToggle } from "./components/LayerToggle";
+import { Snackbar } from "./components/Snackbar";
+import { ToolLoader } from "./components/ToolLoader";
 import { TOOL_NAMES, parseToolResponse } from "@carto/maps-ai-tools";
 import { useMapTools } from "./contexts/MapToolsContext";
 import "./styles/main.css";
@@ -12,19 +16,46 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState([]);
   const [mapInstances, setMapInstances] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1.5);
+  const [snackbar, setSnackbar] = useState({ message: null, type: "error" });
+  // Loader state: null = hidden, "thinking" = waiting for AI, "executing" = running tools
+  const [loaderState, setLoaderState] = useState(null);
+  // Note: layers state is now managed by MapToolsContext via mapTools.getLayers()
 
   // Context for persistent tool state
   const mapTools = useMapTools();
 
+  // Register layer in context when map is initialized
+  useEffect(() => {
+    if (mapInstances) {
+      mapTools.registerLayer({
+        id: "points-layer",
+        name: "Airports",
+        color: "#c80050",
+        visible: true,
+      });
+    }
+  }, [mapInstances, mapTools]);
+
   // Refs for WebSocket and streaming
   const wsRef = useRef(null);
-  const streamingMessageRef = useRef({ id: null, content: '' });
+  const streamingMessageRef = useRef({ id: null, content: "" });
   const messageIdCounter = useRef(0);
 
   // Helper to add messages with unique IDs
   const addMessage = useCallback((msg) => {
-    const uniqueId = msg.id || `local_${Date.now()}_${messageIdCounter.current++}`;
-    setMessages(prev => [...prev, { ...msg, id: uniqueId }]);
+    const uniqueId =
+      msg.id || `local_${Date.now()}_${messageIdCounter.current++}`;
+    setMessages((prev) => [...prev, { ...msg, id: uniqueId }]);
+  }, []);
+
+  // Snackbar helpers for showing errors outside of chat
+  const showSnackbar = useCallback((message, type = "error") => {
+    setSnackbar({ message, type });
+  }, []);
+
+  const hideSnackbar = useCallback(() => {
+    setSnackbar({ message: null, type: "error" });
   }, []);
 
   // Define executors for each tool using the dictionary pattern
@@ -43,8 +74,8 @@ function App() {
             latitude: params.lat,
             zoom: params.zoom || 12,
             transitionDuration: 1000,
-            transitionInterruption: 1
-          }
+            transitionInterruption: 1,
+          },
         });
 
         // Sync MapLibre
@@ -52,7 +83,7 @@ function App() {
           map.flyTo({
             center: [params.lng, params.lat],
             zoom: params.zoom || 12,
-            duration: 1000
+            duration: 1000,
           });
         }
 
@@ -61,24 +92,30 @@ function App() {
         setTimeout(() => deck.redraw(true), 50);
         setTimeout(() => deck.redraw(true), 1100);
 
-        return { success: true, message: `Flying to ${params.lat.toFixed(2)}, ${params.lng.toFixed(2)}` };
+        return {
+          success: true,
+          message: `Flying to ${params.lat.toFixed(2)}, ${params.lng.toFixed(
+            2
+          )}`,
+        };
       },
 
       [TOOL_NAMES.ZOOM_MAP]: (params) => {
         const currentView = deck.props.initialViewState || { zoom: 10 };
         const currentZoom = currentView.zoom || 10;
         const levels = params.levels || 1;
-        const newZoom = params.direction === 'in'
-          ? Math.min(22, currentZoom + levels)
-          : Math.max(0, currentZoom - levels);
+        const newZoom =
+          params.direction === "in"
+            ? Math.min(22, currentZoom + levels)
+            : Math.max(0, currentZoom - levels);
 
         deck.setProps({
           initialViewState: {
             ...currentView,
             zoom: newZoom,
             transitionDuration: 500,
-            transitionInterruption: 1
-          }
+            transitionInterruption: 1,
+          },
         });
 
         // Sync MapLibre
@@ -87,7 +124,7 @@ function App() {
             center: [currentView.longitude, currentView.latitude],
             zoom: newZoom,
             bearing: currentView.bearing || 0,
-            pitch: currentView.pitch || 0
+            pitch: currentView.pitch || 0,
           });
         }
 
@@ -96,7 +133,10 @@ function App() {
         setTimeout(() => deck.redraw(true), 50);
         setTimeout(() => deck.redraw(true), 600);
 
-        return { success: true, message: `Zoomed ${params.direction} to level ${newZoom.toFixed(1)}` };
+        return {
+          success: true,
+          message: `Zoomed ${params.direction} to level ${newZoom.toFixed(1)}`,
+        };
       },
 
       [TOOL_NAMES.TOGGLE_LAYER]: (params) => {
@@ -104,20 +144,25 @@ function App() {
 
         // Find layer by name (case-insensitive)
         const layerNameMap = {
-          'airports': 'points-layer',
-          'points': 'points-layer',
-          'points-layer': 'points-layer'
+          airports: "points-layer",
+          points: "points-layer",
+          "points-layer": "points-layer",
         };
 
         const normalizedName = params.layerName.toLowerCase();
         const layerId = layerNameMap[normalizedName] || normalizedName;
 
-        const layerFound = currentLayers.some(layer => layer && layer.id === layerId);
+        const layerFound = currentLayers.some(
+          (layer) => layer && layer.id === layerId
+        );
         if (!layerFound) {
-          return { success: false, message: `Layer "${params.layerName}" not found` };
+          return {
+            success: false,
+            message: `Layer "${params.layerName}" not found`,
+          };
         }
 
-        const updatedLayers = currentLayers.map(layer => {
+        const updatedLayers = currentLayers.map((layer) => {
           if (layer && layer.id === layerId) {
             return layer.clone({ visible: params.visible });
           }
@@ -127,15 +172,23 @@ function App() {
         deck.setProps({ layers: updatedLayers });
         requestAnimationFrame(() => deck.redraw(true));
 
-        return { success: true, message: `Layer "${params.layerName}" ${params.visible ? 'shown' : 'hidden'}` };
+        // Persist visibility state to context
+        mapTools.setLayerVisibility(layerId, params.visible);
+
+        return {
+          success: true,
+          message: `Layer "${params.layerName}" ${
+            params.visible ? "shown" : "hidden"
+          }`,
+        };
       },
 
       [TOOL_NAMES.SET_POINT_COLOR]: (params) => {
         const rgba = [params.r, params.g, params.b, params.a ?? 200];
         const currentLayers = deck.props.layers || [];
 
-        const updatedLayers = currentLayers.map(layer => {
-          if (layer && layer.id === 'points-layer') {
+        const updatedLayers = currentLayers.map((layer) => {
+          if (layer && layer.id === "points-layer") {
             return layer.clone({ getFillColor: rgba });
           }
           return layer;
@@ -145,28 +198,48 @@ function App() {
         requestAnimationFrame(() => deck.redraw(true));
         setTimeout(() => deck.redraw(true), 50);
 
-        return { success: true, message: `Point color changed to rgb(${params.r}, ${params.g}, ${params.b})` };
+        // Persist base color to context
+        mapTools.setLayerBaseColor("points-layer", rgba);
+
+        return {
+          success: true,
+          message: `Point color changed to rgb(${params.r}, ${params.g}, ${params.b})`,
+        };
       },
 
       [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: (params) => {
-        const { layerId = 'points-layer', property, operator = 'equals', value } = params;
+        const {
+          layerId = "points-layer",
+          property,
+          operator = "equals",
+          value,
+        } = params;
         const filterColor = [params.r, params.g, params.b, params.a ?? 180];
         const defaultColor = [200, 0, 80, 180];
         const currentLayers = deck.props.layers || [];
 
         // Add filter using context (merges with existing filters)
         const filterKey = `${property}:${operator}:${value}`;
-        const newFilter = { key: filterKey, property, operator, value, color: filterColor };
+        const newFilter = {
+          key: filterKey,
+          property,
+          operator,
+          value,
+          color: filterColor,
+        };
         const filters = mapTools.addColorFilter(layerId, newFilter);
 
         // Use context's color accessor
-        const colorAccessor = mapTools.createColorAccessor(layerId, defaultColor);
+        const colorAccessor = mapTools.createColorAccessor(
+          layerId,
+          defaultColor
+        );
 
-        const updatedLayers = currentLayers.map(layer => {
+        const updatedLayers = currentLayers.map((layer) => {
           if (layer && layer.id === layerId) {
             return layer.clone({
               getFillColor: colorAccessor,
-              updateTriggers: { getFillColor: JSON.stringify(filters) }
+              updateTriggers: { getFillColor: JSON.stringify(filters) },
             });
           }
           return layer;
@@ -178,16 +251,22 @@ function App() {
 
         return {
           success: true,
-          message: `Colored features where ${property} ${operator} "${value}"`
+          message: `Colored features where ${property} ${operator} "${value}"`,
         };
       },
 
       [TOOL_NAMES.QUERY_FEATURES]: (params) => {
-        const { layerId = 'points-layer', property, operator = 'equals', value = '', includeNames = false } = params;
+        const {
+          layerId = "points-layer",
+          property,
+          operator = "equals",
+          value = "",
+          includeNames = false,
+        } = params;
         const currentLayers = deck.props.layers || [];
 
         // Find the layer
-        const layer = currentLayers.find(l => l && l.id === layerId);
+        const layer = currentLayers.find((l) => l && l.id === layerId);
         if (!layer) {
           return { success: false, message: `Layer "${layerId}" not found` };
         }
@@ -195,19 +274,24 @@ function App() {
         // Get GeoJSON data from layer
         const data = layer.props.data;
         if (!data || !data.features) {
-          return { success: false, message: 'No feature data available' };
+          return { success: false, message: "No feature data available" };
         }
 
         // Property matcher function
         const matchesFilter = (feature) => {
-          if (operator === 'all') return true;
-          const propValue = String(feature.properties[property] || '');
+          if (operator === "all") return true;
+          const propValue = String(feature.properties[property] || "");
           switch (operator) {
-            case 'equals': return propValue === value;
-            case 'startsWith': return propValue.startsWith(value);
-            case 'contains': return propValue.includes(value);
-            case 'regex': return new RegExp(value).test(propValue);
-            default: return false;
+            case "equals":
+              return propValue === value;
+            case "startsWith":
+              return propValue.startsWith(value);
+            case "contains":
+              return propValue.includes(value);
+            case "regex":
+              return new RegExp(value).test(propValue);
+            default:
+              return false;
           }
         };
 
@@ -217,8 +301,8 @@ function App() {
         const total = data.features.length;
 
         // Build response message
-        let message = '';
-        if (operator === 'all') {
+        let message = "";
+        if (operator === "all") {
           message = `Total features: ${count}`;
         } else {
           message = `Found ${count} features where ${property} ${operator} "${value}" (out of ${total} total)`;
@@ -229,7 +313,7 @@ function App() {
         if (includeNames && matchingFeatures.length > 0) {
           sampleNames = matchingFeatures
             .slice(0, 10)
-            .map(f => f.properties.name || f.properties.abbrev || 'Unknown')
+            .map((f) => f.properties.name || f.properties.abbrev || "Unknown")
             .filter(Boolean);
         }
 
@@ -239,58 +323,83 @@ function App() {
           data: {
             count,
             total,
-            sampleNames: sampleNames.length > 0 ? sampleNames : undefined
-          }
+            sampleNames: sampleNames.length > 0 ? sampleNames : undefined,
+          },
         };
       },
 
       [TOOL_NAMES.FILTER_FEATURES_BY_PROPERTY]: (params) => {
-        const { layerId = 'points-layer', property, operator = 'equals', value = '', reset = false } = params;
+        const {
+          layerId = "points-layer",
+          property,
+          operator = "equals",
+          value = "",
+          reset = false,
+        } = params;
         const currentLayers = deck.props.layers || [];
 
         // Find the layer
-        const layer = currentLayers.find(l => l && l.id === layerId);
+        const layer = currentLayers.find((l) => l && l.id === layerId);
         if (!layer) {
           return { success: false, message: `Layer "${layerId}" not found` };
         }
 
         // Get or store original data using context
-        const originalData = mapTools.getOrSetOriginalData(layerId, layer.props.data);
+        const originalData = mapTools.getOrSetOriginalData(
+          layerId,
+          layer.props.data
+        );
 
         if (!originalData || !originalData.features) {
-          return { success: false, message: 'No feature data available' };
+          return { success: false, message: "No feature data available" };
         }
 
         // If reset=true, show all features (no property required)
         if (reset) {
-          const updatedLayers = currentLayers.map(l => {
+          const updatedLayers = currentLayers.map((l) => {
             if (l && l.id === layerId) {
               return l.clone({
                 data: originalData,
-                updateTriggers: { data: 'reset' }
+                updateTriggers: { data: "reset" },
               });
             }
             return l;
           });
           deck.setProps({ layers: updatedLayers });
           requestAnimationFrame(() => deck.redraw(true));
-          return { success: true, message: `Filter cleared - showing all ${originalData.features.length} features` };
+
+          // Clear active filter from context
+          mapTools.clearActiveFilter(layerId);
+
+          return {
+            success: true,
+            message: `Filter cleared - showing all ${originalData.features.length} features`,
+          };
         }
 
         // For filtering, property and value are required
         if (!property) {
-          return { success: false, message: 'Property is required for filtering. Use reset=true to clear filters.' };
+          return {
+            success: false,
+            message:
+              "Property is required for filtering. Use reset=true to clear filters.",
+          };
         }
 
         // Property matcher function
         const matchesFilter = (feature) => {
-          const propValue = String(feature.properties[property] || '');
+          const propValue = String(feature.properties[property] || "");
           switch (operator) {
-            case 'equals': return propValue === value;
-            case 'startsWith': return propValue.startsWith(value);
-            case 'contains': return propValue.includes(value);
-            case 'regex': return new RegExp(value).test(propValue);
-            default: return false;
+            case "equals":
+              return propValue === value;
+            case "startsWith":
+              return propValue.startsWith(value);
+            case "contains":
+              return propValue.includes(value);
+            case "regex":
+              return new RegExp(value).test(propValue);
+            default:
+              return false;
           }
         };
 
@@ -298,15 +407,15 @@ function App() {
         const filteredFeatures = originalData.features.filter(matchesFilter);
         const filteredData = {
           ...originalData,
-          features: filteredFeatures
+          features: filteredFeatures,
         };
 
         // Update layer with filtered data
-        const updatedLayers = currentLayers.map(l => {
+        const updatedLayers = currentLayers.map((l) => {
           if (l && l.id === layerId) {
             return l.clone({
               data: filteredData,
-              updateTriggers: { data: `${property}:${operator}:${value}` }
+              updateTriggers: { data: `${property}:${operator}:${value}` },
             });
           }
           return l;
@@ -316,18 +425,27 @@ function App() {
         requestAnimationFrame(() => deck.redraw(true));
         setTimeout(() => deck.redraw(true), 50);
 
+        // Persist active filter to context
+        mapTools.setActiveFilter(layerId, { property, operator, value });
+
         return {
           success: true,
-          message: `Filtered to ${filteredFeatures.length} features where ${property} ${operator} "${value}"`
+          message: `Filtered to ${filteredFeatures.length} features where ${property} ${operator} "${value}"`,
         };
       },
 
       [TOOL_NAMES.SIZE_FEATURES_BY_PROPERTY]: (params) => {
-        const { layerId = 'points-layer', property, sizeRules = [], defaultSize = 8, reset = false } = params;
+        const {
+          layerId = "points-layer",
+          property,
+          sizeRules = [],
+          defaultSize = 8,
+          reset = false,
+        } = params;
         const currentLayers = deck.props.layers || [];
 
         // Find the layer
-        const layer = currentLayers.find(l => l && l.id === layerId);
+        const layer = currentLayers.find((l) => l && l.id === layerId);
         if (!layer) {
           return { success: false, message: `Layer "${layerId}" not found` };
         }
@@ -335,25 +453,32 @@ function App() {
         // If reset, use uniform size and clear stored rules
         if (reset) {
           mapTools.clearSizeRules(layerId);
-          const updatedLayers = currentLayers.map(l => {
+          const updatedLayers = currentLayers.map((l) => {
             if (l && l.id === layerId) {
               return l.clone({
                 getPointRadius: defaultSize,
-                pointRadiusUnits: 'pixels',
+                pointRadiusUnits: "pixels",
                 pointRadiusMinPixels: 1,
                 pointRadiusMaxPixels: 200,
-                updateTriggers: { getPointRadius: 'reset' }
+                updateTriggers: { getPointRadius: "reset" },
               });
             }
             return l;
           });
           deck.setProps({ layers: updatedLayers });
           requestAnimationFrame(() => deck.redraw(true));
-          return { success: true, message: `Size reset to uniform ${defaultSize}px` };
+          return {
+            success: true,
+            message: `Size reset to uniform ${defaultSize}px`,
+          };
         }
 
         if (!property || sizeRules.length === 0) {
-          return { success: false, message: 'Property and sizeRules are required. Use reset=true to clear size rules.' };
+          return {
+            success: false,
+            message:
+              "Property and sizeRules are required. Use reset=true to clear size rules.",
+          };
         }
 
         // Merge new size rules with existing using context
@@ -366,14 +491,14 @@ function App() {
         const allRules = mapTools.getSizeRulesArray(layerId);
 
         // Update layer with dynamic size in PIXELS
-        const updatedLayers = currentLayers.map(l => {
+        const updatedLayers = currentLayers.map((l) => {
           if (l && l.id === layerId) {
             return l.clone({
               getPointRadius: sizeAccessor,
-              pointRadiusUnits: 'pixels',
+              pointRadiusUnits: "pixels",
               pointRadiusMinPixels: 1,
               pointRadiusMaxPixels: 200,
-              updateTriggers: { getPointRadius: JSON.stringify(allRules) }
+              updateTriggers: { getPointRadius: JSON.stringify(allRules) },
             });
           }
           return l;
@@ -383,19 +508,21 @@ function App() {
         requestAnimationFrame(() => deck.redraw(true));
         setTimeout(() => deck.redraw(true), 50);
 
-        const rulesDescription = allRules.map(r => `${r.value}=${r.size}px`).join(', ');
+        const rulesDescription = allRules
+          .map((r) => `${r.value}=${r.size}px`)
+          .join(", ");
         return {
           success: true,
-          message: `Size rules merged: ${rulesDescription} (default: ${defaultSize}px)`
+          message: `Size rules merged: ${rulesDescription} (default: ${defaultSize}px)`,
         };
       },
 
       [TOOL_NAMES.AGGREGATE_FEATURES]: (params) => {
-        const { layerId = 'points-layer', groupBy } = params;
+        const { layerId = "points-layer", groupBy } = params;
         const currentLayers = deck.props.layers || [];
 
         // Find the layer
-        const layer = currentLayers.find(l => l && l.id === layerId);
+        const layer = currentLayers.find((l) => l && l.id === layerId);
         if (!layer) {
           return { success: false, message: `Layer "${layerId}" not found` };
         }
@@ -403,17 +530,17 @@ function App() {
         // Get GeoJSON data - use original if available, otherwise current
         let data = mapTools.getOriginalData(layerId) || layer.props.data;
         if (!data || !data.features) {
-          return { success: false, message: 'No feature data available' };
+          return { success: false, message: "No feature data available" };
         }
 
         if (!groupBy) {
-          return { success: false, message: 'groupBy property is required' };
+          return { success: false, message: "groupBy property is required" };
         }
 
         // Aggregate counts by property value
         const counts = new Map();
-        data.features.forEach(feature => {
-          const value = String(feature.properties[groupBy] || 'unknown');
+        data.features.forEach((feature) => {
+          const value = String(feature.properties[groupBy] || "unknown");
           counts.set(value, (counts.get(value) || 0) + 1);
         });
 
@@ -423,7 +550,9 @@ function App() {
           .sort((a, b) => b.count - a.count);
 
         // Build table string for display
-        const tableRows = results.map(r => `${r.value}: ${r.count}`).join('\n');
+        const tableRows = results
+          .map((r) => `${r.value}: ${r.count}`)
+          .join("\n");
         const total = data.features.length;
 
         return {
@@ -432,80 +561,152 @@ function App() {
           data: {
             groupBy,
             total,
-            groups: results
-          }
+            groups: results,
+          },
         };
-      }
+      },
     };
   }, [mapInstances, mapTools]);
+
+  // Handle view state changes (for zoom tracking)
+  const handleViewStateChange = useCallback((viewState) => {
+    setZoomLevel(viewState.zoom);
+  }, []);
+
+  // Handle zoom in button click
+  const handleZoomIn = useCallback(() => {
+    const executors = getExecutors();
+    if (executors[TOOL_NAMES.ZOOM_MAP]) {
+      const result = executors[TOOL_NAMES.ZOOM_MAP]({
+        direction: "in",
+        levels: 1,
+      });
+      console.log("Zoom in:", result.message);
+    }
+  }, [getExecutors]);
+
+  // Handle zoom out button click
+  const handleZoomOut = useCallback(() => {
+    const executors = getExecutors();
+    if (executors[TOOL_NAMES.ZOOM_MAP]) {
+      const result = executors[TOOL_NAMES.ZOOM_MAP]({
+        direction: "out",
+        levels: 1,
+      });
+      console.log("Zoom out:", result.message);
+    }
+  }, [getExecutors]);
+
+  // Handle layer toggle
+  const handleLayerToggle = useCallback(
+    (layerId, visible) => {
+      const executors = getExecutors();
+      if (executors[TOOL_NAMES.TOGGLE_LAYER]) {
+        const result = executors[TOOL_NAMES.TOGGLE_LAYER]({
+          layerName: layerId,
+          visible,
+        });
+        // State is now persisted by the executor via mapTools.setLayerVisibility
+        console.log("Layer toggle:", result.message);
+      }
+    },
+    [getExecutors]
+  );
 
   // Handle streaming message chunks
   const handleStreamChunk = useCallback((data) => {
     const ref = streamingMessageRef.current;
 
+    // Hide "thinking" loader when first chunk arrives
+    if (ref.id !== data.messageId) {
+      setLoaderState(null);
+    }
+
     // Skip empty completion chunks
     if (data.isComplete && !data.content) {
-      setMessages(prev => prev.map(msg =>
-        msg.id === data.messageId
-          ? { ...msg, streaming: false }
-          : msg
-      ));
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.messageId ? { ...msg, streaming: false } : msg
+        )
+      );
+      // Show "executing" loader when stream completes (tools about to execute)
+      setLoaderState("executing");
       return;
     }
 
     if (ref.id !== data.messageId) {
       // New message - add to messages array
       ref.id = data.messageId;
-      ref.content = data.content || '';
-      setMessages(prev => [...prev, {
-        id: data.messageId,
-        type: 'assistant',
-        content: ref.content,
-        streaming: true
-      }]);
+      ref.content = data.content || "";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: data.messageId,
+          type: "assistant",
+          content: ref.content,
+          streaming: true,
+        },
+      ]);
     } else {
       // Accumulate content from chunks
-      ref.content += data.content || '';
-      setMessages(prev => prev.map(msg =>
-        msg.id === data.messageId
-          ? { ...msg, content: ref.content, streaming: !data.isComplete }
-          : msg
-      ));
+      ref.content += data.content || "";
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.messageId
+            ? { ...msg, content: ref.content, streaming: !data.isComplete }
+            : msg
+        )
+      );
+      // Show "executing" loader when stream completes (tools about to execute)
+      if (data.isComplete) {
+        setLoaderState("executing");
+      }
     }
   }, []);
 
   // Handle tool calls using dictionary pattern
-  const handleToolCall = useCallback((response) => {
-    const executors = getExecutors();
+  const handleToolCall = useCallback(
+    (response) => {
+      console.log("handleToolCall", response);
 
-    if (Object.keys(executors).length === 0) {
-      console.warn('Map not initialized yet');
-      addMessage({ type: 'error', content: 'Map not ready' });
-      return;
-    }
+      const executors = getExecutors();
 
-    const { toolName, data, error } = parseToolResponse(response);
+      if (Object.keys(executors).length === 0) {
+        console.warn("Map not initialized yet");
+        showSnackbar("Map not ready");
+        setLoaderState(null);
+        return;
+      }
 
-    if (error) {
-      console.error(`Tool error: ${error.message}`);
-      addMessage({ type: 'error', content: `Error: ${error.message}` });
-      return;
-    }
+      const { toolName, data, error } = parseToolResponse(response);
 
-    console.log(`Executing tool: ${toolName}`, data);
+      if (error) {
+        console.error(`Tool error: ${error.message}`);
+        showSnackbar(`Error: ${error.message}`);
+        setLoaderState(null);
+        return;
+      }
 
-    const executor = executors[toolName];
-    if (executor && data) {
-      const result = executor(data);
-      addMessage({
-        type: 'action',
-        content: result.success ? `✓ ${result.message}` : `✗ ${result.message}`
-      });
-    } else {
-      console.warn(`Unknown tool: ${toolName}`);
-      addMessage({ type: 'error', content: `Unknown tool: ${toolName}` });
-    }
-  }, [getExecutors, addMessage]);
+      console.log(`Executing tool: ${toolName}`, data);
+
+      const executor = executors[toolName];
+      if (executor && data) {
+        const result = executor(data);
+        addMessage({
+          type: "action",
+          content: result.success
+            ? `✓ ${result.message}`
+            : `✗ ${result.message}`,
+        });
+        // Note: Layer state is now persisted directly in executors via mapTools context
+      } else {
+        console.warn(`Unknown tool: ${toolName}`);
+        showSnackbar(`Unknown tool: ${toolName}`);
+      }
+      setLoaderState(null);
+    },
+    [getExecutors, addMessage, showSnackbar]
+  );
 
   // WebSocket connection effect
   useEffect(() => {
@@ -513,35 +714,35 @@ function App() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      console.log("WebSocket connected");
       setIsConnected(true);
     };
 
     ws.onclose = () => {
-      console.log('WebSocket disconnected');
+      console.log("WebSocket disconnected");
       setIsConnected(false);
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      addMessage({ type: 'error', content: 'Connection error' });
+      console.error("WebSocket error:", error);
+      showSnackbar("Connection error");
     };
 
     ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
 
-        if (data.type === 'stream_chunk') {
+        if (data.type === "stream_chunk") {
           handleStreamChunk(data);
-        } else if (data.type === 'tool_call') {
+        } else if (data.type === "tool_call") {
           handleToolCall(data);
-        } else if (data.type === 'error') {
-          addMessage({ type: 'error', content: data.content });
-        } else if (data.type === 'welcome') {
-          console.log('Server welcome:', data.content);
+        } else if (data.type === "error") {
+          showSnackbar(data.content);
+        } else if (data.type === "welcome") {
+          console.log("Server welcome:", data.content);
         }
       } catch (err) {
-        console.error('Error processing message:', err);
+        console.error("Error processing message:", err);
       }
     };
 
@@ -550,34 +751,70 @@ function App() {
         ws.close();
       }
     };
-  }, [addMessage, handleStreamChunk, handleToolCall]);
+  }, [addMessage, handleStreamChunk, handleToolCall, showSnackbar]);
 
   // Send message handler
-  const handleSendMessage = useCallback((content) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      console.warn('WebSocket not connected');
-      return;
-    }
+  const handleSendMessage = useCallback(
+    (content) => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        console.warn("WebSocket not connected");
+        return;
+      }
 
-    addMessage({ type: 'user', content });
-    streamingMessageRef.current = { id: null, content: '' };
+      addMessage({ type: "user", content });
+      streamingMessageRef.current = { id: null, content: "" };
+      // Show "thinking" loader while waiting for AI response
+      setLoaderState("thinking");
 
-    wsRef.current.send(JSON.stringify({
-      type: 'chat_message',
-      content,
-      timestamp: Date.now()
-    }));
-  }, [addMessage]);
+      wsRef.current.send(
+        JSON.stringify({
+          type: "chat_message",
+          content,
+          timestamp: Date.now(),
+        })
+      );
+    },
+    [addMessage]
+  );
 
   return (
     <div style={{ display: "flex", width: "100vw", height: "100vh" }}>
       <div style={{ flex: 1, position: "relative" }}>
-        <MapView onMapInit={setMapInstances} />
+        <MapView
+          onMapInit={setMapInstances}
+          onViewStateChange={handleViewStateChange}
+        />
+        {/* Layer Toggle - top left */}
+        <div style={{ position: "absolute", top: 10, left: 10, zIndex: 100 }}>
+          <LayerToggle
+            disabled={!isConnected || !mapInstances}
+            layers={mapTools.getLayers()}
+            onToggle={handleLayerToggle}
+          />
+        </div>
+        {/* Zoom Controls - bottom left */}
+        <div
+          style={{ position: "absolute", bottom: 30, left: 10, zIndex: 100 }}
+        >
+          <ZoomControls
+            disabled={!isConnected || !mapInstances}
+            zoomLevel={zoomLevel}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+          />
+        </div>
       </div>
       <ChatUI
         isConnected={isConnected}
         onSendMessage={handleSendMessage}
         messages={messages}
+        loaderState={loaderState}
+      />
+      <Snackbar
+        message={snackbar.message}
+        type={snackbar.type}
+        onClose={hideSnackbar}
+        duration={5000}
       />
     </div>
   );
