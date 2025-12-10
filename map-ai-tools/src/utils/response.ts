@@ -1,43 +1,19 @@
-/**
- * Standard tool error interface
- */
-export interface ToolError {
-  code: string;
-  message: string;
-  details?: unknown;
-}
+// Import type definitions from canonical location
+import type { ToolError, ToolResponse, ParsedToolResponse } from '../executors/interface';
+
+// Re-export for convenience
+export type { ToolError, ToolResponse, ParsedToolResponse };
 
 /**
- * Standard tool response interface (NEW_ARCHITECTURE.md format)
- * Note: Success is determined by the absence of the `error` field
+ * Legacy tool response interface (internal - for backwards compatibility parsing)
+ * Not exported - used only for runtime type checking of old format responses
  */
-export interface ToolResponse<T = unknown> {
-  toolName: string;
-  data?: T;
-  message?: string;
-  error?: ToolError;
-}
-
-/**
- * Legacy tool response interface (for backwards compatibility)
- * @deprecated Use ToolResponse instead
- */
-export interface LegacyToolResponse<T = unknown> {
+interface LegacyToolResponse<T = unknown> {
   success: boolean;
   tool_name: string;
   data?: T;
   message?: string;
   error?: ToolError;
-}
-
-/**
- * Parsed tool response
- */
-export interface ParsedToolResponse<T = unknown> {
-  toolName: string;
-  data: T | undefined;
-  error: ToolError | undefined;
-  message: string | undefined;
 }
 
 /**
