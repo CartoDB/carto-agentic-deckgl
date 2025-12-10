@@ -32,10 +32,10 @@ export function validateWithZod(toolName: string, params: unknown): ValidationRe
     };
   }
 
-  // Extract error messages from Zod errors
-  const errors = result.error.errors.map((err: { path: (string | number)[]; message: string }) => {
-    const path = err.path.length > 0 ? `${err.path.join('.')}: ` : '';
-    return `${path}${err.message}`;
+  // Extract error messages from Zod issues
+  const errors = result.error.issues.map((issue) => {
+    const path = issue.path.length > 0 ? `${issue.path.join('.')}: ` : '';
+    return `${path}${issue.message}`;
   });
 
   return {
