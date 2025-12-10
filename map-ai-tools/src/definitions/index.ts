@@ -13,15 +13,9 @@ export {
 
 export type { ToolName } from './tools';
 
-// Export dictionary constants (backwards compatibility)
+// Export dictionary constants
 export {
   TOOL_NAMES,
-  toolsDictionary,
-  toolSchemas,
-  // Deprecated aliases
-  getToolSchema,
-  getAllToolSchemas,
-  getToolSchemasByNames,
 } from './dictionary';
 
 // Import for BUILTIN_TOOLS
