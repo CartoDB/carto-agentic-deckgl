@@ -6,14 +6,14 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const INITIAL_VIEW_STATE = {
-  longitude: -95.7129,
-  latitude: 37.0902,
-  zoom: 4,
+  longitude: 0,
+  latitude: 20,
+  zoom: 1.5,
   pitch: 0,
   bearing: 0
 };
 
-export const MapView = ({ onMapInit }) => {
+export const MapView = ({ onMapInit, onViewStateChange }) => {
   const mapRef = useRef(null);
   const deckRef = useRef(null);
 
@@ -48,6 +48,10 @@ export const MapView = ({ onMapInit }) => {
             bearing: viewState.bearing,
             pitch: viewState.pitch
           });
+        }
+        // Notify parent of view state change (for zoom tracking)
+        if (onViewStateChange) {
+          onViewStateChange(viewState);
         }
         return viewState;
       },
@@ -102,7 +106,7 @@ export const MapView = ({ onMapInit }) => {
         mapRef.current.remove();
       }
     };
-  }, [onMapInit]);
+  }, [onMapInit, onViewStateChange]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>

@@ -1,7 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import { ToolLoader } from "./ToolLoader";
 
-export const ChatUI = ({ isConnected, onSendMessage, messages }) => {
+export const ChatUI = ({
+  isConnected,
+  onSendMessage,
+  messages,
+  loaderState,
+}) => {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
 
@@ -175,6 +181,7 @@ export const ChatUI = ({ isConnected, onSendMessage, messages }) => {
             </div>
           );
         })}
+        <ToolLoader state={loaderState} />
         <div ref={messagesEndRef} />
       </div>
 
