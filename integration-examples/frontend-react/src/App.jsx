@@ -4,30 +4,47 @@ import { ChatUI } from './components/ChatUI';
 import { ZoomControls } from './components/ZoomControls';
 import { LayerToggle } from './components/LayerToggle';
 import { Snackbar } from './components/Snackbar';
-import { TOOL_NAMES, parseToolResponse } from '@carto/maps-ai-tools';
+import { TOOL_NAMES } from '@carto/maps-ai-tools';
 import { useMapTools } from './contexts/MapToolsContext';
-import { useMessages, useWebSocket, useToolExecutors } from './hooks';
+import { useMapAITools } from './hooks';
 import { WS_URL } from './config/constants';
 import './styles/main.css';
 
 /**
  * Main App component
- * Orchestrates map, chat, and tool execution
- * Refactored to use custom hooks for cleaner separation of concerns (SRP)
+ * Orchestrates map, chat, and tool execution using useMapAITools hook
  */
 function App() {
   // State
   const [mapInstances, setMapInstances] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1.5);
   const [snackbar, setSnackbar] = useState({ message: null, type: 'error' });
-  const [loaderState, setLoaderState] = useState(null);
 
   // Context for persistent tool state
   const mapTools = useMapTools();
 
-  // Custom hooks
-  const { messages, addMessage, handleStreamChunk, resetStreaming } = useMessages();
-  const executors = useToolExecutors(mapInstances, mapTools);
+  // Snackbar helpers
+  const showSnackbar = useCallback((message, type = 'error') => {
+    setSnackbar({ message, type });
+  }, []);
+
+  const hideSnackbar = useCallback(() => {
+    setSnackbar({ message: null, type: 'error' });
+  }, []);
+
+  // Consolidated hook for AI tools integration
+  const {
+    isConnected,
+    messages,
+    loaderState,
+    sendMessage,
+    executors,
+  } = useMapAITools({
+    wsUrl: WS_URL,
+    mapInstances,
+    mapTools,
+    onError: showSnackbar,
+  });
 
   // Register layer in context when map is initialized
   useEffect(() => {
@@ -40,75 +57,6 @@ function App() {
       });
     }
   }, [mapInstances, mapTools]);
-
-  // Snackbar helpers
-  const showSnackbar = useCallback((message, type = 'error') => {
-    setSnackbar({ message, type });
-  }, []);
-
-  const hideSnackbar = useCallback(() => {
-    setSnackbar({ message: null, type: 'error' });
-  }, []);
-
-  // Handle streaming chunks with loader state management
-  const onStreamChunk = useCallback(
-    (data) => {
-      handleStreamChunk(
-        data,
-        // onFirstChunk - hide "thinking" loader
-        () => setLoaderState(null),
-        // onComplete - show "executing" loader
-        () => setLoaderState('executing')
-      );
-    },
-    [handleStreamChunk]
-  );
-
-  // Handle tool calls using the executor registry
-  const onToolCall = useCallback(
-    (response) => {
-      console.log('handleToolCall', response);
-
-      if (Object.keys(executors).length === 0) {
-        console.warn('Map not initialized yet');
-        showSnackbar('Map not ready');
-        setLoaderState(null);
-        return;
-      }
-
-      const { toolName, data, error } = parseToolResponse(response);
-
-      if (error) {
-        console.error(`Tool error: ${error.message}`);
-        showSnackbar(`Error: ${error.message}`);
-        setLoaderState(null);
-        return;
-      }
-
-      console.log(`Executing tool: ${toolName}`, data);
-
-      const executor = executors[toolName];
-      if (executor && data) {
-        const result = executor(data);
-        addMessage({
-          type: 'action',
-          content: result.success ? `✓ ${result.message}` : `✗ ${result.message}`,
-        });
-      } else {
-        console.warn(`Unknown tool: ${toolName}`);
-        showSnackbar(`Unknown tool: ${toolName}`);
-      }
-      setLoaderState(null);
-    },
-    [executors, addMessage, showSnackbar]
-  );
-
-  // WebSocket connection
-  const { isConnected, sendMessage } = useWebSocket(WS_URL, {
-    onStreamChunk,
-    onToolCall,
-    onError: showSnackbar,
-  });
 
   // Handle view state changes (for zoom tracking)
   const handleViewStateChange = useCallback((viewState) => {
@@ -141,18 +89,6 @@ function App() {
     [executors]
   );
 
-  // Send message handler
-  const handleSendMessage = useCallback(
-    (content) => {
-      if (sendMessage(content)) {
-        addMessage({ type: 'user', content });
-        resetStreaming();
-        setLoaderState('thinking');
-      }
-    },
-    [sendMessage, addMessage, resetStreaming]
-  );
-
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
       <div style={{ flex: 1, position: 'relative' }}>
@@ -177,7 +113,7 @@ function App() {
       </div>
       <ChatUI
         isConnected={isConnected}
-        onSendMessage={handleSendMessage}
+        onSendMessage={sendMessage}
         messages={messages}
         loaderState={loaderState}
       />
