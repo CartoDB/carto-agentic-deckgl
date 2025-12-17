@@ -21,11 +21,13 @@ const server = createServer();
 server.listen(PORT, () => {
   console.log(`=================================`);
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🤖 OpenAI Model: ${process.env.OPENAI_MODEL || 'gpt-4o'}`);
+  console.log(`🤖 OpenAI Chat Model: ${process.env.OPENAI_MODEL || 'gpt-4o'}`);
+  console.log(`🤖 OpenAI Responses Model: ${process.env.OPENAI_RESPONSES_MODEL || 'gpt-4.1'}`);
   console.log(`🤖 Gemini Model: ${process.env.GEMINI_MODEL || 'carto::gemini-2.5-flash'}`);
   console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws`);
   console.log(`🔗 Vercel AI endpoint: http://localhost:${PORT}/api/vercel-chat`);
   console.log(`🔗 LiteLLM endpoint: http://localhost:${PORT}/api/litellm-chat`);
+  console.log(`🔗 OpenAI Responses endpoint: http://localhost:${PORT}/api/openai-chat`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
   console.log(`=================================`);
 });
