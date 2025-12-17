@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import http from 'http';
 import { setupWebSocket } from './websocket/websocket-server.js';
+import { vercelChatRouter } from './routes/vercel-chat.js';
+import { liteLLMChatRouter } from './routes/litellm-chat.js';
 
 export function createServer() {
   const app = express();
@@ -15,6 +17,12 @@ export function createServer() {
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
   });
+
+  // Vercel Chat routes
+  app.use('/api/vercel-chat', vercelChatRouter);
+
+  // LiteLLM Chat routes
+  app.use('/api/litellm-chat', liteLLMChatRouter);
 
   // Create HTTP server
   const server = http.createServer(app);
