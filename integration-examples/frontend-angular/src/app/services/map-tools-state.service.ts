@@ -1,4 +1,10 @@
 import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { LayerConfig, ActiveFilter } from '../models/message.model';
+
+// Default constants matching React
+const DEFAULT_LAYER_COLOR: number[] = [200, 0, 80, 180];
+const DEFAULT_POINT_SIZE = 8;
 
 /**
  * Color filter for feature styling
@@ -22,19 +28,126 @@ export interface SizeRule {
 /**
  * Service for managing persistent map tool state
  * Angular equivalent of React's MapToolsContext
- * Stores color filters, size rules, and original layer data across tool executions
+ * Stores layer registry, color filters, size rules, active filters, and original layer data
  */
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class MapToolsStateService {
-  // Persistent state maps
+  // ============================================================================
+  // Layer Registry (matching React's useLayerRegistry)
+  // ============================================================================
+  private layerRegistry = new Map<string, LayerConfig>();
+  private layerVisibility = new Map<string, boolean>();
+  private layerBaseColor = new Map<string, number[]>();
+
+  // Observable for layer state changes (for LayerToggle component)
+  private layersSubject = new BehaviorSubject<LayerConfig[]>([]);
+  public layers$: Observable<LayerConfig[]> = this.layersSubject.asObservable();
+
+  // ============================================================================
+  // Active Filters (matching React's useDataFilters)
+  // ============================================================================
+  private activeFilters = new Map<string, ActiveFilter | null>();
+
+  // ============================================================================
+  // Existing State Maps
+  // ============================================================================
   private colorFiltersMap = new Map<string, ColorFilter[]>();
   private originalLayerDataMap = new Map<string, GeoJSON.FeatureCollection>();
   private sizeRulesMap = new Map<string, Map<string, number>>();
   private defaultSizesMap = new Map<string, number>();
 
-  constructor() {}
+  // ============================================================================
+  // Layer Registry Methods
+  // ============================================================================
+
+  registerLayer(config: {
+    id: string;
+    name: string;
+    color?: string;
+    visible?: boolean;
+  }): void {
+    if (!this.layerRegistry.has(config.id)) {
+      const layerConfig: LayerConfig = {
+        id: config.id,
+        name: config.name,
+        color: config.color || '#c80050',
+        visible: config.visible ?? true,
+      };
+      this.layerRegistry.set(config.id, layerConfig);
+      this.layerVisibility.set(config.id, config.visible ?? true);
+      this.layerBaseColor.set(config.id, this.hexToRgba(config.color) || DEFAULT_LAYER_COLOR);
+      this.emitLayersUpdate();
+    }
+  }
+
+  getLayers(): LayerConfig[] {
+    const layers: LayerConfig[] = [];
+    this.layerRegistry.forEach((config, layerId) => {
+      layers.push({
+        ...config,
+        visible: this.layerVisibility.get(layerId) ?? true,
+        color: this.rgbaToHex(this.layerBaseColor.get(layerId) || []) || config.color,
+      });
+    });
+    return layers;
+  }
+
+  getLayerVisibility(layerId: string): boolean {
+    return this.layerVisibility.get(layerId) ?? true;
+  }
+
+  setLayerVisibility(layerId: string, visible: boolean): void {
+    this.layerVisibility.set(layerId, visible);
+    this.emitLayersUpdate();
+  }
+
+  getLayerBaseColor(layerId: string): number[] {
+    return this.layerBaseColor.get(layerId) ?? DEFAULT_LAYER_COLOR;
+  }
+
+  setLayerBaseColor(layerId: string, rgba: number[]): void {
+    this.layerBaseColor.set(layerId, rgba);
+    this.emitLayersUpdate();
+  }
+
+  resetLayerToDefault(layerId: string): void {
+    const config = this.layerRegistry.get(layerId);
+    if (config) {
+      this.layerVisibility.set(layerId, true);
+      this.layerBaseColor.set(layerId, this.hexToRgba(config.color) || DEFAULT_LAYER_COLOR);
+      this.emitLayersUpdate();
+    }
+  }
+
+  resetAllLayersToDefault(): void {
+    this.layerRegistry.forEach((config, layerId) => {
+      this.layerVisibility.set(layerId, true);
+      this.layerBaseColor.set(layerId, this.hexToRgba(config.color) || DEFAULT_LAYER_COLOR);
+    });
+    this.emitLayersUpdate();
+  }
+
+  // ============================================================================
+  // Active Filters Management
+  // ============================================================================
+
+  getActiveFilter(layerId: string): ActiveFilter | null {
+    return this.activeFilters.get(layerId) ?? null;
+  }
+
+  setActiveFilter(layerId: string, filter: ActiveFilter): void {
+    this.activeFilters.set(layerId, filter);
+  }
+
+  clearActiveFilter(layerId: string): void {
+    this.activeFilters.delete(layerId);
+  }
+
+  clearAllActiveFilters(): void {
+    this.activeFilters.clear();
+  }
 
   // ============================================================================
   // Color Filters Management
@@ -49,7 +162,7 @@ export class MapToolsStateService {
 
   addColorFilter(layerId: string, filter: ColorFilter): ColorFilter[] {
     const filters = this.getColorFilters(layerId);
-    const existingIdx = filters.findIndex(f => f.key === filter.key);
+    const existingIdx = filters.findIndex((f) => f.key === filter.key);
 
     if (existingIdx >= 0) {
       filters[existingIdx] = filter;
@@ -62,6 +175,10 @@ export class MapToolsStateService {
 
   clearColorFilters(layerId: string): void {
     this.colorFiltersMap.set(layerId, []);
+  }
+
+  clearAllColorFilters(): void {
+    this.colorFiltersMap.clear();
   }
 
   // ============================================================================
@@ -78,7 +195,10 @@ export class MapToolsStateService {
     }
   }
 
-  getOrSetOriginalData(layerId: string, currentData: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+  getOrSetOriginalData(
+    layerId: string,
+    currentData: GeoJSON.FeatureCollection
+  ): GeoJSON.FeatureCollection {
     let originalData = this.originalLayerDataMap.get(layerId);
     if (!originalData && currentData?.features) {
       originalData = currentData;
@@ -99,7 +219,7 @@ export class MapToolsStateService {
   }
 
   getDefaultSize(layerId: string): number {
-    return this.defaultSizesMap.get(layerId) ?? 8;
+    return this.defaultSizesMap.get(layerId) ?? DEFAULT_POINT_SIZE;
   }
 
   setDefaultSize(layerId: string, size: number): void {
@@ -109,14 +229,19 @@ export class MapToolsStateService {
   /**
    * Add or update size rules, merging with existing rules
    */
-  mergeSizeRules(layerId: string, property: string, newRules: SizeRule[], defaultSize: number): Map<string, number> {
+  mergeSizeRules(
+    layerId: string,
+    property: string,
+    newRules: SizeRule[],
+    defaultSize: number
+  ): Map<string, number> {
     const sizeMap = this.getSizeRules(layerId);
 
     // Update default size
     this.setDefaultSize(layerId, defaultSize);
 
     // Merge new rules with existing
-    newRules.forEach(rule => {
+    newRules.forEach((rule) => {
       sizeMap.set(rule.value, rule.size);
     });
 
@@ -126,6 +251,11 @@ export class MapToolsStateService {
   clearSizeRules(layerId: string): void {
     this.sizeRulesMap.delete(layerId);
     this.defaultSizesMap.delete(layerId);
+  }
+
+  clearAllSizeRules(): void {
+    this.sizeRulesMap.clear();
+    this.defaultSizesMap.clear();
   }
 
   /**
@@ -144,21 +274,29 @@ export class MapToolsStateService {
   /**
    * Create a getFillColor function that uses stored color filters
    */
-  createColorAccessor(layerId: string, defaultColor: number[] = [200, 0, 80, 180]): (feature: any) => number[] {
+  createColorAccessor(
+    layerId: string,
+    defaultColor: number[] = DEFAULT_LAYER_COLOR
+  ): (feature: GeoJSON.Feature) => number[] {
     const filters = this.getColorFilters(layerId);
 
-    const matchesFilter = (feature: any, filter: ColorFilter): boolean => {
-      const propValue = String(feature.properties[filter.property] || '');
+    const matchesFilter = (feature: GeoJSON.Feature, filter: ColorFilter): boolean => {
+      const propValue = String(feature.properties?.[filter.property] || '');
       switch (filter.operator) {
-        case 'equals': return propValue === filter.value;
-        case 'startsWith': return propValue.startsWith(filter.value);
-        case 'contains': return propValue.includes(filter.value);
-        case 'regex': return new RegExp(filter.value).test(propValue);
-        default: return false;
+        case 'equals':
+          return propValue === filter.value;
+        case 'startsWith':
+          return propValue.startsWith(filter.value);
+        case 'contains':
+          return propValue.includes(filter.value);
+        case 'regex':
+          return new RegExp(filter.value).test(propValue);
+        default:
+          return false;
       }
     };
 
-    return (feature: any): number[] => {
+    return (feature: GeoJSON.Feature): number[] => {
       for (const filter of filters) {
         if (matchesFilter(feature, filter)) {
           return filter.color;
@@ -171,12 +309,12 @@ export class MapToolsStateService {
   /**
    * Create a getPointRadius function that uses stored size rules
    */
-  createSizeAccessor(layerId: string, property: string): (feature: any) => number {
+  createSizeAccessor(layerId: string, property: string): (feature: GeoJSON.Feature) => number {
     const sizeMap = this.getSizeRules(layerId);
     const defaultSize = this.getDefaultSize(layerId);
 
-    return (feature: any): number => {
-      const propValue = String(feature.properties[property] || '');
+    return (feature: GeoJSON.Feature): number => {
+      const propValue = String(feature.properties?.[property] || '');
       return sizeMap.get(propValue) ?? defaultSize;
     };
   }
@@ -187,6 +325,8 @@ export class MapToolsStateService {
   resetLayerState(layerId: string): void {
     this.clearColorFilters(layerId);
     this.clearSizeRules(layerId);
+    this.clearActiveFilter(layerId);
+    this.resetLayerToDefault(layerId);
   }
 
   /**
@@ -196,6 +336,29 @@ export class MapToolsStateService {
     this.colorFiltersMap.clear();
     this.sizeRulesMap.clear();
     this.defaultSizesMap.clear();
+    this.activeFilters.clear();
+    this.resetAllLayersToDefault();
     // Note: We keep originalLayerDataMap as it's source data
+  }
+
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+
+  private hexToRgba(hex?: string, alpha = 180): number[] | null {
+    if (!hex) return null;
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16), alpha]
+      : null;
+  }
+
+  private rgbaToHex(rgba: number[]): string | null {
+    if (!rgba || rgba.length < 3) return null;
+    return '#' + [rgba[0], rgba[1], rgba[2]].map((x) => x.toString(16).padStart(2, '0')).join('');
+  }
+
+  private emitLayersUpdate(): void {
+    this.layersSubject.next(this.getLayers());
   }
 }
