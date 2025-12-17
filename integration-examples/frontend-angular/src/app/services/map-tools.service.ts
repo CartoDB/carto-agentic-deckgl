@@ -57,9 +57,9 @@ export class MapToolsService {
         }
 
         // Force redraws
-        requestAnimationFrame(() => deck.redraw(true));
-        setTimeout(() => deck.redraw(true), 50);
-        setTimeout(() => deck.redraw(true), 1100);
+        requestAnimationFrame(() => deck.redraw());
+        setTimeout(() => deck.redraw(), 50);
+        setTimeout(() => deck.redraw(), 1100);
 
         return { success: true, message: `Flying to ${params.lat.toFixed(2)}, ${params.lng.toFixed(2)}` };
       },
@@ -92,9 +92,9 @@ export class MapToolsService {
         }
 
         // Force redraws
-        requestAnimationFrame(() => deck.redraw(true));
-        setTimeout(() => deck.redraw(true), 50);
-        setTimeout(() => deck.redraw(true), 600);
+        requestAnimationFrame(() => deck.redraw());
+        setTimeout(() => deck.redraw(), 50);
+        setTimeout(() => deck.redraw(), 600);
 
         return { success: true, message: `Zoomed ${params.direction} to level ${newZoom.toFixed(1)}` };
       },
@@ -125,7 +125,7 @@ export class MapToolsService {
         });
 
         deck.setProps({ layers: updatedLayers });
-        requestAnimationFrame(() => deck.redraw(true));
+        requestAnimationFrame(() => deck.redraw());
 
         return { success: true, message: `Layer "${params.layerName}" ${params.visible ? 'shown' : 'hidden'}` };
       },
@@ -142,8 +142,8 @@ export class MapToolsService {
         });
 
         deck.setProps({ layers: updatedLayers });
-        requestAnimationFrame(() => deck.redraw(true));
-        setTimeout(() => deck.redraw(true), 50);
+        requestAnimationFrame(() => deck.redraw());
+        setTimeout(() => deck.redraw(), 50);
 
         return { success: true, message: `Point color changed to rgb(${params.r}, ${params.g}, ${params.b})` };
       },
@@ -182,8 +182,8 @@ export class MapToolsService {
         });
 
         deck.setProps({ layers: updatedLayers });
-        requestAnimationFrame(() => deck.redraw(true));
-        setTimeout(() => deck.redraw(true), 50);
+        requestAnimationFrame(() => deck.redraw());
+        setTimeout(() => deck.redraw(), 50);
 
         return {
           success: true,
@@ -294,7 +294,7 @@ export class MapToolsService {
             return l;
           });
           deck.setProps({ layers: updatedLayers });
-          requestAnimationFrame(() => deck.redraw(true));
+          requestAnimationFrame(() => deck.redraw());
           return { success: true, message: `Filter cleared - showing all ${originalData.features.length} features` };
         }
 
@@ -334,8 +334,8 @@ export class MapToolsService {
         });
 
         deck.setProps({ layers: updatedLayers });
-        requestAnimationFrame(() => deck.redraw(true));
-        setTimeout(() => deck.redraw(true), 50);
+        requestAnimationFrame(() => deck.redraw());
+        setTimeout(() => deck.redraw(), 50);
 
         return {
           success: true,
@@ -375,7 +375,7 @@ export class MapToolsService {
             return l;
           });
           deck.setProps({ layers: updatedLayers });
-          requestAnimationFrame(() => deck.redraw(true));
+          requestAnimationFrame(() => deck.redraw());
           return { success: true, message: `Size reset to uniform ${defaultSize}px` };
         }
 
@@ -407,8 +407,8 @@ export class MapToolsService {
         });
 
         deck.setProps({ layers: updatedLayers });
-        requestAnimationFrame(() => deck.redraw(true));
-        setTimeout(() => deck.redraw(true), 50);
+        requestAnimationFrame(() => deck.redraw());
+        setTimeout(() => deck.redraw(), 50);
 
         const rulesDescription = allRules.map(r => `${r.value}=${r.size}px`).join(', ');
         return {

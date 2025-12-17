@@ -23,3 +23,27 @@ export interface MapInstances {
   deck: Deck;
   map: maplibregl.Map;
 }
+
+// Loader state type matching React's useMapAITools hook
+export type LoaderState = 'thinking' | 'executing' | null;
+
+// Layer configuration for registry (matching React's useLayerRegistry)
+export interface LayerConfig {
+  id: string;
+  name: string;
+  color: string;
+  visible: boolean;
+}
+
+// Active filter for data filtering (matching React's useDataFilters)
+export interface ActiveFilter {
+  property: string;
+  operator: string;
+  value: string;
+}
+
+// Snackbar configuration for notifications
+export interface SnackbarConfig {
+  message: string | null;
+  type: 'error' | 'info';
+}

@@ -1,40 +1,30 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MapToolsService } from '../../services/map-tools.service';
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
+import { LayerConfig } from '../../models/message.model';
 
-interface LayerConfig {
-  id: string;
-  name: string;
-  visible: boolean;
-}
-
+/**
+ * LayerToggle - Layer visibility toggles with color indicators
+ * Updated to use Input/Output pattern like React
+ */
 @Component({
   selector: 'app-layer-toggle',
+  standalone: true,
   imports: [CommonModule],
   templateUrl: './layer-toggle.html',
   styleUrl: './layer-toggle.css',
 })
 export class LayerToggle {
   @Input() disabled: boolean = false;
+  @Input() layers: LayerConfig[] = [];
+  @Output() toggle = new EventEmitter<{ layerId: string; visible: boolean }>();
 
-  layers: LayerConfig[] = [
-    { id: 'points-layer', name: 'Airports', visible: true }
-  ];
+  onToggle(layer: LayerConfig, event: Event): void {
+    if (this.disabled) return;
+    const checkbox = event.target as HTMLInputElement;
+    this.toggle.emit({ layerId: layer.id, visible: checkbox.checked });
+  }
 
-  constructor(private mapToolsService: MapToolsService) {}
-
-  async toggleLayer(layer: LayerConfig): Promise<void> {
-    if (!this.mapToolsService.isInitialized()) return;
-
-    const newVisibility = !layer.visible;
-    const result = await this.mapToolsService.execute(TOOL_NAMES.TOGGLE_LAYER, {
-      layerName: layer.id,
-      visible: newVisibility
-    });
-
-    if (result.success) {
-      layer.visible = newVisibility;
-    }
+  trackByLayer(index: number, layer: LayerConfig): string {
+    return layer.id;
   }
 }
