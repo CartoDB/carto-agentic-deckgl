@@ -12,6 +12,7 @@
   "dependencies": {
     "@deck.gl/carto": "^9.2.2",
     "@deck.gl/core": "^9.2.2",
+    "@deck.gl/json": "^9.2.2",
     "@deck.gl/layers": "^9.2.2",
     "@deck.gl/react": "^9.2.2",
     "@carto/maps-ai-tools": "file:../../map-ai-tools",

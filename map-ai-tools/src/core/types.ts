@@ -8,6 +8,28 @@ import { tools } from '../definitions/tools';
 export type { Deck } from '@deck.gl/core';
 
 // ============================================================================
+// Re-export @deck.gl/json spec types
+// ============================================================================
+
+export type {
+  DeckGLJsonSpec,
+  ViewStateSpec,
+  LayerSpec,
+  LayerOperation,
+} from '../schemas/deckgl-json';
+
+export type {
+  InitialState,
+  DataSourceMetadata,
+  LayerStateMetadata,
+} from '../schemas/initial-state';
+
+export type {
+  SupportedLayerType,
+  AnyLayerSpec,
+} from '../schemas/layer-specs';
+
+// ============================================================================
 // Zod-inferred parameter types (auto-generated from tool schemas)
 // ============================================================================
 
@@ -20,6 +42,11 @@ export type FlyToParams = z.infer<typeof tools['fly-to']['schema']>;
  * Parameters for zoom-map tool
  */
 export type ZoomMapParams = z.infer<typeof tools['zoom-map']['schema']>;
+
+/**
+ * Parameters for set-view-state tool
+ */
+export type SetViewStateParams = z.infer<typeof tools['set-view-state']['schema']>;
 
 /**
  * Parameters for toggle-layer tool
@@ -57,18 +84,49 @@ export type SizeFeaturesByPropertyParams = z.infer<typeof tools['size-features-b
 export type AggregateFeaturesParams = z.infer<typeof tools['aggregate-features']['schema']>;
 
 /**
+ * Parameters for add-layer tool
+ */
+export type AddLayerParams = z.infer<typeof tools['add-layer']['schema']>;
+
+/**
+ * Parameters for add-raster-layer tool
+ */
+export type AddRasterLayerParams = z.infer<typeof tools['add-raster-layer']['schema']>;
+
+/**
+ * Parameters for remove-layer tool
+ */
+export type RemoveLayerParams = z.infer<typeof tools['remove-layer']['schema']>;
+
+/**
+ * Parameters for update-layer-props tool
+ */
+export type UpdateLayerPropsParams = z.infer<typeof tools['update-layer-props']['schema']>;
+
+/**
+ * Parameters for get-layer-config tool
+ */
+export type GetLayerConfigParams = z.infer<typeof tools['get-layer-config']['schema']>;
+
+/**
  * Union type of all tool parameter types
  */
 export type ToolParams =
   | FlyToParams
   | ZoomMapParams
+  | SetViewStateParams
   | ToggleLayerParams
   | SetPointColorParams
   | ColorFeaturesByPropertyParams
   | QueryFeaturesParams
   | FilterFeaturesByPropertyParams
   | SizeFeaturesByPropertyParams
-  | AggregateFeaturesParams;
+  | AggregateFeaturesParams
+  | AddLayerParams
+  | AddRasterLayerParams
+  | RemoveLayerParams
+  | UpdateLayerPropsParams
+  | GetLayerConfigParams;
 
 /**
  * OpenAI function calling tool definition

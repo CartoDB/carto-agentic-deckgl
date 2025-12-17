@@ -9,6 +9,10 @@ export {
   getAllToolDefinitions,
   getToolDefinitionsByNames,
   validateToolParams,
+  isSpecTool,
+  isDataTool,
+  getSpecTools,
+  getDataTools,
 } from './tools';
 
 export type { ToolName } from './tools';
