@@ -10,6 +10,10 @@ export {
   getAllToolDefinitions,
   getToolDefinitionsByNames,
   validateToolParams,
+  isSpecTool,
+  isDataTool,
+  getSpecTools,
+  getDataTools,
 } from './definitions';
 
 // Re-export backwards compatibility exports
@@ -53,3 +57,71 @@ export {
 
 // Re-export core validation
 export { validateWithZod, type ValidationResult } from './core/validation';
+
+// ============================================================================
+// @deck.gl/json Schema Exports
+// ============================================================================
+
+// Schema types and validators
+export {
+  // Core schemas
+  deckGLJsonSpecSchema,
+  viewStateSpecSchema,
+  layerSpecSchema,
+  layerOperationSchema,
+  // Utility functions
+  isSpecialPrefix,
+  isFunctionRef,
+  isConstantRef,
+  isExpression,
+  createFunctionRef,
+  createConstantRef,
+  createExpression,
+} from './schemas';
+
+// Layer-specific schemas
+export {
+  supportedLayerTypes,
+  layerTypeSchema,
+  getLayerSpecSchema,
+  anyLayerSpecSchema,
+  geoJsonLayerSpecSchema,
+  rasterTileLayerSpecSchema,
+  scatterplotLayerSpecSchema,
+} from './schemas';
+
+// Initial state
+export {
+  initialStateSchema,
+  createSystemPromptWithState,
+  parseInitialState,
+  validateInitialState,
+  createMinimalInitialState,
+} from './schemas';
+
+// ============================================================================
+// Spec Generator Exports
+// ============================================================================
+
+export {
+  // View state generators
+  generateFlyToSpec,
+  generateZoomSpec,
+  generateViewStateSpec,
+  // Layer operation generators
+  generateToggleLayerSpec,
+  generateSetPointColorSpec,
+  generateColorByPropertySpec,
+  generateFilterSpec,
+  generateSizeByPropertySpec,
+  // Layer management generators
+  generateAddLayerSpec,
+  generateAddRasterLayerSpec,
+  generateRemoveLayerSpec,
+  generateUpdateLayerPropsSpec,
+  // Utilities
+  mergeSpecs,
+  hasViewStateChanges,
+  hasLayerChanges,
+  getAffectedLayerIds,
+} from './converters';

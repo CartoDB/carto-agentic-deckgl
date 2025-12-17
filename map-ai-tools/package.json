@@ -25,6 +25,14 @@
       "import": "./dist/esm/executors/index.js",
       "require": "./dist/cjs/executors/index.js"
     },
+    "./schemas": {
+      "import": "./dist/esm/schemas/index.js",
+      "require": "./dist/cjs/schemas/index.js"
+    },
+    "./converters": {
+      "import": "./dist/esm/converters/index.js",
+      "require": "./dist/cjs/converters/index.js"
+    },
     "./prompts": {
       "import": "./dist/esm/prompts/index.js",
       "require": "./dist/cjs/prompts/index.js"
@@ -67,7 +75,8 @@
     "tslib": "^2.8.1"
   },
   "peerDependencies": {
-    "zod": "^4.1.0"
+    "zod": "^4.1.0",
+    "@deck.gl/json": "^9.2.0"
   },
   "peerDependenciesMeta": {
     "zod": {

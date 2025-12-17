@@ -1,4 +1,20 @@
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
+import {
+  TOOL_NAMES,
+  generateFlyToSpec,
+  generateZoomSpec,
+  generateViewStateSpec,
+  generateToggleLayerSpec,
+  generateSetPointColorSpec,
+  generateColorByPropertySpec,
+  generateFilterSpec,
+  generateSizeByPropertySpec,
+  generateAddLayerSpec,
+  generateAddRasterLayerSpec,
+  generateRemoveLayerSpec,
+  generateUpdateLayerPropsSpec,
+  isSpecTool,
+} from '@carto/maps-ai-tools';
+import { createJsonSpecExecutor } from '../jsonSpecExecutor';
 import {
   scheduleRedraws,
   REDRAW_PRESETS,
@@ -22,50 +38,43 @@ import {
 /**
  * Create all tool executors
  *
- * Each executor is a function that takes params and returns { success, message, data? }
+ * This implementation uses @deck.gl/json specs for spec-returning tools
+ * and direct manipulation for data-returning tools (queries).
  *
  * @param {Object} context
  * @param {Object} context.deck - deck.gl instance
  * @param {Object} context.map - MapLibre GL instance
  * @param {Object} context.mapTools - MapTools context for state persistence
  * @returns {Object} Map of tool name to executor function
- *
- * @example
- * const executors = createExecutors({ deck, map, mapTools });
- * const result = executors['fly-to']({ lat: 40.7, lng: -74.0, zoom: 12 });
  */
 export function createExecutors({ deck, map, mapTools }) {
+  // Create the JSON spec executor for spec-based tools
+  const specExecutor = createJsonSpecExecutor({ deck, map, mapTools });
+
   return {
     // =========================================
-    // View Executors
+    // View Executors (spec-based)
     // =========================================
 
     [TOOL_NAMES.FLY_TO]: (params) => {
-      const { lat, lng, zoom = 12 } = params;
-      const currentView = deck.props.initialViewState || {};
+      const { lat, lng, zoom = 12, pitch = 0, bearing = 0, transitionDuration = 1000 } = params;
 
-      deck.setProps({
-        initialViewState: {
-          ...currentView,
-          longitude: lng,
-          latitude: lat,
-          zoom,
-          transitionDuration: TRANSITION_DURATIONS.flyTo,
-          transitionInterruption: 1,
-        },
+      const spec = generateFlyToSpec({
+        lat,
+        lng,
+        zoom,
+        pitch,
+        bearing,
+        transitionDuration,
       });
 
-      syncMapLibreView(
-        map,
-        { longitude: lng, latitude: lat, zoom },
-        { animate: true, duration: TRANSITION_DURATIONS.flyTo }
-      );
-
-      scheduleRedraws(deck, REDRAW_PRESETS.flyTo);
+      const result = specExecutor.applySpec(spec);
 
       return {
-        success: true,
-        message: `Flying to ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
+        success: result.success,
+        message: result.success
+          ? `Flying to ${lat.toFixed(2)}, ${lng.toFixed(2)} at zoom ${zoom}`
+          : result.message,
       };
     },
 
@@ -74,38 +83,37 @@ export function createExecutors({ deck, map, mapTools }) {
       const currentView = deck.props.initialViewState || { zoom: 10 };
       const currentZoom = currentView.zoom || 10;
 
-      const newZoom =
-        direction === 'in'
-          ? Math.min(ZOOM_LIMITS.max, currentZoom + levels)
-          : Math.max(ZOOM_LIMITS.min, currentZoom - levels);
-
-      deck.setProps({
-        initialViewState: {
-          ...currentView,
-          zoom: newZoom,
-          transitionDuration: TRANSITION_DURATIONS.zoom,
-          transitionInterruption: 1,
-        },
+      const spec = generateZoomSpec({
+        direction,
+        levels,
+        currentZoom,
       });
 
-      syncMapLibreView(map, {
-        longitude: currentView.longitude,
-        latitude: currentView.latitude,
-        zoom: newZoom,
-        bearing: currentView.bearing,
-        pitch: currentView.pitch,
-      });
-
-      scheduleRedraws(deck, REDRAW_PRESETS.short);
+      const result = specExecutor.applySpec(spec);
+      const newZoom = spec.initialViewState?.zoom ?? currentZoom;
 
       return {
-        success: true,
-        message: `Zoomed ${direction} to level ${newZoom.toFixed(1)}`,
+        success: result.success,
+        message: result.success
+          ? `Zoomed ${direction} to level ${newZoom.toFixed(1)}`
+          : result.message,
+      };
+    },
+
+    [TOOL_NAMES.SET_VIEW_STATE]: (params) => {
+      const spec = generateViewStateSpec(params);
+      const result = specExecutor.applySpec(spec);
+
+      return {
+        success: result.success,
+        message: result.success
+          ? 'View state updated'
+          : result.message,
       };
     },
 
     // =========================================
-    // Layer Executors
+    // Layer Visibility & Styling (spec-based)
     // =========================================
 
     [TOOL_NAMES.TOGGLE_LAYER]: (params) => {
@@ -117,89 +125,83 @@ export function createExecutors({ deck, map, mapTools }) {
         return { success: false, message: `Layer "${layerName}" not found` };
       }
 
-      const updatedLayers = updateLayer(currentLayers, layerId, (layer) =>
-        layer.clone({ visible })
-      );
+      const spec = generateToggleLayerSpec({ layerId, visible });
+      const result = specExecutor.applySpec(spec);
 
-      deck.setProps({ layers: updatedLayers });
-      scheduleRedraws(deck, REDRAW_PRESETS.instant);
-      mapTools.setLayerVisibility(layerId, visible);
+      if (result.success) {
+        mapTools.setLayerVisibility(layerId, visible);
+      }
 
       return {
-        success: true,
-        message: `Layer "${layerName}" ${visible ? 'shown' : 'hidden'}`,
+        success: result.success,
+        message: result.success
+          ? `Layer "${layerName}" ${visible ? 'shown' : 'hidden'}`
+          : result.message,
       };
     },
 
     [TOOL_NAMES.SET_POINT_COLOR]: (params) => {
-      const { r, g, b, a = 200 } = params;
-      const rgba = [r, g, b, a];
-      const layerId = 'points-layer';
-      const currentLayers = deck.props.layers || [];
+      const { layerId = 'points-layer', r, g, b, a = 200 } = params;
 
-      const updatedLayers = updateLayer(currentLayers, layerId, (layer) =>
-        layer.clone({ getFillColor: rgba })
-      );
+      const spec = generateSetPointColorSpec({ layerId, r, g, b, a });
+      const result = specExecutor.applySpec(spec);
 
-      deck.setProps({ layers: updatedLayers });
-      scheduleRedraws(deck, REDRAW_PRESETS.dataUpdate);
-      mapTools.setLayerBaseColor(layerId, rgba);
+      if (result.success) {
+        mapTools.setLayerBaseColor(layerId, [r, g, b, a]);
+      }
 
       return {
-        success: true,
-        message: `Point color changed to rgb(${r}, ${g}, ${b})`,
+        success: result.success,
+        message: result.success
+          ? `Point color changed to rgb(${r}, ${g}, ${b})`
+          : result.message,
       };
     },
 
-    // =========================================
-    // Query & Filter Executors
-    // =========================================
-
-    [TOOL_NAMES.QUERY_FEATURES]: (params) => {
+    [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: (params) => {
       const {
         layerId = 'points-layer',
         property,
         operator = 'equals',
-        value = '',
-        includeNames = false,
+        value,
+        r,
+        g,
+        b,
+        a = 180,
       } = params;
 
+      // For color-by-property, we need to track filters in mapTools
+      const filterColor = [r, g, b, a];
+      const filterKey = `${property}:${operator}:${value}`;
+      const newFilter = {
+        key: filterKey,
+        property,
+        operator,
+        value,
+        color: filterColor,
+      };
+
+      // Add filter to context
+      const filters = mapTools.addColorFilter(layerId, newFilter);
+
+      // Create color accessor using mapTools
+      const colorAccessor = mapTools.createColorAccessor(layerId, DEFAULT_LAYER_COLOR);
+
+      // Apply directly since we need custom accessor from mapTools
       const currentLayers = deck.props.layers || [];
-      const layer = findLayerById(currentLayers, layerId);
+      const updatedLayers = updateLayer(currentLayers, layerId, (layer) =>
+        layer.clone({
+          getFillColor: colorAccessor,
+          updateTriggers: { getFillColor: JSON.stringify(filters) },
+        })
+      );
 
-      if (!layer) {
-        return { success: false, message: `Layer "${layerId}" not found` };
-      }
-
-      const data = getLayerData(layer);
-      if (!data || !data.features) {
-        return { success: false, message: 'No feature data available' };
-      }
-
-      const matcher = createPropertyMatcher(property, operator, value);
-      const { count, total, matchingFeatures } = countMatchingFeatures(data, matcher);
-
-      let message =
-        operator === 'all'
-          ? `Total features: ${count}`
-          : `Found ${count} features where ${property} ${operator} "${value}" (out of ${total} total)`;
-
-      let sampleNames = [];
-      if (includeNames && matchingFeatures.length > 0) {
-        sampleNames = matchingFeatures
-          .slice(0, 10)
-          .map((f) => f.properties.name || f.properties.abbrev || 'Unknown')
-          .filter(Boolean);
-      }
+      deck.setProps({ layers: updatedLayers });
+      scheduleRedraws(deck, REDRAW_PRESETS.dataUpdate);
 
       return {
         success: true,
-        message,
-        data: {
-          count,
-          total,
-          sampleNames: sampleNames.length > 0 ? sampleNames : undefined,
-        },
+        message: `Colored features where ${property} ${operator} "${value}"`,
       };
     },
 
@@ -219,6 +221,7 @@ export function createExecutors({ deck, map, mapTools }) {
         return { success: false, message: `Layer "${layerId}" not found` };
       }
 
+      // Store/retrieve original data through mapTools
       const originalData = mapTools.getOrSetOriginalData(layerId, getLayerData(layer));
 
       if (!originalData || !originalData.features) {
@@ -265,53 +268,6 @@ export function createExecutors({ deck, map, mapTools }) {
         message: `Filtered to ${filteredData.features.length} features where ${property} ${operator} "${value}"`,
       };
     },
-
-    [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: (params) => {
-      const {
-        layerId = 'points-layer',
-        property,
-        operator = 'equals',
-        value,
-        r,
-        g,
-        b,
-        a = 180,
-      } = params;
-
-      const filterColor = [r, g, b, a];
-      const currentLayers = deck.props.layers || [];
-
-      const filterKey = `${property}:${operator}:${value}`;
-      const newFilter = {
-        key: filterKey,
-        property,
-        operator,
-        value,
-        color: filterColor,
-      };
-
-      const filters = mapTools.addColorFilter(layerId, newFilter);
-      const colorAccessor = mapTools.createColorAccessor(layerId, DEFAULT_LAYER_COLOR);
-
-      const updatedLayers = updateLayer(currentLayers, layerId, (layer) =>
-        layer.clone({
-          getFillColor: colorAccessor,
-          updateTriggers: { getFillColor: JSON.stringify(filters) },
-        })
-      );
-
-      deck.setProps({ layers: updatedLayers });
-      scheduleRedraws(deck, REDRAW_PRESETS.dataUpdate);
-
-      return {
-        success: true,
-        message: `Colored features where ${property} ${operator} "${value}"`,
-      };
-    },
-
-    // =========================================
-    // Size Executor
-    // =========================================
 
     [TOOL_NAMES.SIZE_FEATURES_BY_PROPERTY]: (params) => {
       const {
@@ -381,8 +337,108 @@ export function createExecutors({ deck, map, mapTools }) {
     },
 
     // =========================================
-    // Aggregate Executor
+    // Layer Management (spec-based)
     // =========================================
+
+    [TOOL_NAMES.ADD_LAYER]: (params) => {
+      const spec = generateAddLayerSpec(params);
+      const result = specExecutor.applySpec(spec);
+
+      return {
+        success: result.success,
+        message: result.success
+          ? `Layer "${params.id}" added`
+          : result.message,
+      };
+    },
+
+    [TOOL_NAMES.ADD_RASTER_LAYER]: (params) => {
+      const spec = generateAddRasterLayerSpec(params);
+      const result = specExecutor.applySpec(spec);
+
+      return {
+        success: result.success,
+        message: result.success
+          ? `Raster layer "${params.id}" added from ${params.tableName}`
+          : result.message,
+      };
+    },
+
+    [TOOL_NAMES.REMOVE_LAYER]: (params) => {
+      const spec = generateRemoveLayerSpec(params);
+      const result = specExecutor.applySpec(spec);
+
+      return {
+        success: result.success,
+        message: result.success
+          ? `Layer "${params.layerId}" removed`
+          : result.message,
+      };
+    },
+
+    [TOOL_NAMES.UPDATE_LAYER_PROPS]: (params) => {
+      const spec = generateUpdateLayerPropsSpec(params);
+      const result = specExecutor.applySpec(spec);
+
+      return {
+        success: result.success,
+        message: result.success
+          ? `Layer "${params.layerId}" updated`
+          : result.message,
+      };
+    },
+
+    // =========================================
+    // Query & Data Tools (direct implementation)
+    // =========================================
+
+    [TOOL_NAMES.QUERY_FEATURES]: (params) => {
+      const {
+        layerId = 'points-layer',
+        property,
+        operator = 'equals',
+        value = '',
+        includeNames = false,
+      } = params;
+
+      const currentLayers = deck.props.layers || [];
+      const layer = findLayerById(currentLayers, layerId);
+
+      if (!layer) {
+        return { success: false, message: `Layer "${layerId}" not found` };
+      }
+
+      const data = getLayerData(layer);
+      if (!data || !data.features) {
+        return { success: false, message: 'No feature data available' };
+      }
+
+      const matcher = createPropertyMatcher(property, operator, value);
+      const { count, total, matchingFeatures } = countMatchingFeatures(data, matcher);
+
+      let message =
+        operator === 'all'
+          ? `Total features: ${count}`
+          : `Found ${count} features where ${property} ${operator} "${value}" (out of ${total} total)`;
+
+      let sampleNames = [];
+      if (includeNames && matchingFeatures.length > 0) {
+        sampleNames = matchingFeatures
+          .slice(0, 10)
+          .map((f) => f.properties.name || f.properties.abbrev || 'Unknown')
+          .filter(Boolean);
+      }
+
+      return {
+        success: true,
+        message,
+        data: {
+          count,
+          total,
+          sampleNames: sampleNames.length > 0 ? sampleNames : undefined,
+        },
+      };
+    },
 
     [TOOL_NAMES.AGGREGATE_FEATURES]: (params) => {
       const { layerId = 'points-layer', groupBy } = params;
@@ -421,6 +477,33 @@ export function createExecutors({ deck, map, mapTools }) {
         success: true,
         message: `Aggregation by "${groupBy}" (${total} total features):\n${tableRows}`,
         data: { groupBy, total, groups: results },
+      };
+    },
+
+    [TOOL_NAMES.GET_LAYER_CONFIG]: (params) => {
+      const { layerId } = params;
+      const currentLayers = deck.props.layers || [];
+      const layer = findLayerById(currentLayers, layerId);
+
+      if (!layer) {
+        return { success: false, message: `Layer "${layerId}" not found` };
+      }
+
+      const config = {
+        layerId: layer.id,
+        layerType: layer.constructor.name,
+        visible: layer.props.visible !== false,
+        opacity: layer.props.opacity ?? 1,
+        props: {
+          pickable: layer.props.pickable,
+          autoHighlight: layer.props.autoHighlight,
+        },
+      };
+
+      return {
+        success: true,
+        message: `Layer "${layerId}" configuration retrieved`,
+        data: config,
       };
     },
   };

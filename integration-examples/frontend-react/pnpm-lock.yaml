@@ -10,13 +10,16 @@ importers:
     dependencies:
       '@carto/maps-ai-tools':
         specifier: file:../../map-ai-tools
-        version: file:../../map-ai-tools(zod@4.1.13)
+        version: file:../../map-ai-tools(@deck.gl/json@9.2.5(@deck.gl/core@9.2.2))(zod@4.1.13)
       '@deck.gl/carto':
         specifier: ^9.2.2
         version: 9.2.2(8b94dcd464cef4092b1667314c24f7ea)
       '@deck.gl/core':
         specifier: ^9.2.2
         version: 9.2.2
+      '@deck.gl/json':
+        specifier: ^9.2.2
+        version: 9.2.5(@deck.gl/core@9.2.2)
       '@deck.gl/layers':
         specifier: ^9.2.2
         version: 9.2.2(@deck.gl/core@9.2.2)(@loaders.gl/core@4.3.4)(@luma.gl/core@9.2.4)(@luma.gl/engine@9.2.4(@luma.gl/core@9.2.4)(@luma.gl/shadertools@9.2.4(@luma.gl/core@9.2.4)))
@@ -155,6 +158,7 @@ packages:
   '@carto/maps-ai-tools@file:../../map-ai-tools':
     resolution: {directory: ../../map-ai-tools, type: directory}
     peerDependencies:
+      '@deck.gl/json': ^9.2.0
       zod: ^4.1.0
 
   '@deck.gl/aggregation-layers@9.2.2':
@@ -196,6 +200,11 @@ packages:
       '@loaders.gl/core': ^4.2.0
       '@luma.gl/core': ~9.2.2
       '@luma.gl/engine': ~9.2.2
+
+  '@deck.gl/json@9.2.5':
+    resolution: {integrity: sha512-DER3A31hM9+Qq9taIUOUYHKKJAv3ztnRV+WMY83+XjGg2bQWPqNu5cpBHZgtICTdAZur2Sn3COiVNCORy0s6ew==}
+    peerDependencies:
+      '@deck.gl/core': ~9.2.0
 
   '@deck.gl/layers@9.2.2':
     resolution: {integrity: sha512-O1tmE6I7KQs3Wv2W+KkLo3mOW6CqWn92jwkCq7i5b7OZwxNfzdEQFK3bDpQTfDEp1BTwR6bMP1TkhGBVksQJ2Q==}
@@ -1300,6 +1309,10 @@ packages:
     resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
     hasBin: true
 
+  jsep@0.3.5:
+    resolution: {integrity: sha512-AoRLBDc6JNnKjNcmonituEABS5bcfqDhQAWWXNTFrqu6nVXBpBAGfcoTGZMFlIrh9FjmE1CQyX9CTNwZrXMMDA==}
+    engines: {node: '>= 6.0.0'}
+
   jsep@1.4.0:
     resolution: {integrity: sha512-B7qPcEVE3NVkmSJbaYxvv4cHkVW7DQsZz13pUMrfS8z8Q/BuShN+gcTXrUlPiGqM2/t/EEaI030bpxMqY8gMlw==}
     engines: {node: '>= 10.16.0'}
@@ -1936,9 +1949,10 @@ snapshots:
     transitivePeerDependencies:
       - '@loaders.gl/core'
 
-  '@carto/maps-ai-tools@file:../../map-ai-tools(zod@4.1.13)':
+  '@carto/maps-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.5(@deck.gl/core@9.2.2))(zod@4.1.13)':
     dependencies:
       '@deck.gl/core': 9.2.2
+      '@deck.gl/json': 9.2.5(@deck.gl/core@9.2.2)
       tslib: 2.8.1
       zod: 4.1.13
 
@@ -2043,6 +2057,11 @@ snapshots:
       long: 3.2.0
     transitivePeerDependencies:
       - '@luma.gl/constants'
+
+  '@deck.gl/json@9.2.5(@deck.gl/core@9.2.2)':
+    dependencies:
+      '@deck.gl/core': 9.2.2
+      jsep: 0.3.5
 
   '@deck.gl/layers@9.2.2(@deck.gl/core@9.2.2)(@loaders.gl/core@4.3.4)(@luma.gl/core@9.2.4)(@luma.gl/engine@9.2.4(@luma.gl/core@9.2.4)(@luma.gl/shadertools@9.2.4(@luma.gl/core@9.2.4)))':
     dependencies:
@@ -3153,6 +3172,8 @@ snapshots:
   js-yaml@4.1.1:
     dependencies:
       argparse: 2.0.1
+
+  jsep@0.3.5: {}
 
   jsep@1.4.0: {}
 

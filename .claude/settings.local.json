@@ -44,7 +44,10 @@
       "Bash(npm run build:notes:pptx:*)",
       "Bash(tree:*)",
       "WebFetch(domain:zod.dev)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "mcp__github__get_file_contents",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []
