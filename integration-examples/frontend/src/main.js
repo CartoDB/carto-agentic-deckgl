@@ -16,7 +16,7 @@ import { TOOL_NAMES, parseToolResponse } from '@carto/maps-ai-tools';
 // Set USE_HTTP to true to use the new HTTP streaming endpoint, false for WebSocket
 const USE_HTTP = import.meta.env.VITE_USE_HTTP === 'true' || false;
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws';
-const HTTP_API_URL = import.meta.env.VITE_HTTP_API_URL || 'http://localhost:3000/api/vercel-chat';
+const HTTP_API_URL = import.meta.env.VITE_HTTP_API_URL || 'http://localhost:3000/api/litellm-chat';
 const GEOJSON_PATH = '/data/airports.geojson';
 
 console.log(`[Config] Using ${USE_HTTP ? 'HTTP' : 'WebSocket'} mode`);
@@ -47,6 +47,30 @@ function findLayerIdByName(name) {
 
 // Store color filters for conditional coloring (stacked filters)
 const colorFilters = [];
+
+// Store base color set by set-point-color (used as default for color filters)
+let basePointColor = [255, 105, 180, 180]; // Default pink
+
+// Function to clear color filters
+window.clearColorFilters = () => {
+  console.log('[Frontend] Clearing color filters');
+  colorFilters.length = 0;
+  basePointColor = [255, 105, 180, 180]; // Reset to pink
+  const currentLayers = deck.props.layers || [];
+  const updatedLayers = currentLayers.map(layer => {
+    if (layer.id === 'points-layer') {
+      return layer.clone({
+        getFillColor: basePointColor,
+        updateTriggers: { getFillColor: 'reset' }
+      });
+    }
+    return layer;
+  });
+  deck.setProps({ layers: updatedLayers });
+  requestAnimationFrame(() => deck.redraw(true));
+  setTimeout(() => deck.redraw(true), 50);
+  console.log('[Frontend] Color filters cleared');
+};
 
 // Define executors for each tool using TOOL_NAMES
 const executors = {
@@ -126,6 +150,11 @@ const executors = {
 
   [TOOL_NAMES.SET_POINT_COLOR]: (params) => {
     const rgba = [params.r, params.g, params.b, params.a ?? 200];
+
+    // Store as base color for color filters to use as default
+    basePointColor = rgba;
+    console.log('[Frontend] Base point color set to:', basePointColor);
+
     const currentLayers = deck.props.layers || [];
 
     const updatedLayers = currentLayers.map(layer => {
@@ -145,6 +174,9 @@ const executors = {
   },
 
   [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: (params) => {
+    console.log('[Frontend] ========== COLOR_FEATURES_BY_PROPERTY executor called ==========');
+    console.log('[Frontend] Params:', params);
+
     const { layerId, property, operator, value, r, g, b, a } = params;
     const rgba = [r, g, b, a ?? 180];
 
@@ -158,15 +190,21 @@ const executors = {
       color: rgba
     };
 
+    console.log('[Frontend] Before adding - colorFilters.length:', colorFilters.length);
+
     // Check if filter already exists, update or add
     const existingIdx = colorFilters.findIndex(f => f.key === filterKey);
     if (existingIdx >= 0) {
+      console.log('[Frontend] Filter exists at index', existingIdx, '- updating');
       colorFilters[existingIdx] = newFilter;
     } else {
+      console.log('[Frontend] Filter is new - adding to stack');
       colorFilters.push(newFilter);
     }
 
-    console.log('[Frontend] Color filters stack:', colorFilters);
+    console.log('[Frontend] After adding - colorFilters.length:', colorFilters.length);
+    console.log('[Frontend] Color filters stack:',
+      colorFilters.map(f => `${f.property}:${f.operator}:"${f.value}" → rgb(${f.color.slice(0,3).join(',')})`));
 
     // Helper function to check if a feature matches a filter
     const matchesFilter = (feature, filter) => {
@@ -177,7 +215,11 @@ const executors = {
         case 'equals':
           return propValue === filter.value;
         case 'startsWith':
-          // Empty string matches all features (every string starts with "")
+          // CRITICAL: Empty string matches all features (every string starts with "")
+          // Explicitly check for empty string to ensure it always returns true
+          if (filter.value === '' || filter.value === null || filter.value === undefined) {
+            return true;
+          }
           return propValue.startsWith(filter.value);
         case 'contains':
           return propValue.includes(filter.value);
@@ -193,15 +235,39 @@ const executors = {
     };
 
     // Create color accessor function
+    console.log('[Frontend] Creating color accessor with base color:', basePointColor);
+    let debugCount = 0;
     const colorAccessor = (feature) => {
-      // Check filters in order - return first match
-      for (const filter of colorFilters) {
-        if (matchesFilter(feature, filter)) {
-          return filter.color;
+      // Debug first few features
+      if (debugCount < 5) {
+        const gpsCode = feature.properties?.gps_code || '';
+        console.log(`[Frontend] Evaluating feature ${debugCount}: gps_code="${gpsCode}"`);
+        console.log(`[Frontend]   Available filters: ${colorFilters.length}`);
+        debugCount++;
+
+        // Check each filter and log the result
+        for (let i = 0; i < colorFilters.length; i++) {
+          const filter = colorFilters[i];
+          const matches = matchesFilter(feature, filter);
+          console.log(`[Frontend]   Filter ${i}: ${filter.property}:${filter.operator}:"${filter.value}" → matches=${matches}`);
+          if (matches) {
+            console.log(`[Frontend]   ✓ Using color rgb(${filter.color.slice(0,3).join(',')})`);
+            return filter.color;
+          }
+        }
+        console.log(`[Frontend]   ✗ No match, using base color rgb(${basePointColor.slice(0,3).join(',')})`);
+      } else {
+        // Fast path for non-debug features
+        for (let i = 0; i < colorFilters.length; i++) {
+          const filter = colorFilters[i];
+          if (matchesFilter(feature, filter)) {
+            return filter.color;
+          }
         }
       }
-      // Default color if no filter matches
-      return [255, 105, 180, 180]; // Pink
+
+      // Default color if no filter matches - use base color set by set-point-color
+      return basePointColor;
     };
 
     // Update layer with conditional coloring
@@ -220,9 +286,11 @@ const executors = {
 
     deck.setProps({ layers: updatedLayers });
 
-    // Force redraw
+    // Force multiple redraws to ensure deck.gl applies the changes
     requestAnimationFrame(() => deck.redraw(true));
     setTimeout(() => deck.redraw(true), 50);
+    setTimeout(() => deck.redraw(true), 100);
+    setTimeout(() => deck.redraw(true), 200);
 
     const filterDesc = `${property} ${operator} "${value}"`;
     return { success: true, message: `Applied color filter: ${filterDesc} → rgb(${r}, ${g}, ${b})` };
