@@ -1,14 +1,14 @@
 // backend/src/services/openai-responses-service.ts
 import OpenAI from 'openai';
 import { Response } from 'express';
-import { z } from 'zod';
 import {
   getAllToolDefinitions,
   formatToolResponse,
   validateWithZod,
 } from '@carto/maps-ai-tools';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
-import { getCustomToolNames, getCustomTool } from './custom-tools.js';
+import { getCustomToolNames, getCustomTool, initializeMCPTools } from './custom-tools.js';
+import * as z from 'zod';
 
 interface Message {
   role: string;
@@ -20,6 +20,8 @@ export class OpenAIResponsesService {
   private model: string;
   private systemPrompt: string;
   private allToolDefinitions: any[];
+
+  private initialized: boolean = false;
 
   constructor() {
     // Validate required env vars - use same OPENAI_API_KEY as openai-service
@@ -34,26 +36,9 @@ export class OpenAIResponsesService {
     // Get CARTO library tool definitions (in OpenAI Chat format)
     const cartoToolDefinitions = getAllToolDefinitions();
 
-    // Convert custom tools to OpenAI Chat format first
-    // Use z.toJSONSchema() to properly convert Zod schema to JSON Schema
-    const customToolDefinitions = getCustomToolNames().map(toolName => {
-      const customTool = getCustomTool(toolName);
-      return {
-        type: 'function' as const,
-        function: {
-          name: toolName,
-          description: customTool.description,
-          parameters: z.toJSONSchema(customTool.schema, { target: 'openapi-3.0' })
-        }
-      };
-    });
-
-    // Combine all tool definitions in Chat format for system prompt
-    const chatFormatTools = [...cartoToolDefinitions, ...customToolDefinitions];
+    // Initialize with CARTO tools only - custom tools will be added asynchronously
+    const chatFormatTools = [...cartoToolDefinitions];
     this.systemPrompt = buildSystemPrompt(chatFormatTools);
-
-    // Convert to Responses API format (name at top level, not nested in function)
-    // Responses API format: { type: 'function', name: '...', description: '...', parameters: {...} }
     this.allToolDefinitions = chatFormatTools.map(tool => ({
       type: 'function' as const,
       name: tool.function.name,
@@ -61,11 +46,108 @@ export class OpenAIResponsesService {
       parameters: tool.function.parameters
     }));
 
-    console.log('[OpenAI Responses] Service initialized');
+    console.log('[OpenAI Responses] Service created (initialization pending)');
     console.log('[OpenAI Responses] Model:', this.model);
-    console.log('[OpenAI Responses] Total tools:', this.allToolDefinitions.length);
-    console.log('[OpenAI Responses] CARTO tools:', cartoToolDefinitions.length);
-    console.log('[OpenAI Responses] Custom tools:', customToolDefinitions.length);
+  }
+
+  /**
+   * Initialize custom tools (async operation)
+   */
+  private async initialize() {
+    if (this.initialized) {
+      return;
+    }
+
+    try {
+      console.log('[OpenAI Responses] Initializing custom tools...');
+
+      // Initialize MCP tools first
+      await initializeMCPTools();
+
+      // Get CARTO library tool definitions (in OpenAI Chat format)
+      const cartoToolDefinitions = getAllToolDefinitions();
+
+      // Get all custom tool names (now includes MCP tools)
+      const customToolNames = getCustomToolNames();
+
+      // Convert custom tools to OpenAI Chat format
+      const customToolDefinitions = customToolNames.map(toolName => {
+        const customTool = getCustomTool(toolName);
+
+        // Determine if schema needs conversion
+        let parameters: any;
+        try {
+          // First, check if tool has jsonSchema property (from MCP)
+          if (customTool.jsonSchema) {
+            console.log(`[OpenAI Responses] Using JSON Schema for MCP tool: ${toolName}`);
+            parameters = customTool.jsonSchema;
+          }
+          // Check if it's a Zod object schema
+          else if (customTool.schema && typeof customTool.schema === 'object' && '_def' in customTool.schema) {
+            console.log(`[OpenAI Responses] Converting Zod schema for tool: ${toolName}`);
+            // It's a Zod schema, convert it using native Zod 4 method
+            parameters = z.toJSONSchema(customTool.schema, { target: 'openapi-3.0' });
+          } else if (customTool.schema && typeof customTool.schema === 'object') {
+            console.log(`[OpenAI Responses] Using plain JSON Schema for tool: ${toolName}`);
+            // It's already a plain object (JSON Schema)
+            parameters = customTool.schema;
+          } else {
+            console.warn(`[OpenAI Responses] No valid schema found for ${toolName}, using empty schema`);
+            // Fallback to generic object schema
+            parameters = { type: 'object', properties: {}, additionalProperties: true };
+          }
+
+          // Ensure required fields are present
+          if (!parameters.type) {
+            parameters.type = 'object';
+          }
+          if (!parameters.properties) {
+            parameters.properties = {};
+          }
+        } catch (error) {
+          console.error(`[OpenAI Responses] Error processing schema for ${toolName}:`, error);
+          parameters = { type: 'object', properties: {}, additionalProperties: true };
+        }
+
+        return {
+          type: 'function' as const,
+          function: {
+            name: toolName,
+            description: customTool.description,
+            parameters
+          }
+        };
+      });
+
+      // Combine all tool definitions in Chat format for system prompt
+      const chatFormatTools = [...cartoToolDefinitions, ...customToolDefinitions];
+      this.systemPrompt = buildSystemPrompt(chatFormatTools);
+
+      // Convert to Responses API format (name at top level, not nested in function)
+      // Responses API format: { type: 'function', name: '...', description: '...', parameters: {...} }
+      this.allToolDefinitions = chatFormatTools.map(tool => ({
+        type: 'function' as const,
+        name: tool.function.name,
+        description: tool.function.description,
+        parameters: tool.function.parameters
+      }));
+
+      this.initialized = true;
+
+      console.log('[OpenAI Responses] Service initialized');
+      console.log('[OpenAI Responses] Model:', this.model);
+      console.log('[OpenAI Responses] Total tools:', this.allToolDefinitions.length);
+      console.log('[OpenAI Responses] CARTO tools:', cartoToolDefinitions.length);
+      console.log('[OpenAI Responses] Custom tools:', customToolDefinitions.length);
+
+      // Log custom tool schemas for debugging
+      for (const tool of customToolDefinitions) {
+        console.log(`[OpenAI Responses] Custom tool schema for ${tool.function.name}:`, JSON.stringify(tool.function.parameters, null, 2));
+      }
+    } catch (error) {
+      console.error('[OpenAI Responses] Error initializing custom tools:', error);
+      this.initialized = true; // Mark as initialized even on error to prevent retry loops
+    }
   }
 
   /**
@@ -78,6 +160,9 @@ export class OpenAIResponsesService {
   ): Promise<{ message: any; responseId?: string; hadToolCalls?: boolean } | null> {
     console.log('[OpenAI Responses] Starting streamChatCompletion...');
     console.log('[OpenAI Responses] Previous response ID:', previousResponseId || '(none)');
+
+    // Ensure tools are initialized before processing
+    await this.initialize();
 
     const messageId = `msg_${Date.now()}`;
 
@@ -121,7 +206,10 @@ export class OpenAIResponsesService {
       const toolCallsMap = new Map<string, any>();
 
       // Process streaming response using SDK events
+      console.log('[OpenAI Responses] Setting up event listeners for streaming...');
+
       stream.on('response.created', (event: any) => {
+        console.log('[OpenAI Responses] Event: response.created');
         if (event.response?.id) {
           responseId = event.response.id;
           console.log('[OpenAI Responses] Response ID:', responseId);
@@ -144,30 +232,37 @@ export class OpenAIResponsesService {
 
       stream.on('response.output_item.added', (event: any) => {
         const item = event.item;
+        console.log('[OpenAI Responses] Output item added event:', JSON.stringify(event, null, 2));
         if (item?.type === 'function_call') {
           const callId = item.call_id || item.id || `call_${Date.now()}`;
+          const initialArgs = item.arguments || '';
           toolCallsMap.set(callId, {
             id: callId,
             name: item.name || '',
-            arguments: ''
+            arguments: initialArgs
           });
-          console.log('[OpenAI Responses] Function call started:', item.name);
+          console.log('[OpenAI Responses] Function call started:', item.name, 'Call ID:', callId, 'Initial args:', initialArgs);
         }
       });
 
       stream.on('response.function_call_arguments.delta', (event: any) => {
         const delta = event.delta;
         const lastCallId = Array.from(toolCallsMap.keys()).pop();
+        console.log('[OpenAI Responses] Function arguments delta:', delta, 'for call:', lastCallId);
         if (lastCallId && delta) {
           const toolCall = toolCallsMap.get(lastCallId);
           if (toolCall) {
             toolCall.arguments += delta;
+            console.log('[OpenAI Responses] Accumulated arguments so far:', toolCall.arguments);
           }
         }
       });
 
       // Wait for the stream to complete and get final response
       const finalResponse = await stream.finalResponse();
+
+      console.log('[OpenAI Responses] Final response received');
+      console.log('[OpenAI Responses] Final response structure:', JSON.stringify(finalResponse, null, 2));
 
       // Extract response ID from final response if not already set
       if (finalResponse?.id && !responseId) {
@@ -177,6 +272,7 @@ export class OpenAIResponsesService {
 
       // Process final output for any missed content
       if (finalResponse?.output) {
+        console.log('[OpenAI Responses] Processing final output, items:', finalResponse.output.length);
         for (const output of finalResponse.output) {
           if (output.type === 'message' && (output as any).content) {
             for (const content of (output as any).content) {
@@ -191,12 +287,23 @@ export class OpenAIResponsesService {
           if (output.type === 'function_call') {
             const fc = output as any;
             const callId = fc.call_id || fc.id || '';
+            console.log('[OpenAI Responses] Final response function_call:', fc);
+
+            // Only add if not already in map, or update if arguments are more complete
             if (!toolCallsMap.has(callId)) {
+              console.log('[OpenAI Responses] Adding new function call from final response');
               toolCallsMap.set(callId, {
                 id: callId,
                 name: fc.name || '',
                 arguments: fc.arguments || ''
               });
+            } else {
+              // Update if final response has arguments and current doesn't
+              const existing = toolCallsMap.get(callId)!;
+              if (fc.arguments && !existing.arguments) {
+                console.log('[OpenAI Responses] Updating function call arguments from final response');
+                existing.arguments = fc.arguments;
+              }
             }
           }
         }
@@ -204,13 +311,18 @@ export class OpenAIResponsesService {
 
       // Convert accumulated tool calls to array and parse arguments
       const toolCalls = Array.from(toolCallsMap.values()).map(tc => {
+        console.log(`[OpenAI Responses] Raw tool call - Name: ${tc.name}, Arguments string: "${tc.arguments}"`);
+
         let parsedArgs = {};
         try {
-          if (tc.arguments) {
+          if (tc.arguments && tc.arguments.trim()) {
             parsedArgs = JSON.parse(tc.arguments);
+            console.log(`[OpenAI Responses] Parsed arguments for ${tc.name}:`, JSON.stringify(parsedArgs));
+          } else {
+            console.warn(`[OpenAI Responses] Empty or missing arguments for ${tc.name}`);
           }
         } catch (e) {
-          console.error('[OpenAI Responses] Error parsing tool arguments:', tc.arguments);
+          console.error(`[OpenAI Responses] Error parsing tool arguments for ${tc.name}:`, tc.arguments, e);
         }
 
         return {
@@ -224,6 +336,7 @@ export class OpenAIResponsesService {
       console.log('[OpenAI Responses] Response ID:', responseId);
       console.log('[OpenAI Responses] Assistant message length:', assistantMessage.length);
       console.log('[OpenAI Responses] Tool calls:', toolCalls.length);
+      console.log('[OpenAI Responses] Tool calls details:', JSON.stringify(toolCalls, null, 2));
 
       // Process tool calls
       if (toolCalls.length > 0) {
@@ -237,7 +350,8 @@ export class OpenAIResponsesService {
             console.log(`[OpenAI Responses] Processing tool: ${toolName}`, args);
 
             // Check if this is a custom tool
-            const isCustomTool = getCustomToolNames().includes(toolName as any);
+            const customToolNames = getCustomToolNames();
+            const isCustomTool = customToolNames.includes(toolName as any);
 
             if (isCustomTool) {
               // Handle custom tool execution (backend-side)
