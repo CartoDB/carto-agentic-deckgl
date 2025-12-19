@@ -24,13 +24,42 @@ export class OpenAIResponsesService {
   private initialized: boolean = false;
 
   constructor() {
-    // Validate required env vars - use same OPENAI_API_KEY as openai-service
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+    // Check if we should use LiteLLM endpoint or OpenAI
+    const useLiteLLM = process.env.USE_LITELLM_FOR_RESPONSES === 'true';
+
+    let apiKey: string;
+    let baseURL: string | undefined;
+    let defaultHeaders: Record<string, string> | undefined;
+
+    if (useLiteLLM) {
+      // Use LiteLLM/CARTO endpoint
+      apiKey = process.env.GEMINI_API_KEY || '';
+      if (!apiKey) {
+        throw new Error('GEMINI_API_KEY environment variable is required when USE_LITELLM_FOR_RESPONSES=true');
+      }
+
+      baseURL = process.env.CARTO_LITELLM_URL || 'https://litellm-gcp-us-east1.api.carto.com/v1';
+      defaultHeaders = {
+        'Authorization': `Bearer ${apiKey}`,
+        'x-litellm-api-key': apiKey,
+      };
+
+      console.log('[OpenAI Responses] Using LiteLLM endpoint:', baseURL);
+    } else {
+      // Use standard OpenAI endpoint
+      apiKey = process.env.OPENAI_API_KEY || '';
+      if (!apiKey) {
+        throw new Error('OPENAI_API_KEY environment variable is required');
+      }
+
+      console.log('[OpenAI Responses] Using OpenAI endpoint');
     }
 
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({
+      apiKey,
+      baseURL,
+      defaultHeaders,
+    });
     this.model = process.env.OPENAI_RESPONSES_MODEL || 'gpt-4.1';
 
     // Get CARTO library tool definitions (in OpenAI Chat format)
