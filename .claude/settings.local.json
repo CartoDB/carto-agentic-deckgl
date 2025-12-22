@@ -47,7 +47,12 @@
       "Bash(ls:*)",
       "Bash(grep:*)",
       "mcp__github__get_file_contents",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(find:*)",
+      "Bash(yarn install)",
+      "Bash(timeout 10 yarn start:*)",
+      "Skill(playwright-skill:playwright-skill)",
+      "Bash(lsof:*)"
     ],
     "deny": [],
     "ask": []

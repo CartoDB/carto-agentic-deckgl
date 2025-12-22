@@ -63,6 +63,27 @@ export const tools = {
     }),
   },
 
+  'rotate-map': {
+    name: 'rotate-map',
+    description: 'Rotate the map view by adjusting the bearing. Use positive values to rotate clockwise.',
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      bearing: z.number().min(-180).max(180).describe('Target bearing/rotation in degrees (-180 to 180)'),
+      relative: z.boolean().default(false).describe('If true, adds to current bearing. If false, sets absolute bearing.'),
+      transitionDuration: z.number().min(0).default(500).describe('Animation duration in ms. Default is 500.'),
+    }),
+  },
+
+  'set-pitch': {
+    name: 'set-pitch',
+    description: 'Tilt the map view by adjusting the pitch angle. 0 is looking straight down, 85 is nearly horizontal.',
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      pitch: z.number().min(0).max(85).describe('Target pitch/tilt in degrees (0 to 85)'),
+      transitionDuration: z.number().min(0).default(500).describe('Animation duration in ms. Default is 500.'),
+    }),
+  },
+
   // ============================================================================
   // Layer Visibility & Styling Tools
   // ============================================================================
@@ -217,6 +238,55 @@ export const tools = {
     outputType: 'data' as ToolOutputType,
     schema: z.object({
       layerId: z.string().describe('The ID of the layer to query'),
+    }),
+  },
+
+  // ============================================================================
+  // Presentation/Slide Tools
+  // ============================================================================
+
+  'navigate-slide': {
+    name: 'navigate-slide',
+    description: 'Navigate to a specific slide in the presentation by number or name. Use this when the user wants to go to a specific section of the story.',
+    outputType: 'data' as ToolOutputType,
+    schema: z.object({
+      target: z.union([
+        z.number().min(0).describe('Slide number (0-based index)'),
+        z.string().describe('Slide name or keyword (e.g., "cover", "intro", "temperature")'),
+      ]).optional().describe('Target slide - either a number or name/keyword'),
+      direction: z.enum(['next', 'previous', 'first', 'last']).optional()
+        .describe('Alternative: navigate relative to current slide'),
+    }),
+  },
+
+  'get-slide-info': {
+    name: 'get-slide-info',
+    description: 'Get information about the current slide including its index, title, available layers, and any filter controls.',
+    outputType: 'data' as ToolOutputType,
+    schema: z.object({
+      includeAllSlides: z.boolean().default(false)
+        .describe('If true, returns info about all slides, not just current'),
+    }),
+  },
+
+  'set-filter-value': {
+    name: 'set-filter-value',
+    description: 'Set the filter slider value for data filtering (e.g., temperature range, distance threshold, priority level). The value meaning depends on the current slide context.',
+    outputType: 'data' as ToolOutputType,
+    schema: z.object({
+      value: z.number().describe('Filter value - meaning depends on slide context'),
+      normalized: z.boolean().default(true)
+        .describe('If true, value is 0-1 normalized; if false, uses actual data units'),
+    }),
+  },
+
+  'reset-view': {
+    name: 'reset-view',
+    description: 'Reset the map view to the default position for the current slide or to the initial app view.',
+    outputType: 'data' as ToolOutputType,
+    schema: z.object({
+      toSlideDefault: z.boolean().default(true)
+        .describe('Reset to slide\'s default view. If false, resets to initial app view.'),
     }),
   },
 } as const;

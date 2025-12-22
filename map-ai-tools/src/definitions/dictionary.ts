@@ -7,6 +7,8 @@ export const TOOL_NAMES = {
   FLY_TO: 'fly-to',
   ZOOM_MAP: 'zoom-map',
   SET_VIEW_STATE: 'set-view-state',
+  ROTATE_MAP: 'rotate-map',
+  SET_PITCH: 'set-pitch',
   // Layer visibility & styling tools
   TOGGLE_LAYER: 'toggle-layer',
   SET_POINT_COLOR: 'set-point-color',
@@ -22,6 +24,11 @@ export const TOOL_NAMES = {
   QUERY_FEATURES: 'query-features',
   AGGREGATE_FEATURES: 'aggregate-features',
   GET_LAYER_CONFIG: 'get-layer-config',
+  // Presentation/Slide tools
+  NAVIGATE_SLIDE: 'navigate-slide',
+  GET_SLIDE_INFO: 'get-slide-info',
+  SET_FILTER_VALUE: 'set-filter-value',
+  RESET_VIEW: 'reset-view',
 } as const;
 
 // Re-export everything from tools.ts

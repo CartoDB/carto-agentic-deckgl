@@ -91,6 +91,46 @@ export const layerStateMetadataSchema = z.object({
 export type LayerStateMetadata = z.infer<typeof layerStateMetadataSchema>;
 
 // ============================================================================
+// Slide/Presentation Context Schema
+// ============================================================================
+
+/**
+ * Filter configuration for a slide
+ */
+export const slideFilterConfigSchema = z.object({
+  property: z.string().optional().describe('Property being filtered'),
+  min: z.number().optional().describe('Minimum value in filter range'),
+  max: z.number().optional().describe('Maximum value in filter range'),
+  unit: z.string().optional().describe('Unit of measurement (e.g., "°C", "m", "priority")'),
+  description: z.string().optional().describe('Human-readable description of the filter'),
+});
+
+export type SlideFilterConfig = z.infer<typeof slideFilterConfigSchema>;
+
+/**
+ * Slide metadata for story-map demos
+ */
+export const slideMetadataSchema = z.object({
+  index: z.number().describe('Slide index (0-based)'),
+  name: z.string().optional().describe('Unique slide identifier (e.g., "cover", "temperature", "priority")'),
+  title: z.string().optional().describe('Display title'),
+  description: z.string().optional().describe('Slide description or narrative'),
+  layers: z.array(z.string()).describe('Layer IDs visible on this slide'),
+  hasFilter: z.boolean().default(false).describe('Whether this slide has a filter control'),
+  filterConfig: slideFilterConfigSchema.optional().describe('Filter configuration if hasFilter is true'),
+  viewState: z.object({
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    zoom: z.number().optional(),
+    pitch: z.number().optional(),
+    bearing: z.number().optional(),
+    height: z.number().optional(),
+  }).optional().describe('Default view state for this slide'),
+});
+
+export type SlideMetadata = z.infer<typeof slideMetadataSchema>;
+
+// ============================================================================
 // Initial State Schema
 // ============================================================================
 
@@ -137,6 +177,40 @@ export const initialStateSchema = z.object({
    * Application-specific metadata
    */
   metadata: z.record(z.string(), z.unknown()).optional().describe('Application-specific metadata'),
+
+  // ============================================================================
+  // Presentation/Slide Context (optional)
+  // ============================================================================
+
+  /**
+   * Demo identifier for slide-based applications
+   */
+  demoId: z.string().optional().describe('Demo identifier (e.g., "tiles3d-demo", "sdsc-congestion")'),
+
+  /**
+   * Current slide index (0-based)
+   */
+  currentSlide: z.number().optional().describe('Current slide index (0-based)'),
+
+  /**
+   * Total number of slides
+   */
+  totalSlides: z.number().optional().describe('Total number of slides'),
+
+  /**
+   * Metadata for all slides
+   */
+  slides: z.array(slideMetadataSchema).optional().describe('Metadata for all slides'),
+
+  /**
+   * Current filter value (if slide has filter control)
+   */
+  currentFilterValue: z.number().optional().describe('Current filter slider value'),
+
+  /**
+   * Filter range for current slide
+   */
+  filterRange: z.tuple([z.number(), z.number()]).optional().describe('Filter range [min, max]'),
 });
 
 export type InitialState = z.infer<typeof initialStateSchema>;
@@ -151,6 +225,46 @@ export type InitialState = z.infer<typeof initialStateSchema>;
  */
 export function createSystemPromptWithState(initialState: InitialState): string {
   const sections: string[] = [];
+
+  // Demo context (if slide-based application)
+  if (initialState.demoId) {
+    sections.push(`## Demo: ${initialState.demoId}`);
+  }
+
+  // Slide context
+  if (initialState.currentSlide !== undefined && initialState.totalSlides) {
+    const currentSlideNum = initialState.currentSlide + 1;
+    sections.push(`## Current Slide: ${currentSlideNum} of ${initialState.totalSlides}`);
+
+    // Current slide details
+    if (initialState.slides && initialState.slides[initialState.currentSlide]) {
+      const slide = initialState.slides[initialState.currentSlide];
+      const slideInfo: string[] = [];
+      if (slide.name) slideInfo.push(`Name: "${slide.name}"`);
+      if (slide.title) slideInfo.push(`Title: ${slide.title}`);
+      slideInfo.push(`Layers: ${slide.layers.join(', ')}`);
+      if (slide.hasFilter && slide.filterConfig) {
+        const fc = slide.filterConfig;
+        slideInfo.push(
+          `Filter: ${fc.description || fc.property || 'available'} (${fc.min ?? '?'} - ${fc.max ?? '?'} ${fc.unit || ''})`
+        );
+        if (initialState.currentFilterValue !== undefined) {
+          slideInfo.push(`Current Filter Value: ${initialState.currentFilterValue}`);
+        }
+      }
+      sections.push(slideInfo.join('\n'));
+    }
+
+    // All slides overview
+    if (initialState.slides && initialState.slides.length > 0) {
+      const slideList = initialState.slides.map((s) => {
+        const current = s.index === initialState.currentSlide ? '→ ' : '  ';
+        const filter = s.hasFilter ? ' (has filter)' : '';
+        return `${current}${s.index}: ${s.name || s.title || `Slide ${s.index}`}${filter}`;
+      });
+      sections.push(`## All Slides\n${slideList.join('\n')}`);
+    }
+  }
 
   // View state section
   const vs = initialState.initialViewState;

@@ -34,8 +34,12 @@ export async function handleMessage(ws: WebSocket, message: ClientMessage, sessi
     // Get conversation history
     const messages = services.conversationManager.getConversation(sessionId);
 
-    // Stream response from OpenAI
-    const assistantMessage = await services.openaiService.streamChatCompletion(messages, ws);
+    // Stream response from OpenAI (pass initialState for dynamic system prompt)
+    const assistantMessage = await services.openaiService.streamChatCompletion(
+      messages,
+      ws,
+      message.initialState
+    );
 
     // Add assistant response to conversation history
     if (assistantMessage) {
