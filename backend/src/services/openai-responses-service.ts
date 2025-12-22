@@ -80,6 +80,13 @@ export class OpenAIResponsesService {
   }
 
   /**
+   * Get the model name
+   */
+  getModel(): string {
+    return this.model;
+  }
+
+  /**
    * Initialize custom tools (async operation)
    */
   private async initialize() {
@@ -185,10 +192,12 @@ export class OpenAIResponsesService {
   async streamChatCompletion(
     messages: Message[],
     res: Response,
-    previousResponseId?: string
+    previousResponseId?: string,
+    initialState?: any
   ): Promise<{ message: any; responseId?: string; hadToolCalls?: boolean } | null> {
     console.log('[OpenAI Responses] Starting streamChatCompletion...');
     console.log('[OpenAI Responses] Previous response ID:', previousResponseId || '(none)');
+    console.log('[OpenAI Responses] Initial state:', initialState ? `demoId=${initialState.demoId}, slide=${initialState.currentSlide}` : '(none)');
 
     // Ensure tools are initialized before processing
     await this.initialize();
@@ -208,11 +217,31 @@ export class OpenAIResponsesService {
       console.log('[OpenAI Responses] Sending to AI: last user message only');
       console.log('[OpenAI Responses] Last user message:', lastUserMessage[0]?.content);
 
+      // Build dynamic system prompt based on demo context (if provided)
+      // Convert tool definitions back to Chat format for buildSystemPrompt
+      const chatFormatTools = this.allToolDefinitions.map(tool => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
+        }
+      }));
+
+      console.log('[OpenAI Responses] Building system prompt with initialState:', JSON.stringify(initialState, null, 2));
+
+      const systemPrompt = initialState
+        ? buildSystemPrompt(chatFormatTools, initialState)
+        : this.systemPrompt;
+
+      console.log('[OpenAI Responses] Using system prompt:', initialState ? `dynamic (${initialState.demoId})` : 'default');
+      console.log('[OpenAI Responses] System prompt preview:', systemPrompt.substring(0, 500) + '...');
+
       // Build request options for OpenAI Responses API
       const requestOptions: any = {
         model: this.model,
         input: lastUserMessage[0]?.content || '',
-        instructions: this.systemPrompt,
+        instructions: systemPrompt,
         stream: true,
         tools: this.allToolDefinitions,
       };

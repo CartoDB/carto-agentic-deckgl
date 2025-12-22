@@ -1,5 +1,6 @@
 import * as z from 'zod';
 import { supportedLayerTypes, layerTypeSchema } from '../schemas/layer-specs';
+import { colorSchema, optionalNumber, optionalBoolean, coerceBoolean } from '../schemas/coercion-helpers';
 
 /**
  * Size rule for dynamic feature sizing
@@ -150,6 +151,124 @@ export const tools = {
       sizeRules: z.array(sizeRuleSchema).optional().describe('Array of rules mapping property values to sizes'),
       defaultSize: z.number().min(1).max(200).default(8).describe('Default size in pixels for features that don\'t match any rule. Default is 8.'),
       reset: z.boolean().default(false).describe('Set to true to reset to uniform sizing. Default is false.'),
+    }),
+  },
+
+  'show-hide-layer': {
+    name: 'show-hide-layer',
+    description: `Show or hide a map layer. Use this tool when user asks to:
+- "hide the subway" → { layerId: "subway", visible: false }
+- "show traffic" → { layerId: "traffic-before", visible: true }
+- "turn off the congestion zone" → { layerId: "congestion-zone", visible: false }
+- "display regional improvement" → { layerId: "regional-improvement", visible: true }
+
+This tool ONLY changes visibility. For other style changes (colors, width, opacity), use update-layer-style instead.`,
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      layerId: z.string().min(1).describe('The layer ID to show/hide (required)'),
+      visible: z.preprocess(
+        coerceBoolean,
+        z.boolean().describe('true to show the layer, false to hide it')
+      ),
+    }),
+  },
+
+  'update-layer-style': {
+    name: 'update-layer-style',
+    description: `Update visual styling of a map layer. Uses @deck.gl/json standard with layer.clone() for state preservation - only specified properties are updated.
+
+IMPORTANT: Do NOT use "default" as a value. If user wants to reset styles, use the reset-visualization tool instead.
+
+VISIBILITY RULES:
+- To HIDE a layer: use visible: false (e.g., "hide subway" → { layerId: "subway", visible: false })
+- To SHOW a layer: use visible: true (e.g., "show subway" → { layerId: "subway", visible: true })
+
+COLOR SELECTION RULES (CRITICAL - follow exactly):
+- If user mentions "line", "lines", "stroke", "border", "outline", "edge", or "trail" → ONLY set lineColor, do NOT set fillColor
+- If user mentions "fill", "background", "interior", or "inside" → ONLY set fillColor, do NOT set lineColor
+- If user request is ambiguous (e.g., "make it red", "change color") → set BOTH fillColor and lineColor
+- NEVER add a color property that wasn't implied by user's words
+
+PROPERTY USAGE BY LAYER TYPE:
+- GeoJsonLayer (polygons): fillColor, lineColor, lineWidth, lineWidthMinPixels, opacity, stroked, filled, extruded, elevation, visible
+- TripsLayer (trails): lineColor, widthMinPixels, trailLength, opacity, fadeTrail, visible
+- PathLayer (lines): lineColor, widthMinPixels, widthMaxPixels, opacity, capRounded, jointRounded, visible
+- ScatterplotLayer (points): fillColor, lineColor, pointRadius, radiusMinPixels, radiusMaxPixels, stroked, filled, visible
+
+Only include properties that need to change - omit properties that should keep their current values (they are preserved via layer.clone()).
+Colors: names (red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray) or RGBA arrays [r,g,b,a].`,
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      layerId: z.string().describe('The layer ID to update'),
+      fillColor: colorSchema
+        .describe('Fill color for polygons/points - name or RGBA array'),
+      lineColor: colorSchema
+        .describe('Line/stroke/trail color - name or RGBA array'),
+      opacity: optionalNumber(0, 1)
+        .describe('Layer opacity from 0 (transparent) to 1 (opaque)'),
+      visible: optionalBoolean
+        .describe('Layer visibility (true/false)'),
+      lineWidth: optionalNumber(0)
+        .describe('Line width in meters (GeoJsonLayer getLineWidth)'),
+      lineWidthMinPixels: optionalNumber(0)
+        .describe('Minimum line width in pixels - prevents lines from becoming too thin'),
+      lineWidthMaxPixels: optionalNumber(0)
+        .describe('Maximum line width in pixels - prevents lines from becoming too thick'),
+      widthMinPixels: optionalNumber(0)
+        .describe('Minimum path/trail width in pixels (TripsLayer, PathLayer)'),
+      widthMaxPixels: optionalNumber(0)
+        .describe('Maximum path/trail width in pixels (TripsLayer, PathLayer)'),
+      widthScale: optionalNumber(0)
+        .describe('Width multiplier for all paths/trails'),
+      pointRadius: optionalNumber(0)
+        .describe('Point/circle radius in meters'),
+      radiusMinPixels: optionalNumber(0)
+        .describe('Minimum point radius in pixels'),
+      radiusMaxPixels: optionalNumber(0)
+        .describe('Maximum point radius in pixels'),
+      radiusScale: optionalNumber(0)
+        .describe('Radius multiplier for all points'),
+      stroked: optionalBoolean
+        .describe('Whether to draw stroke/outline around polygons and points'),
+      filled: optionalBoolean
+        .describe('Whether to draw filled polygons and points'),
+      trailLength: optionalNumber(0)
+        .describe('Trail length - how long it takes for path to fade out (TripsLayer)'),
+      fadeTrail: optionalBoolean
+        .describe('Whether trail fades out (TripsLayer) - if false, trailLength has no effect'),
+      capRounded: optionalBoolean
+        .describe('Round line caps (true) or square caps (false)'),
+      jointRounded: optionalBoolean
+        .describe('Round line joints (true) or miter joints (false)'),
+      elevation: optionalNumber(0)
+        .describe('Extrusion height in meters (for extruded polygons)'),
+      elevationScale: optionalNumber(0)
+        .describe('Elevation multiplier'),
+      extruded: optionalBoolean
+        .describe('Whether to extrude polygons into 3D'),
+      wireframe: optionalBoolean
+        .describe('Whether to show wireframe for extruded polygons'),
+    }),
+  },
+
+  'reset-visualization': {
+    name: 'reset-visualization',
+    description: `Reset the visualization to its original state. Use this when user asks to "reset", "restore defaults", "go back to original", or "undo changes".
+
+This tool resets:
+- All layer styles to their original colors, widths, and properties
+- Optionally resets the view state (camera position, zoom, pitch, bearing)
+- Optionally navigates to a specific slide
+
+Use this tool instead of trying to set properties to "default" values.`,
+    outputType: 'data' as ToolOutputType,
+    schema: z.object({
+      resetLayers: optionalBoolean
+        .describe('Reset all layer styles to original (default: true)'),
+      resetViewState: optionalBoolean
+        .describe('Reset camera/view to original position (default: false)'),
+      targetSlide: optionalNumber(0)
+        .describe('Navigate to specific slide number after reset. Use the slide number as shown in the presentation (e.g., "Slide 1" → targetSlide: 1, "Slide 0" → targetSlide: 0). Do NOT convert from 1-indexed.'),
     }),
   },
 

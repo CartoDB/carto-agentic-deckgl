@@ -25,16 +25,18 @@ export const openAIChatRouter = Router();
  *
  * OpenAI Chat endpoint using OpenAI Responses API
  * Supports previous_response_id for conversation context chaining
+ * Supports initialState for slide-aware demos (dynamic system prompt)
  *
  * Request body:
  * - message: string (required) - User's chat message
  * - sessionId: string (optional) - Session ID for conversation history
+ * - initialState: object (optional) - Demo context (slide info, layers, filters)
  *
- * Response: Streaming text response with tool calls
+ * Response: Streaming NDJSON response with tool calls
  */
 openAIChatRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, initialState } = req.body;
 
     // Validate request
     if (!message || typeof message !== 'string') {
@@ -47,6 +49,13 @@ openAIChatRouter.post('/', async (req: Request, res: Response) => {
     const session = sessionId || randomUUID();
 
     console.log(`[API] /api/openai-chat request for session: ${session}`);
+    if (initialState) {
+      console.log(`[API] Initial state provided:`, {
+        demoId: initialState.demoId,
+        currentSlide: initialState.currentSlide,
+        totalSlides: initialState.totalSlides
+      });
+    }
 
     // Get services
     const services = getServices();
@@ -67,13 +76,21 @@ openAIChatRouter.post('/', async (req: Request, res: Response) => {
     }));
 
     // Get previous response ID for Responses API chaining
+    // Skip for carto::gemini models
     const previousResponseId = services.conversationManager.getLastResponseId(session);
+    const model = services.openAIService.getModel();
+    const shouldUsePreviousResponseId = previousResponseId && !model.startsWith('carto::gemini');
 
-    // Stream response from OpenAI Responses API
+    if (previousResponseId && model.startsWith('carto::gemini')) {
+      console.log(`[API] Skipping previous_response_id for carto::gemini model: ${model}`);
+    }
+
+    // Stream response from OpenAI Responses API (with initialState for slide-aware demos)
     const result = await services.openAIService.streamChatCompletion(
       messages,
       res,
-      previousResponseId
+      shouldUsePreviousResponseId ? previousResponseId : undefined,
+      initialState
     );
 
     // Add assistant response to conversation history and save response ID
