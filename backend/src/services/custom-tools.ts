@@ -149,7 +149,7 @@ Use this tool instead of trying to set properties to "default" values.`,
 /**
  * Update layer style tool - frontend-executed (no execute function)
  * Uses @deck.gl/json JSONConverter to resolve style properties
- * Supports all major deck.gl layer types: GeoJsonLayer, TripsLayer, PathLayer, ScatterplotLayer, etc.
+ * Supports all major deck.gl layer types: GeoJsonLayer, TripsLayer, PathLayer, ScatterplotLayer, QuadbinTileLayer, etc.
  */
 export const updateLayerStyleTool = {
   name: 'update-layer-style',
@@ -157,33 +157,40 @@ export const updateLayerStyleTool = {
 
 IMPORTANT: Do NOT use "default" as a value. If user wants to reset styles, use the reset-visualization tool instead.
 
-VISIBILITY RULES:
-- To HIDE a layer: use visible: false (e.g., "hide subway" → { layerId: "subway", visible: false })
-- To SHOW a layer: use visible: true (e.g., "show subway" → { layerId: "subway", visible: true })
-- This is the ONLY tool for hiding/showing layers - there is no separate toggle-layer or hide-layer tool
+COLOR SCHEME FOR CARTO LAYERS (QuadbinTileLayer, H3TileLayer, etc.):
+When user asks for a "color scheme", "palette", "sequential", "diverging", or "qualitative" colors, use the colorScheme parameter with a CARTO palette name:
+- Sequential: Burg, BurgYl, RedOr, OrYel, Peach, PinkYl, Mint, BluGrn, DarkMint, Emrld, BluYl, Teal, TealGrn, Purp, PurpOr, Sunset, Magenta, SunsetDark, BrwnYl
+- Diverging: ArmyRose, Fall, Geyser, Temps, TealRose, Tropic, Earth
+- Qualitative: Antique, Bold, Pastel, Prism, Safe, Vivid
 
-COLOR SELECTION RULES (CRITICAL - follow exactly):
-- If user mentions "line", "lines", "stroke", "border", "outline", "edge", or "trail" → ONLY set lineColor, do NOT set fillColor
-- If user mentions "fill", "background", "interior", or "inside" → ONLY set fillColor, do NOT set lineColor
-- If user request is ambiguous (e.g., "make it red", "change color") → set BOTH fillColor and lineColor
-- NEVER add a color property that wasn't implied by user's words
+Examples:
+- "black sequential" → colorScheme: "SunsetDark" (dark sequential palette)
+- "blue scheme" → colorScheme: "BluYl"
+- "green palette" → colorScheme: "Emrld" or "Mint"
+- "diverging colors" → colorScheme: "TealRose"
+
+SOLID COLOR (for non-data-driven layers):
+Use fillColor/lineColor for simple solid colors: red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray.
+
+VISIBILITY:
+- visible: false to hide, visible: true to show
 
 PROPERTY USAGE BY LAYER TYPE:
-- GeoJsonLayer (polygons): fillColor, lineColor, lineWidth, lineWidthMinPixels, opacity, stroked, filled, extruded, elevation, visible
-- TripsLayer (trails): lineColor, widthMinPixels, trailLength, opacity, fadeTrail, visible
-- PathLayer (lines): lineColor, widthMinPixels, widthMaxPixels, opacity, capRounded, jointRounded, visible
-- ScatterplotLayer (points): fillColor, lineColor, pointRadius, radiusMinPixels, radiusMaxPixels, stroked, filled, visible
-
-Only include properties that need to change - omit properties that should keep their current values (they are preserved via layer.clone()).
-Colors: names (red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray) or RGBA arrays [r,g,b,a].
-Available layer IDs: congestion-zone, traffic-before, traffic-after, regional-improvement, subway.`,
+- QuadbinTileLayer/H3TileLayer: colorScheme, opacity, visible, extruded
+- GeoJsonLayer (polygons): fillColor, lineColor, lineWidth, opacity, visible
+- PathLayer/TripsLayer (lines): lineColor, widthMinPixels, opacity, visible
+- ScatterplotLayer (points): fillColor, lineColor, pointRadius, visible`,
   schema: z.object({
     // Required
     layerId: z.string().describe('The layer ID to update'),
 
-    // === COLOR PROPERTIES ===
+    // === CARTO COLOR SCHEME ===
+    colorScheme: z.string().optional()
+      .describe('CARTO color palette name (e.g., PinkYl, BluYl, Teal, SunsetDark, TealRose, Bold)'),
+
+    // === SOLID COLOR PROPERTIES ===
     fillColor: colorSchema
-      .describe('Fill color for polygons/points - name or RGBA array'),
+      .describe('Solid fill color for non-data-driven layers - name or RGBA array'),
     lineColor: colorSchema
       .describe('Line/stroke/trail color - name or RGBA array'),
 

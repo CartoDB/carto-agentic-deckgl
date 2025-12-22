@@ -6,9 +6,12 @@ import { LayerToggle } from './components/LayerToggle';
 import { Snackbar } from './components/Snackbar';
 import { TOOL_NAMES } from '@carto/maps-ai-tools';
 import { useMapTools } from './contexts/MapToolsContext';
-import { useMapAITools } from './hooks';
-import { WS_URL } from './config/constants';
+import { useMapAITools, useMapAIToolsHttp } from './hooks';
+import { USE_HTTP, WS_URL, HTTP_API_URL } from './config/constants';
 import './styles/main.css';
+
+// Select hook at module level to respect React rules of hooks
+const useAITools = USE_HTTP ? useMapAIToolsHttp : useMapAITools;
 
 /**
  * Main App component
@@ -33,14 +36,15 @@ function App() {
   }, []);
 
   // Consolidated hook for AI tools integration
+  // Uses HTTP or WebSocket based on USE_HTTP configuration
   const {
     isConnected,
     messages,
     loaderState,
     sendMessage,
     executors,
-  } = useMapAITools({
-    wsUrl: WS_URL,
+  } = useAITools({
+    ...(USE_HTTP ? { apiUrl: HTTP_API_URL } : { wsUrl: WS_URL }),
     mapInstances,
     mapTools,
     onError: showSnackbar,

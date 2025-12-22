@@ -53,7 +53,8 @@
       "Bash(timeout 10 yarn start:*)",
       "Skill(playwright-skill:playwright-skill)",
       "Bash(lsof:*)",
-      "Bash(yarn build)"
+      "Bash(yarn build)",
+      "WebFetch(domain:carto.com)"
     ],
     "deny": [],
     "ask": []
