@@ -293,8 +293,8 @@ export class LiteLLMService {
             const isCustomTool = getCustomToolNames().includes(toolName as any);
 
             if (isCustomTool) {
-              // Handle custom tool execution (backend-side)
-              console.log(`[LiteLLM] Executing custom tool: ${toolName}`);
+              // Handle custom tool
+              console.log(`[LiteLLM] Processing custom tool: ${toolName}`);
 
               const customTool = getCustomTool(toolName);
 
@@ -303,6 +303,7 @@ export class LiteLLMService {
                 console.log(`[LiteLLM] Validation passed for custom tool: ${toolName}`);
 
                 if (customTool.execute) {
+                  // Backend-executed tool - execute and send result
                   console.log(`[LiteLLM] Executing custom tool function for: ${toolName}`);
                   const executeResult = await customTool.execute(validatedArgs);
                   console.log(`[LiteLLM] Custom tool execution complete:`, executeResult);
@@ -317,6 +318,17 @@ export class LiteLLMService {
                   console.log(`[LiteLLM] Sending tool result to client:`, toolMessage);
                   res.write(JSON.stringify(toolMessage) + '\n');
                   console.log(`[LiteLLM] Tool result sent successfully`);
+                } else {
+                  // Frontend-executed tool - send tool call to frontend
+                  console.log(`[LiteLLM] Sending custom tool to frontend for execution: ${toolName}`);
+                  const toolMessage = {
+                    type: 'tool_call',
+                    toolName,
+                    data: validatedArgs,
+                    callId: toolCall.id
+                  };
+                  res.write(JSON.stringify(toolMessage) + '\n');
+                  console.log(`[LiteLLM] Tool call sent to frontend successfully`);
                 }
               } catch (validationError: any) {
                 console.error(`[LiteLLM] Validation failed for custom tool ${toolName}:`, validationError);
