@@ -11,6 +11,9 @@ export const TOOL_NAMES = {
   SET_PITCH: 'set-pitch',
   // Layer visibility & styling tools
   TOGGLE_LAYER: 'toggle-layer',
+  SHOW_HIDE_LAYER: 'show-hide-layer',
+  UPDATE_LAYER_STYLE: 'update-layer-style',
+  RESET_VISUALIZATION: 'reset-visualization',
   SET_POINT_COLOR: 'set-point-color',
   COLOR_FEATURES_BY_PROPERTY: 'color-features-by-property',
   FILTER_FEATURES_BY_PROPERTY: 'filter-features-by-property',

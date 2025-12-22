@@ -25,12 +25,14 @@ export const openAIChatRouter = Router();
  *
  * OpenAI Chat endpoint using OpenAI Responses API
  * Supports previous_response_id for conversation context chaining
+ * Supports initialState for slide-aware demos (dynamic system prompt)
  *
  * Request body:
  * - message: string (required) - User's chat message
  * - sessionId: string (optional) - Session ID for conversation history
+ * - initialState: object (optional) - Demo context (slide info, layers, filters)
  *
- * Response: Streaming text response with tool calls
+ * Response: Streaming NDJSON response with tool calls
  */
 openAIChatRouter.post('/', async (req: Request, res: Response) => {
   try {
@@ -51,6 +53,11 @@ openAIChatRouter.post('/', async (req: Request, res: Response) => {
       console.log(`[API] Received initialState:`, JSON.stringify(initialState, null, 2));
     } else {
       console.log(`[API] WARNING: No initialState received in request`);
+      console.log(`[API] Initial state provided:`, {
+        demoId: initialState.demoId,
+        currentSlide: initialState.currentSlide,
+        totalSlides: initialState.totalSlides
+      });
     }
 
     // Get services
@@ -72,13 +79,20 @@ openAIChatRouter.post('/', async (req: Request, res: Response) => {
     }));
 
     // Get previous response ID for Responses API chaining
+    // Skip for carto::gemini models
     const previousResponseId = services.conversationManager.getLastResponseId(session);
+    const model = services.openAIService.getModel();
+    const shouldUsePreviousResponseId = previousResponseId && !model.startsWith('carto::gemini');
 
-    // Stream response from OpenAI Responses API with initialState context
+    if (previousResponseId && model.startsWith('carto::gemini')) {
+      console.log(`[API] Skipping previous_response_id for carto::gemini model: ${model}`);
+    }
+
+    // Stream response from OpenAI Responses API (with initialState for slide-aware demos)
     const result = await services.openAIService.streamChatCompletion(
       messages,
       res,
-      previousResponseId,
+      shouldUsePreviousResponseId ? previousResponseId : undefined,
       initialState
     );
 

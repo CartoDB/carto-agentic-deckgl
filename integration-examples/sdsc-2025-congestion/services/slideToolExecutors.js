@@ -33,6 +33,9 @@ const TOOL_NAMES = {
   GET_LAYER_CONFIG: 'get-layer-config',
   FLY_TO: 'fly-to',
   QUERY_FEATURES: 'query-features',
+  SHOW_HIDE_LAYER: 'show-hide-layer',
+  UPDATE_LAYER_STYLE: 'update-layer-style',
+  RESET_VISUALIZATION: 'reset-visualization',
 };
 
 /**
@@ -256,7 +259,7 @@ export function createSlideToolExecutors({ appState, slidesConfig }) {
      * { layerId: 'subway', visible: false }  // Hide subway
      * { layerId: 'traffic-before', visible: true }  // Show traffic
      */
-    [TOOL_NAMES.TOGGLE_LAYER]: (params) => {
+    [TOOL_NAMES.SHOW_HIDE_LAYER]: (params) => {
       const { layerId, visible } = params;
 
       if (!appState.updateLayerStyle) {
@@ -511,7 +514,7 @@ export function createSlideToolExecutors({ appState, slidesConfig }) {
     },
 
     // Fly To Tool - navigate to coordinates
-    [TOOL_NAMES.FLY_TO]: (params) => {
+    [TOOL_NAMES.TOGGLE_LAYER]: (params) => {
       const { lat, lng, zoom = 12, pitch = 0, bearing = 0, transitionDuration = 1500 } = params;
 
       if (!appState.updateViewState) {

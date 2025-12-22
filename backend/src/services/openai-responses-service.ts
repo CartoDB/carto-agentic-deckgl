@@ -80,6 +80,13 @@ export class OpenAIResponsesService {
   }
 
   /**
+   * Get the model name
+   */
+  getModel(): string {
+    return this.model;
+  }
+
+  /**
    * Initialize custom tools (async operation)
    */
   private async initialize() {
@@ -186,7 +193,7 @@ export class OpenAIResponsesService {
     messages: Message[],
     res: Response,
     previousResponseId?: string,
-    initialState?: MapInitialState
+    initialState?: any
   ): Promise<{ message: any; responseId?: string; hadToolCalls?: boolean } | null> {
     console.log('[OpenAI Responses] Starting streamChatCompletion...');
     console.log('[OpenAI Responses] Previous response ID:', previousResponseId || '(none)');
@@ -212,22 +219,31 @@ export class OpenAIResponsesService {
       console.log('[OpenAI Responses] Sending to AI: last user message only');
       console.log('[OpenAI Responses] Last user message:', lastUserMessage[0]?.content);
 
-      // Build system prompt - use dynamic prompt if initialState is provided
-      const systemPromptToUse = initialState
-        ? buildDynamicPrompt(this.allToolDefinitions, initialState)
+      // Build dynamic system prompt based on demo context (if provided)
+      // Convert tool definitions back to Chat format for buildSystemPrompt
+      const chatFormatTools = this.allToolDefinitions.map(tool => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
+        }
+      }));
+
+      console.log('[OpenAI Responses] Building system prompt with initialState:', JSON.stringify(initialState, null, 2));
+
+      const systemPrompt = initialState
+        ? buildSystemPrompt(chatFormatTools, initialState)
         : this.systemPrompt;
 
-      console.log('[OpenAI Responses] Using dynamic prompt:', !!initialState);
-      if (initialState) {
-        console.log('[OpenAI Responses] Dynamic prompt layers section:', initialState.layers);
-      }
-      console.log('[OpenAI Responses] System prompt preview (first 500 chars):', systemPromptToUse.substring(0, 500));
+      console.log('[OpenAI Responses] Using system prompt:', initialState ? `dynamic (${initialState.demoId})` : 'default');
+      console.log('[OpenAI Responses] System prompt preview:', systemPrompt.substring(0, 500) + '...');
 
       // Build request options for OpenAI Responses API
       const requestOptions: any = {
         model: this.model,
         input: lastUserMessage[0]?.content || '',
-        instructions: systemPromptToUse,
+        instructions: systemPrompt,
         stream: true,
         tools: this.allToolDefinitions,
       };
