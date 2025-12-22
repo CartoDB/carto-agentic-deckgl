@@ -1,5 +1,5 @@
 import {
-  TOOL_NAMES,
+  TOOL_NAMES as BASE_TOOL_NAMES,
   generateFlyToSpec,
   generateZoomSpec,
   generateViewStateSpec,
@@ -14,7 +14,10 @@ import {
   generateUpdateLayerPropsSpec,
   isSpecTool,
 } from '@carto/maps-ai-tools';
+import { colorBins } from '@deck.gl/carto';
 import { createJsonSpecExecutor } from '../jsonSpecExecutor';
+import { executeLayerStyleSpec, CARTO_COLOR_SCHEMES } from '../updateLayerStyle';
+
 import {
   scheduleRedraws,
   REDRAW_PRESETS,
@@ -34,6 +37,12 @@ import {
   DEFAULT_LAYER_COLOR,
   DEFAULT_POINT_SIZE,
 } from '../../config/constants';
+
+// Extend TOOL_NAMES with additional tools not in @carto/maps-ai-tools
+const TOOL_NAMES = {
+  ...BASE_TOOL_NAMES,
+  UPDATE_LAYER_STYLE: 'update-layer-style',
+};
 
 /**
  * Create all tool executors
@@ -385,6 +394,70 @@ export function createExecutors({ deck, map, mapTools }) {
         message: result.success
           ? `Layer "${params.layerId}" updated`
           : result.message,
+      };
+    },
+
+    /**
+     * UPDATE_LAYER_STYLE - Update layer styling with color name resolution
+     * Supports color names (Red, Blue), @@# references (@@#Red), RGBA arrays,
+     * and CARTO color schemes (PinkYl, BluYl, etc.) for data-driven layers
+     */
+    [TOOL_NAMES.UPDATE_LAYER_STYLE]: (params) => {
+      const { layerId, props } = executeLayerStyleSpec(params);
+
+      if (!layerId) {
+        return { success: false, message: 'No layer ID specified' };
+      }
+
+      const currentLayers = deck.props.layers || [];
+      const resolvedId = resolveLayerId(layerId);
+
+      if (!layerExists(currentLayers, resolvedId)) {
+        return { success: false, message: `Layer "${layerId}" not found` };
+      }
+
+      // Extract color scheme if present (special handling for CARTO layers)
+      const colorScheme = props._colorScheme;
+      delete props._colorScheme;
+
+      // Build final props to apply
+      const finalProps = { ...props };
+      const updateTriggers = {
+        getFillColor: props.getFillColor ? JSON.stringify(props.getFillColor) : undefined,
+        getLineColor: props.getLineColor ? JSON.stringify(props.getLineColor) : undefined,
+        getColor: props.getColor ? JSON.stringify(props.getColor) : undefined,
+      };
+
+      // Handle CARTO color scheme for QuadbinTileLayer/H3TileLayer
+      if (colorScheme) {
+        console.log(`[UPDATE_LAYER_STYLE] Applying color scheme: ${colorScheme}`);
+        // Default domain for numeric values (can be adjusted based on data)
+        const defaultDomain = [0, 100, 1000, 10000, 100000, 1000000];
+
+        finalProps.getFillColor = colorBins({
+          attr: 'value',
+          domain: defaultDomain,
+          colors: colorScheme,
+        });
+        updateTriggers.getFillColor = colorScheme;
+      }
+
+      const updatedLayers = updateLayer(currentLayers, resolvedId, (layer) =>
+        layer.clone({
+          ...finalProps,
+          updateTriggers,
+        })
+      );
+
+      deck.setProps({ layers: updatedLayers });
+      scheduleRedraws(deck, REDRAW_PRESETS.dataUpdate);
+
+      const updates = colorScheme
+        ? `colorScheme: ${colorScheme}`
+        : Object.keys(props).join(', ');
+      return {
+        success: true,
+        message: `Updated "${layerId}" styling: ${updates}`,
       };
     },
 

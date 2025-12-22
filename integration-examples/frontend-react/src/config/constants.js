@@ -2,8 +2,15 @@
  * Application constants and configuration
  */
 
+// Communication mode configuration
+// Set VITE_USE_HTTP to 'false' to use WebSocket instead of HTTP
+export const USE_HTTP = import.meta.env.VITE_USE_HTTP !== 'false'; // Default to HTTP
+
 // WebSocket configuration
-export const WS_URL = 'ws://localhost:3000/ws';
+export const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws';
+
+// HTTP API configuration
+export const HTTP_API_URL = import.meta.env.VITE_HTTP_API_URL || 'http://localhost:3000/api/openai-chat';
 
 // Redraw timing delays (in milliseconds)
 export const REDRAW_DELAYS = {

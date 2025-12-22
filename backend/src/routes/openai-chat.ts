@@ -34,7 +34,7 @@ export const openAIChatRouter = Router();
  */
 openAIChatRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, initialState } = req.body;
 
     // Validate request
     if (!message || typeof message !== 'string') {
@@ -47,6 +47,11 @@ openAIChatRouter.post('/', async (req: Request, res: Response) => {
     const session = sessionId || randomUUID();
 
     console.log(`[API] /api/openai-chat request for session: ${session}`);
+    if (initialState) {
+      console.log(`[API] Received initialState:`, JSON.stringify(initialState, null, 2));
+    } else {
+      console.log(`[API] WARNING: No initialState received in request`);
+    }
 
     // Get services
     const services = getServices();
@@ -69,11 +74,12 @@ openAIChatRouter.post('/', async (req: Request, res: Response) => {
     // Get previous response ID for Responses API chaining
     const previousResponseId = services.conversationManager.getLastResponseId(session);
 
-    // Stream response from OpenAI Responses API
+    // Stream response from OpenAI Responses API with initialState context
     const result = await services.openAIService.streamChatCompletion(
       messages,
       res,
-      previousResponseId
+      previousResponseId,
+      initialState
     );
 
     // Add assistant response to conversation history and save response ID

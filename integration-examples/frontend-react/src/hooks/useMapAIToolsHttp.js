@@ -1,46 +1,34 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { parseToolResponse } from '@carto/maps-ai-tools';
 import { createExecutors } from '../services/toolExecutors';
+import { HttpClient } from '../services/httpClient';
 
 /**
- * useMapAITools - Consolidated hook for integrating @carto/maps-ai-tools
+ * useMapAIToolsHttp - HTTP version of useMapAITools hook
  *
- * This hook handles all the integration logic for AI-powered map tools:
- * - WebSocket connection management
+ * This hook handles all the integration logic for AI-powered map tools using HTTP:
+ * - HTTP client connection management
  * - Chat message state and streaming
  * - Tool executor creation
  * - Tool call parsing and execution
  * - Loader state management
+ * - Session ID management for conversation continuity
  *
  * @param {Object} options - Hook options
- * @param {string} options.wsUrl - WebSocket server URL
+ * @param {string} options.apiUrl - HTTP API URL
  * @param {Object|null} options.mapInstances - Map instances { deck, map }
  * @param {Object} options.mapTools - MapTools context from useMapTools()
  * @param {Function} [options.onError] - Optional error callback
  *
  * @returns {Object} Hook return values
- * @returns {boolean} isConnected - Whether WebSocket is connected
+ * @returns {boolean} isConnected - Whether HTTP client is ready
  * @returns {Array} messages - Array of chat messages
  * @returns {'thinking'|'executing'|null} loaderState - Current loader state
  * @returns {Function} sendMessage - Send a chat message
  * @returns {Function} clearMessages - Clear all messages
  * @returns {Object} executors - Map of tool name to executor function
- *
- * @example
- * const {
- *   isConnected,
- *   messages,
- *   loaderState,
- *   sendMessage,
- *   executors,
- * } = useMapAITools({
- *   wsUrl: 'ws://localhost:3000/ws',
- *   mapInstances,
- *   mapTools,
- *   onError: (msg) => showSnackbar(msg),
- * });
  */
-export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
+export function useMapAIToolsHttp({ apiUrl, mapInstances, mapTools, onError }) {
   // ============================================
   // State
   // ============================================
@@ -49,7 +37,7 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
   const [loaderState, setLoaderState] = useState(null);
 
   // Refs
-  const wsRef = useRef(null);
+  const httpClientRef = useRef(null);
   const streamingMessageRef = useRef({ id: null, content: '' });
   const messageIdCounter = useRef(0);
   const onErrorRef = useRef(onError);
@@ -68,7 +56,7 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
     return createExecutors({ deck, map, mapTools });
   }, [mapInstances, mapTools]);
 
-  // Store executors in ref for use in WebSocket handler
+  // Store executors in ref for use in message handler
   const executorsRef = useRef(executors);
   executorsRef.current = executors;
 
@@ -120,12 +108,16 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
   }, []);
 
   /**
-   * Clear all messages
+   * Clear all messages and reset session
    */
   const clearMessages = useCallback(() => {
     setMessages([]);
     streamingMessageRef.current = { id: null, content: '' };
     messageIdCounter.current = 0;
+    // Reset session on clear
+    if (httpClientRef.current) {
+      httpClientRef.current.resetSession();
+    }
   }, []);
 
   // ============================================
@@ -133,7 +125,7 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
   // ============================================
 
   /**
-   * Handle incoming stream chunks from WebSocket
+   * Handle incoming stream chunks from HTTP response
    */
   const handleStreamChunk = useCallback((data) => {
     const ref = streamingMessageRef.current;
@@ -190,7 +182,7 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
   // ============================================
 
   /**
-   * Handle tool calls from WebSocket
+   * Handle tool calls from HTTP response
    */
   const handleToolCall = useCallback(
     (response) => {
@@ -239,70 +231,64 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
   );
 
   // ============================================
-  // WebSocket Connection
+  // Message Handler
+  // ============================================
+
+  /**
+   * Handle all message types from HTTP client
+   */
+  const handleMessage = useCallback(
+    (data) => {
+      switch (data.type) {
+        case 'stream_chunk':
+          handleStreamChunk(data);
+          break;
+        case 'tool_call':
+          handleToolCall(data);
+          break;
+        case 'error':
+          if (onErrorRef.current) {
+            onErrorRef.current(data.content);
+          }
+          setLoaderState(null);
+          break;
+        default:
+          console.warn('Unknown message type:', data.type);
+      }
+    },
+    [handleStreamChunk, handleToolCall]
+  );
+
+  // ============================================
+  // Connection State Handler
+  // ============================================
+
+  const handleConnectionChange = useCallback((connected) => {
+    setIsConnected(connected);
+  }, []);
+
+  // ============================================
+  // HTTP Client Setup
   // ============================================
 
   useEffect(() => {
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log('WebSocket connected');
-      setIsConnected(true);
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected');
-      setIsConnected(false);
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      if (onErrorRef.current) {
-        onErrorRef.current('Connection error');
-      }
-    };
-
-    ws.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        switch (data.type) {
-          case 'stream_chunk':
-            handleStreamChunk(data);
-            break;
-          case 'tool_call':
-            handleToolCall(data);
-            break;
-          case 'error':
-            if (onErrorRef.current) {
-              onErrorRef.current(data.content);
-            }
-            break;
-          case 'welcome':
-            console.log('Server welcome:', data.content);
-            break;
-          default:
-            console.warn('Unknown message type:', data.type);
-        }
-      } catch (err) {
-        console.error('Error processing message:', err);
-      }
-    };
+    const client = new HttpClient(apiUrl, handleMessage, handleConnectionChange);
+    httpClientRef.current = client;
+    client.connect();
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
+      if (httpClientRef.current) {
+        httpClientRef.current.disconnect();
       }
     };
-  }, [wsUrl, handleStreamChunk, handleToolCall]);
+  }, [apiUrl, handleMessage, handleConnectionChange]);
 
   // ============================================
   // Send Message
   // ============================================
 
   /**
-   * Send a chat message through WebSocket
+   * Send a chat message through HTTP client
    * Handles adding user message, resetting streaming state, and setting loader
    *
    * @param {string} content - Message content
@@ -310,23 +296,16 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
    */
   const sendMessage = useCallback(
     (content) => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        console.warn('WebSocket not connected');
+      if (!httpClientRef.current || !httpClientRef.current.isConnected) {
+        console.warn('HTTP client not ready');
         return false;
       }
 
       // Get current map state for AI context
       const initialState = createInitialState();
-      console.log('[useMapAITools] Sending message with initialState:', JSON.stringify(initialState, null, 2));
+      console.log('[useMapAIToolsHttp] Sending message with initialState:', JSON.stringify(initialState, null, 2));
 
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'chat_message',
-          content,
-          timestamp: Date.now(),
-          initialState,
-        })
-      );
+      httpClientRef.current.send({ content, initialState });
 
       // Add user message
       addMessage({ type: 'user', content });
