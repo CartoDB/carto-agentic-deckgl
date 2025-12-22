@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@carto/maps-ai-tools':
         specifier: file:../../map-ai-tools
-        version: file:../../map-ai-tools(zod@4.1.13)
+        version: file:../../map-ai-tools(@deck.gl/json@9.2.5(@deck.gl/core@9.2.5))(zod@4.1.13)
       '@deck.gl/carto':
         specifier: ^9.2.2
         version: 9.2.5(ef967b4ff7262d004e0f226d1b6e3619)
@@ -36,6 +36,7 @@ packages:
   '@carto/maps-ai-tools@file:../../map-ai-tools':
     resolution: {directory: ../../map-ai-tools, type: directory}
     peerDependencies:
+      '@deck.gl/json': ^9.2.0
       zod: ^4.1.0
 
   '@deck.gl/aggregation-layers@9.2.5':
@@ -77,6 +78,11 @@ packages:
       '@loaders.gl/core': ^4.2.0
       '@luma.gl/core': ~9.2.4
       '@luma.gl/engine': ~9.2.4
+
+  '@deck.gl/json@9.2.5':
+    resolution: {integrity: sha512-DER3A31hM9+Qq9taIUOUYHKKJAv3ztnRV+WMY83+XjGg2bQWPqNu5cpBHZgtICTdAZur2Sn3COiVNCORy0s6ew==}
+    peerDependencies:
+      '@deck.gl/core': ~9.2.0
 
   '@deck.gl/layers@9.2.5':
     resolution: {integrity: sha512-a48zWxeHknSX67ZeIzWeLXuOVJkEnQjnLIC27Uv3zHjKlvaoraWPOgScUNyteB0UIIzhzE+D8lF+ViHeIdkNSA==}
@@ -760,6 +766,10 @@ packages:
   isarray@1.0.0:
     resolution: {integrity: sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ==}
 
+  jsep@0.3.5:
+    resolution: {integrity: sha512-AoRLBDc6JNnKjNcmonituEABS5bcfqDhQAWWXNTFrqu6nVXBpBAGfcoTGZMFlIrh9FjmE1CQyX9CTNwZrXMMDA==}
+    engines: {node: '>= 6.0.0'}
+
   jsep@1.4.0:
     resolution: {integrity: sha512-B7qPcEVE3NVkmSJbaYxvv4cHkVW7DQsZz13pUMrfS8z8Q/BuShN+gcTXrUlPiGqM2/t/EEaI030bpxMqY8gMlw==}
     engines: {node: '>= 10.16.0'}
@@ -979,9 +989,10 @@ snapshots:
     transitivePeerDependencies:
       - '@loaders.gl/core'
 
-  '@carto/maps-ai-tools@file:../../map-ai-tools(zod@4.1.13)':
+  '@carto/maps-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.5(@deck.gl/core@9.2.5))(zod@4.1.13)':
     dependencies:
       '@deck.gl/core': 9.2.5
+      '@deck.gl/json': 9.2.5(@deck.gl/core@9.2.5)
       tslib: 2.8.1
       zod: 4.1.13
 
@@ -1086,6 +1097,11 @@ snapshots:
       long: 3.2.0
     transitivePeerDependencies:
       - '@luma.gl/constants'
+
+  '@deck.gl/json@9.2.5(@deck.gl/core@9.2.5)':
+    dependencies:
+      '@deck.gl/core': 9.2.5
+      jsep: 0.3.5
 
   '@deck.gl/layers@9.2.5(@deck.gl/core@9.2.5)(@loaders.gl/core@4.3.4)(@luma.gl/core@9.2.4)(@luma.gl/engine@9.2.4(@luma.gl/core@9.2.4)(@luma.gl/shadertools@9.2.4(@luma.gl/core@9.2.4)))':
     dependencies:
@@ -1763,6 +1779,8 @@ snapshots:
   is-error@2.2.2: {}
 
   isarray@1.0.0: {}
+
+  jsep@0.3.5: {}
 
   jsep@1.4.0: {}
 
