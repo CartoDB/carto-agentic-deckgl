@@ -4,6 +4,7 @@ import { OpenAI } from 'openai';
 export class ConversationManager {
   private conversations = new Map<string, OpenAI.Chat.ChatCompletionMessageParam[]>();
   private responseIds = new Map<string, string>(); // Track last response_id per session
+  private hadToolCalls = new Map<string, boolean>(); // Track if last response had tool calls
   private maxHistoryLength = 10; // Keep last 10 messages
 
   getConversation(sessionId: string): OpenAI.Chat.ChatCompletionMessageParam[] {
@@ -14,11 +15,17 @@ export class ConversationManager {
   }
 
   getLastResponseId(sessionId: string): string | undefined {
+    // Don't return response ID if last response had tool calls
+    // (OpenAI expects tool outputs which we don't provide since tools run on frontend)
+    if (this.hadToolCalls.get(sessionId)) {
+      return undefined;
+    }
     return this.responseIds.get(sessionId);
   }
 
-  setResponseId(sessionId: string, responseId: string): void {
+  setResponseId(sessionId: string, responseId: string, hadToolCalls: boolean = false): void {
     this.responseIds.set(sessionId, responseId);
+    this.hadToolCalls.set(sessionId, hadToolCalls);
   }
 
   addMessage(sessionId: string, message: OpenAI.Chat.ChatCompletionMessageParam): void {
