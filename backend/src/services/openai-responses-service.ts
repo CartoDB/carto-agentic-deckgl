@@ -393,6 +393,7 @@ export class OpenAIResponsesService {
                 console.log(`[OpenAI Responses] Validation passed for custom tool: ${toolName}`);
 
                 if (customTool.execute) {
+                  // Backend-executed custom tool (has execute function)
                   console.log(`[OpenAI Responses] Executing custom tool function for: ${toolName}`);
                   const executeResult = await customTool.execute(validatedArgs);
                   console.log(`[OpenAI Responses] Custom tool execution complete:`, executeResult);
@@ -407,6 +408,19 @@ export class OpenAIResponsesService {
                   console.log(`[OpenAI Responses] Sending tool result to client:`, toolMessage);
                   res.write(JSON.stringify(toolMessage) + '\n');
                   console.log(`[OpenAI Responses] Tool result sent successfully`);
+                } else {
+                  // Frontend-executed custom tool (no execute function)
+                  // Send tool_call to frontend, same as CARTO library tools
+                  console.log(`[OpenAI Responses] Custom tool without execute function, sending to frontend: ${toolName}`);
+                  const toolMessage = {
+                    type: 'tool_call',
+                    toolName,
+                    data: validatedArgs,
+                    callId: toolCall.id
+                  };
+                  console.log(`[OpenAI Responses] Sending custom tool to frontend:`, toolMessage);
+                  res.write(JSON.stringify(toolMessage) + '\n');
+                  console.log(`[OpenAI Responses] Custom tool sent to frontend successfully`);
                 }
               } catch (validationError: any) {
                 console.error(`[OpenAI Responses] Validation failed for custom tool ${toolName}:`, validationError);

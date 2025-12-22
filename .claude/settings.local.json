@@ -52,7 +52,8 @@
       "Bash(yarn install)",
       "Bash(timeout 10 yarn start:*)",
       "Skill(playwright-skill:playwright-skill)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(yarn build)"
     ],
     "deny": [],
     "ask": []

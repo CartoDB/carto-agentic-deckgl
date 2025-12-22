@@ -10,10 +10,17 @@ import Header from "../Header/Header";
 import { useAppState } from "../../state";
 import { ChatPanel } from "../Chat";
 import { useSlideAwareAITools } from "../../hooks/useSlideAwareAITools";
+import { useSlideAwareAIToolsHttp } from "../../hooks/useSlideAwareAIToolsHttp";
 import slidesConfigForAI from "../../slidesConfigForAI";
 
-const WS_URL = "ws://localhost:3000/ws";
+// Communication mode configuration
+const USE_HTTP = import.meta.env.VITE_USE_HTTP !== 'false'; // Default to HTTP (true unless explicitly set to 'false')
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
+const HTTP_API_URL = import.meta.env.VITE_HTTP_API_URL || "http://localhost:3000/api/openai-chat";
 const DEMO_ID = "sdsc-2025-congestion";
+
+// Select hook at module level to respect React rules of hooks
+const useAITools = USE_HTTP ? useSlideAwareAIToolsHttp : useSlideAwareAITools;
 
 const useStyles = makeStyles((theme) => ({
   "@global": {
@@ -48,14 +55,14 @@ const Main = () => {
   const handleToggleChat = useCallback(() => setChatOpen(prev => !prev), []);
   const handleCloseChat = useCallback(() => setChatOpen(false), []);
 
-  // Initialize AI tools with slide awareness
+  // Initialize AI tools with slide awareness (HTTP or WebSocket based on USE_HTTP config)
   const {
     messages,
     isConnected,
     loaderState,
     sendMessage,
-  } = useSlideAwareAITools({
-    wsUrl: WS_URL,
+  } = useAITools({
+    ...(USE_HTTP ? { apiUrl: HTTP_API_URL } : { wsUrl: WS_URL }),
     demoId: DEMO_ID,
     appState,
     slidesConfig: slidesConfigForAI,
