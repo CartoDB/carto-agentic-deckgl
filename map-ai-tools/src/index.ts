@@ -97,6 +97,12 @@ export {
   parseInitialState,
   validateInitialState,
   createMinimalInitialState,
+  // Slide/Presentation context schemas
+  slideMetadataSchema,
+  slideFilterConfigSchema,
+  // Types
+  type SlideMetadata,
+  type SlideFilterConfig,
 } from './schemas';
 
 // ============================================================================

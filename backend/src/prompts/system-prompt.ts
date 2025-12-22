@@ -2,10 +2,136 @@
 
 /**
  * Build system prompt with tool information and map context
+ * Supports different demo types based on initial state
  */
-export function buildSystemPrompt(tools: any[]): string {
+export function buildSystemPrompt(tools: any[], demoContext?: DemoContext): string {
   const toolDescriptions = tools.map(t => `- ${t.function.name}: ${t.function.description}`).join('\n');
 
+  // Check if this is a slide-based presentation demo
+  const hasSlideTools = tools.some(t =>
+    ['navigate-slide', 'get-slide-info', 'set-filter-value'].includes(t.function.name)
+  );
+
+  if (hasSlideTools && demoContext) {
+    return buildSlideDemoPrompt(toolDescriptions, demoContext);
+  }
+
+  // Default airport visualization prompt
+  return buildAirportPrompt(toolDescriptions);
+}
+
+interface DemoContext {
+  demoId?: string;
+  currentSlide?: number;
+  slides?: Array<{
+    index: number;
+    name?: string;
+    title?: string;
+    description?: string;
+    layers?: string[];
+    hasFilter?: boolean;
+    filterConfig?: {
+      property?: string;
+      min?: number;
+      max?: number;
+      unit?: string;
+    };
+  }>;
+  totalSlides?: number;
+}
+
+/**
+ * Build prompt for slide-based presentation demos (deck.gl demos)
+ */
+function buildSlideDemoPrompt(toolDescriptions: string, context: DemoContext): string {
+  // Build detailed slide descriptions for AI knowledge
+  const detailedSlides = context.slides?.map(s => {
+    let slideInfo = `### Slide ${s.index}: ${s.title || s.name || `Slide ${s.index}`}`;
+    if (s.description) {
+      slideInfo += `\n${s.description}`;
+    }
+    if (s.layers && s.layers.length > 0) {
+      slideInfo += `\n- **Layers**: ${s.layers.join(', ')}`;
+    }
+    if (s.hasFilter && s.filterConfig) {
+      slideInfo += `\n- **Filter**: ${s.filterConfig.property || 'Data filter'} (${s.filterConfig.min ?? 0}-${s.filterConfig.max ?? 100} ${s.filterConfig.unit || ''})`;
+    }
+    return slideInfo;
+  }).join('\n\n') || '';
+
+  // Build simple slide list for quick reference
+  const slideList = context.slides?.map(s =>
+    `- Slide ${s.index} ("${s.name || ''}"): ${s.title || 'Untitled'}${s.hasFilter ? ' [Has filter]' : ''}`
+  ).join('\n') || '';
+
+  const demoName = context.demoId || 'Interactive Map Presentation';
+
+  // Get current slide info for context
+  const currentSlideIndex = context.currentSlide ?? 0;
+  const currentSlideInfo = context.slides?.[currentSlideIndex];
+  const currentSlideDescription = currentSlideInfo
+    ? `**Slide ${currentSlideIndex}**: "${currentSlideInfo.title || currentSlideInfo.name || `Slide ${currentSlideIndex}`}"${currentSlideInfo.hasFilter ? ' (has filter control)' : ''}`
+    : `Slide ${currentSlideIndex}`;
+
+  return `You are an AI assistant that helps users navigate and interact with "${demoName}" - an interactive map presentation.
+
+## Current State
+The user is currently viewing ${currentSlideDescription}.
+${currentSlideInfo?.layers?.length ? `Visible layers: ${currentSlideInfo.layers.join(', ')}` : ''}
+
+## Available Tools
+${toolDescriptions}
+
+## Presentation Overview
+This presentation has ${context.totalSlides || context.slides?.length || 0} slides:
+${slideList}
+
+## Detailed Slide Information
+
+${detailedSlides}
+
+## View Control Capabilities
+You can help users:
+1. **Navigate slides**: Use navigate-slide to go to specific slides by number, name, or direction (next/previous/first/last)
+2. **Get slide info**: Use get-slide-info to retrieve information about the current slide or all slides
+3. **Control filters**: On slides with filters, use set-filter-value to adjust data filtering
+4. **Rotate the view**: Use rotate-map to change the bearing/rotation (clockwise positive)
+5. **Adjust pitch/tilt**: Use set-pitch to change viewing angle (0=straight down, 85=nearly horizontal)
+6. **Reset view**: Use reset-view to return to the slide's default viewpoint
+
+## Filter Usage
+When using set-filter-value:
+- normalized: true (default) - value from 0 to 1, where 0 is minimum and 1 is maximum
+- normalized: false - use actual data values based on the filter range
+
+Example: To show only features above the midpoint of the filter range, use set-filter-value with value: 0.5, normalized: true
+
+## How to Answer Questions About Slides
+
+When users ask about a specific slide (e.g., "Tell me about Traffic Moving Again" or "What's on slide 2?"):
+- **Answer directly** using the Detailed Slide Information above
+- **Do NOT call navigate-slide** unless the user explicitly wants to GO to that slide
+- Explain what data/layers are shown and what story the slide tells
+- If the slide has a filter, explain what can be filtered
+
+Example:
+- User: "What is the Traffic Reduction slide about?"
+- You: Explain the slide content from the information above, WITHOUT navigating
+
+## Response Guidelines
+- Be conversational and helpful
+- When navigating, briefly describe what the slide shows
+- If a slide has filters, mention what can be filtered
+- Always explain what action you're taking before using tools
+- CRITICAL: Only call tools when the user EXPLICITLY requests an action (e.g., "go to", "navigate to", "show me")
+- CRITICAL: For informational questions about slides, answer in text WITHOUT calling tools
+- MUST: Always return text before calling tools - never call tools without explanation`;
+}
+
+/**
+ * Build prompt for airport visualization demo
+ */
+function buildAirportPrompt(toolDescriptions: string): string {
   return `You are an AI assistant that helps users interact with a map visualization showing worldwide airports.
 
 ## Available Tools
