@@ -5,6 +5,7 @@ import http from 'http';
 import { setupWebSocket } from './websocket/websocket-server.js';
 import { vercelChatRouter } from './routes/vercel-chat.js';
 import { liteLLMChatRouter } from './routes/litellm-chat.js';
+import { openAIChatRouter } from './routes/openai-chat.js';
 
 export function createServer() {
   const app = express();
@@ -23,6 +24,9 @@ export function createServer() {
 
   // LiteLLM Chat routes
   app.use('/api/litellm-chat', liteLLMChatRouter);
+
+  // OpenAI Chat routes (using Responses API)
+  app.use('/api/openai-chat', openAIChatRouter);
 
   // Create HTTP server
   const server = http.createServer(app);
