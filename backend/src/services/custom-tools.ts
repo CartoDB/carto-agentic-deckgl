@@ -1,9 +1,10 @@
 // backend/src/services/custom-tools.ts
 import { z } from 'zod';
+import { getMCPClient, parseMCPServerConfigs } from './mcp-client.js';
 
 /**
  * Custom backend tools following the same structure as CARTO tools
- * Each tool has: name, description, and schema (Zod schema)
+ * Each tool has: name, description, schema (Zod schema), and optional execute function
  *
  * IMPORTANT LIMITATION:
  * When using Gemini via CARTO LiteLLM, custom tools with execute functions
@@ -250,22 +251,99 @@ Available layer IDs: congestion-zone, traffic-before, traffic-after, regional-im
 };
 
 // Export all custom tools as an object
-export const customTools = {
+export const staticCustomTools = {
   weather: weatherTool,
   'toggle-layer': toggleLayerTool,
   'reset-visualization': resetVisualizationTool,
   'update-layer-style': updateLayerStyleTool,
 } as const;
 
-// Type for custom tool names
-export type CustomToolName = keyof typeof customTools;
+// Cache for all custom tools (static + MCP)
+let allCustomToolsCache: Record<string, any> = { ...staticCustomTools };
+let mcpToolsInitialized = false;
 
-// Export tool names for easy access
-export const getCustomToolNames = (): CustomToolName[] => {
-  return Object.keys(customTools) as CustomToolName[];
+/**
+ * Initialize and fetch MCP tools from all configured MCP servers
+ * This should be called at server startup
+ */
+export async function initializeMCPTools() {
+  if (mcpToolsInitialized) {
+    return;
+  }
+
+  try {
+    console.log('[Custom Tools] Initializing MCP tools...');
+
+    // Parse MCP server configurations from environment
+    const mcpConfigs = parseMCPServerConfigs();
+
+    if (mcpConfigs.length === 0) {
+      console.log('[Custom Tools] No MCP servers configured');
+      mcpToolsInitialized = true;
+      return;
+    }
+
+    console.log(`[Custom Tools] Found ${mcpConfigs.length} MCP server(s) to initialize`);
+
+    let totalToolsAdded = 0;
+
+    // Initialize each MCP server
+    for (const config of mcpConfigs) {
+      try {
+        console.log(`[Custom Tools] Connecting to MCP server: ${config.name} (${config.url})`);
+        if (config.whitelist) {
+          console.log(`[Custom Tools] Whitelist for ${config.name}:`, config.whitelist);
+        }
+
+        const mcpClient = await getMCPClient(config);
+        const mcpToolDefinitions = mcpClient.getToolDefinitions(config.whitelist);
+
+        // Add MCP tools to cache with server name prefix
+        for (const tool of mcpToolDefinitions) {
+          // Prefix tool name with server name to avoid conflicts
+          const prefixedToolName = `${config.name}_${tool.name}`;
+          allCustomToolsCache[prefixedToolName] = {
+            ...tool,
+            name: prefixedToolName,
+            description: `[${config.name}] ${tool.description}`
+          };
+          console.log(`[Custom Tools] Added MCP tool: ${prefixedToolName}`);
+          totalToolsAdded++;
+        }
+
+        console.log(`[Custom Tools] Initialized ${mcpToolDefinitions.length} tools from ${config.name}`);
+      } catch (error) {
+        console.error(`[Custom Tools] Failed to initialize MCP server ${config.name}:`, error);
+        // Continue with other servers even if one fails
+      }
+    }
+
+    mcpToolsInitialized = true;
+    console.log(`[Custom Tools] Initialized ${totalToolsAdded} MCP tools from ${mcpConfigs.length} server(s)`);
+  } catch (error) {
+    console.error('[Custom Tools] Failed to initialize MCP tools:', error);
+    // Continue without MCP tools if initialization fails
+    mcpToolsInitialized = true;
+  }
+}
+
+// Export all custom tools as an object (synchronous access)
+// Note: Call initializeMCPTools() first to include MCP tools
+export const customTools = allCustomToolsCache;
+
+// Type for custom tool names
+export type CustomToolName = keyof typeof staticCustomTools | string;
+
+/**
+ * Export tool names for easy access (includes MCP tools after initialization)
+ */
+export const getCustomToolNames = (): string[] => {
+  return Object.keys(allCustomToolsCache);
 };
 
-// Helper to get a custom tool by name
+/**
+ * Helper to get a custom tool by name (includes MCP tools after initialization)
+ */
 export const getCustomTool = (toolName: string) => {
-  return customTools[toolName as CustomToolName];
+  return allCustomToolsCache[toolName];
 };
