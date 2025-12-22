@@ -237,6 +237,36 @@ export function useSlideAwareAIToolsHttp({
     [addMessage]
   );
 
+  // Tool Result Handler (for backend-executed custom tools)
+  const handleToolResult = useCallback(
+    (toolResult) => {
+      console.log('[Frontend] Tool result received:', toolResult);
+
+      const { toolName, data, message } = toolResult;
+
+      // Format the result for display
+      let displayMessage = '';
+
+      if (toolName === 'weather') {
+        // Format weather data nicely
+        const { location, temperature, condition, humidity } = data;
+        displayMessage = `Weather in ${location}: ${temperature}°F, ${condition}, ${humidity}% humidity`;
+      } else {
+        // Generic formatting for other custom tools
+        displayMessage = message || `${toolName} result: ${JSON.stringify(data, null, 2)}`;
+      }
+
+      // Add as action message (similar to tool execution)
+      addMessage({
+        type: 'action',
+        content: displayMessage,
+      });
+
+      setLoaderState(null);
+    },
+    [addMessage]
+  );
+
   // Message Handler for HTTP client
   const handleMessage = useCallback(
     (data) => {
@@ -246,6 +276,9 @@ export function useSlideAwareAIToolsHttp({
           break;
         case 'tool_call':
           handleToolCall(data);
+          break;
+        case 'tool_result':
+          handleToolResult(data);
           break;
         case 'error':
           if (onErrorRef.current) {
@@ -257,7 +290,7 @@ export function useSlideAwareAIToolsHttp({
           console.warn('Unknown message type:', data.type);
       }
     },
-    [handleStreamChunk, handleToolCall]
+    [handleStreamChunk, handleToolCall, handleToolResult]
   );
 
   // Connection state handler

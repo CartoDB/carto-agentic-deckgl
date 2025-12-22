@@ -102,3 +102,13 @@ export {
   validateInitialState,
   createMinimalInitialState,
 } from './initial-state';
+
+// Coercion helpers for handling OpenAI API quirks
+export {
+  coerceNumber,
+  coerceBoolean,
+  coerceColor,
+  colorSchema,
+  optionalNumber,
+  optionalBoolean,
+} from './coercion-helpers';
