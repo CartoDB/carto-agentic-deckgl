@@ -34,7 +34,7 @@ const TOOL_NAMES = {
   FLY_TO: 'fly-to',
   QUERY_FEATURES: 'query-features',
   SHOW_HIDE_LAYER: 'show-hide-layer',
-  UPDATE_LAYER_STYLE: 'update-layer-style',
+  ADD_VECTOR_LAYER: 'add-vector-layer',
   RESET_VISUALIZATION: 'reset-visualization',
 };
 
@@ -514,7 +514,7 @@ export function createSlideToolExecutors({ appState, slidesConfig }) {
     },
 
     // Fly To Tool - navigate to coordinates
-    [TOOL_NAMES.TOGGLE_LAYER]: (params) => {
+    [TOOL_NAMES.FLY_TO]: (params) => {
       const { lat, lng, zoom = 12, pitch = 0, bearing = 0, transitionDuration = 1500 } = params;
 
       if (!appState.updateViewState) {
@@ -620,6 +620,99 @@ export function createSlideToolExecutors({ appState, slidesConfig }) {
         success: true,
         message: `Found ${matchingFeatures.length} of ${features.length} features matching "${result.query}"`,
         data: result,
+      };
+    },
+
+    // Add Vector Layer Tool - adds CARTO vector layer from BigQuery
+    [TOOL_NAMES.ADD_VECTOR_LAYER]: (params) => {
+      const {
+        id,
+        connectionName = 'carto_dw',
+        tableName,
+        accessToken,
+        apiBaseUrl,
+        columns,
+        spatialDataColumn,
+        visible = true,
+        opacity = 1,
+        fillColor,
+        lineColor,
+        pointRadiusMinPixels,
+        pickable = true,
+      } = params;
+
+      // Check if addLayer function is available
+      if (!appState.addLayer) {
+        return {
+          success: false,
+          message: 'Dynamic layer addition not yet implemented. Need to add addLayer function to appState.',
+        };
+      }
+
+      // Build vectorTableSource configuration as a function reference
+      // JSONConverter expects function refs in object format: { "@@function": "name", ...args }
+      const vectorSourceRef = {
+        '@@function': 'vectorTableSource',
+        connectionName,
+        tableName,
+      };
+
+      // Add credentials if provided (from MCP response)
+      if (accessToken) vectorSourceRef.accessToken = accessToken;
+      if (apiBaseUrl) vectorSourceRef.apiBaseUrl = apiBaseUrl;
+
+      // Handle columns - if empty/not specified but spatialDataColumn is provided, include it
+      let finalColumns = columns;
+      if ((!finalColumns || finalColumns.length === 0) && spatialDataColumn) {
+        finalColumns = [spatialDataColumn];
+      }
+      if (finalColumns && finalColumns.length > 0) {
+        vectorSourceRef.columns = finalColumns;
+      }
+
+      if (spatialDataColumn) vectorSourceRef.spatialDataColumn = spatialDataColumn;
+
+      // Build layer spec
+      const layerSpec = {
+        '@@type': 'VectorTileLayer',
+        id,
+        data: vectorSourceRef,
+        visible,
+        opacity,
+        pickable,
+      };
+
+      // Add styling properties with defaults
+      if (fillColor) {
+        const colorRef = resolveColor(fillColor);
+        layerSpec.getFillColor = colorRef;
+      } else {
+        // Default fill color if not specified
+        layerSpec.getFillColor = [0, 0, 255, 180]; // Blue with transparency
+      }
+
+      if (lineColor) {
+        const colorRef = resolveColor(lineColor);
+        layerSpec.getLineColor = colorRef;
+      } else {
+        // Default line color if not specified
+        layerSpec.getLineColor = [255, 255, 255, 255]; // White
+      }
+
+      if (pointRadiusMinPixels !== undefined) {
+        layerSpec.pointRadiusMinPixels = pointRadiusMinPixels;
+      } else {
+        // Default point radius
+        layerSpec.pointRadiusMinPixels = 2;
+      }
+
+      // Add the layer
+      console.log('[slideToolExecutors] Adding layer with spec:', layerSpec);
+      appState.addLayer(layerSpec);
+
+      return {
+        success: true,
+        message: `Added vector layer "${id}" from table "${tableName}"`,
       };
     },
   };

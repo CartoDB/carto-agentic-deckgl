@@ -9,7 +9,7 @@ import {
   validateWithZod,
 } from '@carto/maps-ai-tools';
 import type { ToolResponse } from '@carto/maps-ai-tools';
-import { buildSystemPrompt } from '../prompts/system-prompt.js';
+import { buildSystemPrompt, buildDynamicPrompt, type MapInitialState } from '../prompts/system-prompt.js';
 import type { InitialState } from '../types/messages.js';
 import { getCustomToolNames, getCustomTool } from './custom-tools.js';
 
@@ -132,12 +132,21 @@ export class OpenAIService {
     const toolCallsAccumulator = new Map<number, any>();
     let contentAccumulator = '';
 
-    // Build dynamic system prompt based on demo context
-    const systemPrompt = initialState
-      ? buildSystemPrompt(this.tools, initialState)
-      : this.systemPrompt;
-
-    console.log('[OpenAI] Using demo context:', initialState?.demoId || 'default');
+    // Build dynamic system prompt based on context
+    // Check if initialState has layers (MapInitialState format) or slides (DemoContext format)
+    let systemPrompt = this.systemPrompt;
+    if (initialState) {
+      if (initialState.layers) {
+        // Use dynamic prompt for layer-based context (MapInitialState)
+        console.log('[OpenAI] Using dynamic prompt with layers:', initialState.layers);
+        systemPrompt = buildDynamicPrompt(this.tools, initialState as MapInitialState);
+      } else if (initialState.slides) {
+        // Use slide demo prompt for slide-based context (DemoContext)
+        console.log('[OpenAI] Using slide demo context:', initialState.demoId);
+        systemPrompt = buildSystemPrompt(this.tools, initialState);
+      }
+    }
+    console.log('[OpenAI] System prompt preview (first 500 chars):', systemPrompt.substring(0, 500));
 
     try {
       console.log('[OpenAI] Creating chat completion request...');

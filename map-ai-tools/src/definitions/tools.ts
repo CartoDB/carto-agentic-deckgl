@@ -305,6 +305,33 @@ Use this tool instead of trying to set properties to "default" values.`,
     }),
   },
 
+  'add-vector-layer': {
+    name: 'add-vector-layer',
+    description: 'Add a CARTO VectorTileLayer to visualize vector data from BigQuery or Snowflake. Use this to add point, line, or polygon data from CARTO data warehouse. When using data from MCP workflow results, extract connectionName, tableName, accessToken, and apiBaseUrl from the response.',
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      id: z.string().describe('Unique identifier for the new layer'),
+      connectionName: z.string().default('carto_dw').describe('CARTO connection name. When using MCP workflow results, extract this from response.data.connectionName. Default is "carto_dw" for direct table access.'),
+      tableName: z.string().describe('Fully qualified table name (e.g., "cartobq.public_account.airports"). When using MCP workflow results, extract this from response.data.jobMetadata.workflowOutputTableName.'),
+      accessToken: z.string().optional().describe('CARTO API access token. When using MCP workflow results, extract this from response.data.accessToken. If not provided, uses default credentials.'),
+      apiBaseUrl: z.string().optional().describe('CARTO API base URL. When using MCP workflow results, extract this from response.data.apiBaseUrl. If not provided, uses default URL.'),
+      columns: z.array(z.string()).optional().describe('Array of column names to fetch from the table. If not specified, fetches all columns.'),
+      spatialDataColumn: z.string().optional().describe('Name of the spatial data column. Defaults to "geom" or auto-detected.'),
+      visible: z.boolean().default(true).describe('Whether the layer should be visible. Default is true.'),
+      opacity: z.number().min(0).max(1).default(1).describe('Layer opacity (0-1). Default is 1.'),
+      fillColor: z.union([
+        z.string().min(1),
+        z.array(z.number()).min(3).max(4),
+      ]).optional().describe('Fill color for polygons/points - name or RGBA array. Default is blue.'),
+      lineColor: z.union([
+        z.string().min(1),
+        z.array(z.number()).min(3).max(4),
+      ]).optional().describe('Line color for lines/polygon outlines - name or RGBA array. Default is white.'),
+      pointRadiusMinPixels: z.number().min(0).optional().describe('Minimum point radius in pixels for point data.'),
+      pickable: z.boolean().default(true).describe('Whether features are pickable/clickable. Default is true.'),
+    }),
+  },
+
   'remove-layer': {
     name: 'remove-layer',
     description: 'Remove a layer from the map by its ID.',

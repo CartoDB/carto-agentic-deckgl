@@ -50,6 +50,9 @@ openAIChatRouter.post('/', async (req: Request, res: Response) => {
 
     console.log(`[API] /api/openai-chat request for session: ${session}`);
     if (initialState) {
+      console.log(`[API] Received initialState:`, JSON.stringify(initialState, null, 2));
+    } else {
+      console.log(`[API] WARNING: No initialState received in request`);
       console.log(`[API] Initial state provided:`, {
         demoId: initialState.demoId,
         currentSlide: initialState.currentSlide,

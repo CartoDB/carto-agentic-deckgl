@@ -6,7 +6,7 @@ import {
   formatToolResponse,
   validateWithZod,
 } from '@carto/maps-ai-tools';
-import { buildSystemPrompt } from '../prompts/system-prompt.js';
+import { buildSystemPrompt, buildDynamicPrompt, type MapInitialState } from '../prompts/system-prompt.js';
 import { getCustomToolNames, getCustomTool, initializeMCPTools } from './custom-tools.js';
 import * as z from 'zod';
 
@@ -200,6 +200,9 @@ export class OpenAIResponsesService {
     console.log('[OpenAI Responses] Previous response ID:', previousResponseId || '(none)');
     console.log('[OpenAI Responses] Initial state:', initialState ? `demoId=${initialState.demoId}, slide=${initialState.currentSlide}` : '(none)');
     console.log('[OpenAI Responses] Conversation history length:', conversationHistory.length);
+    if (initialState) {
+      console.log('[OpenAI Responses] Using dynamic context with', initialState.layers?.length || 0, 'layers');
+    }
 
     // Ensure tools are initialized before processing
     await this.initialize();
@@ -235,7 +238,7 @@ export class OpenAIResponsesService {
       }
 
       console.log('[OpenAI Responses] Total messages in history:', messages.length);
-      console.log('[OpenAI Responses] Input preview:', inputText.substring(0, 200) + '...');
+      //console.log('[OpenAI Responses] Input preview:', inputText.substring(0, 200) + '...');
 
       // Build dynamic system prompt based on demo context (if provided)
       // Convert tool definitions back to Chat format for buildSystemPrompt
@@ -255,7 +258,7 @@ export class OpenAIResponsesService {
         : this.systemPrompt;
 
       console.log('[OpenAI Responses] Using system prompt:', initialState ? `dynamic (${initialState.demoId})` : 'default');
-      console.log('[OpenAI Responses] System prompt preview:', systemPrompt.substring(0, 500) + '...');
+      //console.log('[OpenAI Responses] System prompt preview:', systemPrompt.substring(0, 500) + '...');
 
       // Build request options for OpenAI Responses API
       const requestOptions: any = {
@@ -326,12 +329,12 @@ export class OpenAIResponsesService {
       stream.on('response.function_call_arguments.delta', (event: any) => {
         const delta = event.delta;
         const lastCallId = Array.from(toolCallsMap.keys()).pop();
-        console.log('[OpenAI Responses] Function arguments delta:', delta, 'for call:', lastCallId);
+        //console.log('[OpenAI Responses] Function arguments delta:', delta, 'for call:', lastCallId);
         if (lastCallId && delta) {
           const toolCall = toolCallsMap.get(lastCallId);
           if (toolCall) {
             toolCall.arguments += delta;
-            console.log('[OpenAI Responses] Accumulated arguments so far:', toolCall.arguments);
+            //console.log('[OpenAI Responses] Accumulated arguments so far:', toolCall.arguments);
           }
         }
       });
@@ -340,7 +343,7 @@ export class OpenAIResponsesService {
       const finalResponse = await stream.finalResponse();
 
       console.log('[OpenAI Responses] Final response received');
-      console.log('[OpenAI Responses] Final response structure:', JSON.stringify(finalResponse, null, 2));
+      //console.log('[OpenAI Responses] Final response structure:', JSON.stringify(finalResponse, null, 2));
 
       // Extract response ID from final response if not already set
       if (finalResponse?.id && !responseId) {
