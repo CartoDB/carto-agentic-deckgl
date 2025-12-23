@@ -72,41 +72,6 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
   const executorsRef = useRef(executors);
   executorsRef.current = executors;
 
-  // Store mapInstances in ref for createInitialState
-  const mapInstancesRef = useRef(mapInstances);
-  mapInstancesRef.current = mapInstances;
-
-  // ============================================
-  // Initial State Generator
-  // ============================================
-
-  /**
-   * Create initial state with layer and view information for AI context
-   */
-  const createInitialState = useCallback(() => {
-    const { deck } = mapInstancesRef.current || {};
-    if (!deck) return null;
-
-    const viewState = deck.props.initialViewState || {};
-    const layers = deck.props.layers || [];
-
-    return {
-      initialViewState: {
-        longitude: viewState.longitude ?? 0,
-        latitude: viewState.latitude ?? 0,
-        zoom: viewState.zoom ?? 12,
-        pitch: viewState.pitch ?? 0,
-        bearing: viewState.bearing ?? 0,
-      },
-      layers: layers.map(layer => ({
-        id: layer.id,
-        type: layer.constructor.name,
-        visible: layer.props.visible !== false,
-      })),
-      availableTools: Object.keys(executorsRef.current),
-    };
-  }, []);
-
   // ============================================
   // Message Management
   // ============================================
@@ -315,16 +280,11 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
         return false;
       }
 
-      // Get current map state for AI context
-      const initialState = createInitialState();
-      console.log('[useMapAITools] Sending message with initialState:', JSON.stringify(initialState, null, 2));
-
       wsRef.current.send(
         JSON.stringify({
           type: 'chat_message',
           content,
           timestamp: Date.now(),
-          initialState,
         })
       );
 
@@ -339,7 +299,7 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
 
       return true;
     },
-    [addMessage, createInitialState]
+    [addMessage]
   );
 
   // ============================================

@@ -3,4 +3,3 @@
  */
 
 export { useMapAITools } from './useMapAITools';
-export { useMapAIToolsHttp } from './useMapAIToolsHttp';

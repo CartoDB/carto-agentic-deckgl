@@ -123,6 +123,7 @@ export {
   // Layer management generators
   generateAddLayerSpec,
   generateAddRasterLayerSpec,
+  generateAddVectorLayerSpec,
   generateRemoveLayerSpec,
   generateUpdateLayerPropsSpec,
   // Utilities
