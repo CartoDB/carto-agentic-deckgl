@@ -202,7 +202,7 @@ export const AppStateStore = ({children}) => {
     console.log('[State] addLayer called with layerSpec:', layerSpec);
     try {
       // Dynamically import JSONConverter
-      import('./config/deckJsonConfig.js').then(({ getJsonConverter }) => {
+      import('./config/deckJsonConfig.js').then(async ({ getJsonConverter }) => {
         const converter = getJsonConverter();
         console.log('[State] About to convert spec:', { layers: [layerSpec] });
         const converted = converter.convert({ layers: [layerSpec] });
@@ -210,10 +210,35 @@ export const AppStateStore = ({children}) => {
 
         if (converted.layers && converted.layers[0]) {
           const newLayer = converted.layers[0];
+          const isCartoLayer = newLayer.constructor.name === 'VectorTileLayer' ||
+                               newLayer.constructor.name === 'RasterTileLayer';
+
           console.log('[State] New layer instance:', newLayer);
           console.log('[State] New layer props:', newLayer.props);
+          console.log('[State] Is CARTO layer:', isCartoLayer);
+
           setDynamicLayers(prev => [...prev, newLayer]);
           console.log('[State] Added dynamic layer:', newLayer.id);
+
+          // If CARTO layer, retry with exponential backoff to handle async table creation
+          if (isCartoLayer) {
+            console.log('[State] CARTO layer detected, scheduling retries for async table creation');
+
+            // Retry with exponential backoff: 500ms, 1s, 2s, 4s
+            const retryDelays = [500, 1000, 2000, 4000];
+
+            for (const delay of retryDelays) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+
+              // Force layer update by recreating it
+              setDynamicLayers((prev) => {
+                const filtered = prev.filter(l => l.id !== newLayer.id);
+                return [...filtered, newLayer.clone()];
+              });
+
+              console.log(`[State] Retried CARTO layer after ${delay}ms`);
+            }
+          }
         } else {
           console.error('[State] No layers in conversion result');
         }
