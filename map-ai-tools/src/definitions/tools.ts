@@ -197,7 +197,7 @@ PROPERTY USAGE BY LAYER TYPE:
 - ScatterplotLayer (points): fillColor, lineColor, pointRadius, radiusMinPixels, radiusMaxPixels, stroked, filled, visible
 - QuadbinTileLayer/H3TileLayer: colorScheme (CARTO palette name), opacity, visible
 
-Only include properties that need to change - omit properties that should keep their current values (they are preserved via layer.clone()).
+IMPORTANT: Only include properties that need to change - omit properties that should keep their current values (they are preserved via layer.clone()).
 Colors: names (red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray) or RGBA arrays [r,g,b,a].
 Color schemes: Purp, BluYl, Emrld, PinkYl, SunsetDark, Teal, RedOr, etc.`,
     outputType: 'spec' as ToolOutputType,
