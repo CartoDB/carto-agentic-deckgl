@@ -249,7 +249,13 @@ When you receive backend tool execution results from MCP workflows (like carto_m
    - Look for: \`response.data.accessToken\` (REQUIRED for authentication)
    - Look for: \`response.data.apiBaseUrl\` (REQUIRED for API endpoint)
 
-2. **Call add-vector-layer with extracted values:**
+2. **IMPORTANT: MCP workflows create tables asynchronously**
+   - After receiving the MCP response, acknowledge to the user that the layer is being added
+   - Inform the user: "Adding the layer now..."
+   - Do NOT add any delay - proceed immediately to call add-vector-layer
+   - The frontend has automatic retry logic to handle tables that aren't immediately ready
+
+3. **Call add-vector-layer with extracted values:**
    - **MUST include connectionName** from the MCP response (don't rely on default)
    - **MUST include tableName** from the MCP response
    - **MUST include accessToken** from the MCP response (required for authentication)
