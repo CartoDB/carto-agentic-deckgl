@@ -25,6 +25,62 @@ import {
 } from '../config/deckJsonConfig';
 
 /**
+ * Default values that OpenAI tends to fill in automatically.
+ * Filter these out to prevent overriding layer's original values.
+ *
+ * When user asks "make trails blue and 50 for width", OpenAI returns ALL properties
+ * with default values (opacity: 1, trailLength: 1, etc.), which destroys the
+ * layer's original configuration (like the fadeout trail effect).
+ */
+const OPENAI_DEFAULT_VALUES = {
+  opacity: 1,
+  visible: true,
+  stroked: true,
+  filled: true,
+  fadeTrail: true,
+  capRounded: true,
+  jointRounded: true,
+  extruded: false,
+  wireframe: false,
+  widthScale: 1,
+  radiusScale: 1,
+  elevationScale: 1,
+  trailLength: 1,
+  pointRadius: 1,
+  radiusMinPixels: 1,
+  radiusMaxPixels: 1,
+  elevation: 1,
+};
+
+/**
+ * Filter out properties that match OpenAI's typical default values.
+ * These are likely not explicitly requested by the user.
+ *
+ * @param {Object} spec - Tool parameters from OpenAI
+ * @returns {Object} Filtered spec without default values
+ */
+function filterDefaultValues(spec) {
+  const filtered = { ...spec };
+
+  for (const [key, defaultValue] of Object.entries(OPENAI_DEFAULT_VALUES)) {
+    if (filtered[key] === defaultValue) {
+      delete filtered[key];
+    }
+  }
+
+  // Log what was filtered for debugging
+  const originalKeys = Object.keys(spec).filter(k => k !== 'layerId');
+  const filteredKeys = Object.keys(filtered).filter(k => k !== 'layerId');
+  const removedKeys = originalKeys.filter(k => !filteredKeys.includes(k));
+
+  if (removedKeys.length > 0) {
+    console.log(`[jsonSpecExecutor] Filtered out default values: ${removedKeys.join(', ')}`);
+  }
+
+  return filtered;
+}
+
+/**
  * Build a JSON spec object with deck.gl property names.
  * Uses @@# references for colors to leverage JSONConverter resolution.
  *
@@ -32,6 +88,9 @@ import {
  * @returns {Object} JSON spec with @@# references for colors
  */
 function buildJsonSpec(spec) {
+  // Filter out default values that OpenAI fills in automatically
+  const filteredSpec = filterDefaultValues(spec);
+
   const {
     // Color properties - can be color names, @@# refs, or RGBA arrays
     fillColor,
@@ -66,7 +125,7 @@ function buildJsonSpec(spec) {
     elevationScale,
     extruded,
     wireframe,
-  } = spec;
+  } = filteredSpec;
 
   const jsonSpec = {};
 

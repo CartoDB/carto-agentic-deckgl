@@ -68,6 +68,7 @@ export function useSlideAwareAITools({
         get updateLayerStyle() { return appStateRef.current?.updateLayerStyle; },
         get resetLayerStyles() { return appStateRef.current?.resetLayerStyles; },
         get addLayer() { return appStateRef.current?.addLayer; },
+        get getLayerOverrides() { return appStateRef.current?.getLayerOverrides; },
       },
       slidesConfig
     });
