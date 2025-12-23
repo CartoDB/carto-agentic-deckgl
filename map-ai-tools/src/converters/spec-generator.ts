@@ -362,19 +362,97 @@ export interface AddRasterLayerParams {
  * Generate a @deck.gl/json spec for adding a CARTO raster layer
  */
 export function generateAddRasterLayerSpec(params: AddRasterLayerParams): DeckGLJsonSpec {
+  // Build data source as function reference object
+  const dataSource: any = {
+    '@@function': 'rasterSource',
+    connectionName: params.connectionName,
+    tableName: params.tableName,
+  };
+
   const layerSpec: LayerSpec = {
     '@@type': 'RasterTileLayer',
     id: params.id,
     visible: params.visible ?? true,
-    data: createFunctionRef('rasterSource', {
-      connectionName: params.connectionName,
-      tableName: params.tableName,
-    }),
+    data: dataSource,
   };
 
   // Add color function if provided
   if (params.colorFunction) {
     layerSpec.getFillColor = params.colorFunction;
+  }
+
+  return {
+    layers: [layerSpec],
+    layerOperations: [
+      {
+        operation: 'add',
+        layerId: params.id,
+      },
+    ],
+  };
+}
+
+export interface AddVectorLayerParams {
+  id: string;
+  connectionName: string;
+  tableName: string;
+  accessToken?: string;
+  apiBaseUrl?: string;
+  columns?: string[];
+  spatialDataColumn?: string;
+  visible?: boolean;
+  opacity?: number;
+  fillColor?: string | number[];
+  lineColor?: string | number[];
+  pointRadiusMinPixels?: number;
+  pickable?: boolean;
+}
+
+/**
+ * Generate a @deck.gl/json spec for adding a CARTO vector layer
+ */
+export function generateAddVectorLayerSpec(params: AddVectorLayerParams): DeckGLJsonSpec {
+  // Build data source as function reference object
+  // JSONConverter expects: { "@@function": "name", ...args }
+  const dataSource: any = {
+    '@@function': 'vectorTableSource',
+    connectionName: params.connectionName,
+    tableName: params.tableName,
+  };
+
+  // Add credentials if provided (from MCP response)
+  if (params.accessToken) dataSource.accessToken = params.accessToken;
+  if (params.apiBaseUrl) dataSource.apiBaseUrl = params.apiBaseUrl;
+
+  // Handle columns - if empty/not specified but spatialDataColumn is provided, include it
+  let columns = params.columns;
+  if ((!columns || columns.length === 0) && params.spatialDataColumn) {
+    columns = [params.spatialDataColumn];
+  }
+  if (columns && columns.length > 0) {
+    dataSource.columns = columns;
+  }
+
+  if (params.spatialDataColumn) dataSource.spatialDataColumn = params.spatialDataColumn;
+
+  const layerSpec: LayerSpec = {
+    '@@type': 'VectorTileLayer',
+    id: params.id,
+    visible: params.visible ?? true,
+    opacity: params.opacity ?? 1,
+    pickable: params.pickable ?? true,
+    data: dataSource,
+  };
+
+  // Add styling properties if provided
+  if (params.fillColor !== undefined) {
+    layerSpec.getFillColor = params.fillColor;
+  }
+  if (params.lineColor !== undefined) {
+    layerSpec.getLineColor = params.lineColor;
+  }
+  if (params.pointRadiusMinPixels !== undefined) {
+    layerSpec.pointRadiusMinPixels = params.pointRadiusMinPixels;
   }
 
   return {

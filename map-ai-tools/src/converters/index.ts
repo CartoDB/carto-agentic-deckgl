@@ -26,10 +26,12 @@ export {
   // Layer management generators
   generateAddLayerSpec,
   generateAddRasterLayerSpec,
+  generateAddVectorLayerSpec,
   generateRemoveLayerSpec,
   generateUpdateLayerPropsSpec,
   type AddLayerParams,
   type AddRasterLayerParams,
+  type AddVectorLayerParams,
   type RemoveLayerParams,
   type UpdateLayerPropsParams,
   // Utilities

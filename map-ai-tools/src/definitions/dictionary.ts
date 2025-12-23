@@ -21,6 +21,7 @@ export const TOOL_NAMES = {
   // Layer management tools
   ADD_LAYER: 'add-layer',
   ADD_RASTER_LAYER: 'add-raster-layer',
+  ADD_VECTOR_LAYER: 'add-vector-layer',
   REMOVE_LAYER: 'remove-layer',
   UPDATE_LAYER_PROPS: 'update-layer-props',
   // Query tools

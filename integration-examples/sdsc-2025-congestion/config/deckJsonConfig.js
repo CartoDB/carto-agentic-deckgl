@@ -14,6 +14,16 @@ import { JSONConverter } from '@deck.gl/json';
 import { FlyToInterpolator, LinearInterpolator, COORDINATE_SYSTEM } from '@deck.gl/core';
 import { Tile3DLayer, TripsLayer } from '@deck.gl/geo-layers';
 import { GeoJsonLayer, PathLayer, ScatterplotLayer, IconLayer, ArcLayer, LineLayer } from '@deck.gl/layers';
+import { RasterTileLayer, VectorTileLayer, rasterSource, vectorTableSource } from '@deck.gl/carto';
+import { cartoCredentials } from '../credentials';
+
+/**
+ * Get CARTO configuration (credentials from credentials.js)
+ */
+const getCartoConfig = () => ({
+  apiBaseUrl: cartoCredentials.apiBaseUrl,
+  accessToken: cartoCredentials.accessToken,
+});
 
 /**
  * Color constants for JSONConverter @@# references
@@ -98,6 +108,43 @@ const CUSTOM_FUNCTIONS = {
       ];
     };
   },
+
+  /**
+   * Create a CARTO raster source
+   * Usage: { "@@function": "rasterSource", "connectionName": "...", "tableName": "..." }
+   */
+  rasterSource: (config) => {
+    const cartoConfig = getCartoConfig();
+    return rasterSource({
+      ...cartoConfig,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+    });
+  },
+
+  /**
+   * Create a CARTO vector table source
+   * Usage: { "@@function": "vectorTableSource", "connectionName": "...", "tableName": "...", "accessToken": "...", "apiBaseUrl": "..." }
+   * If accessToken/apiBaseUrl are provided in config (from MCP response), they override defaults
+   */
+  vectorTableSource: (config) => {
+    const defaultConfig = getCartoConfig();
+    console.log('[deckJsonConfig] vectorTableSource called with config:', config);
+    console.log('[deckJsonConfig] default cartoConfig:', defaultConfig);
+
+    const sourceConfig = {
+      // Use provided credentials if available (from MCP), otherwise use defaults
+      apiBaseUrl: config.apiBaseUrl || defaultConfig.apiBaseUrl,
+      accessToken: config.accessToken || defaultConfig.accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+      columns: config.columns,
+      spatialDataColumn: config.spatialDataColumn,
+    };
+    console.log('[deckJsonConfig] Final sourceConfig:', sourceConfig);
+
+    return vectorTableSource(sourceConfig);
+  },
 };
 
 /**
@@ -115,6 +162,8 @@ export const deckJsonConfiguration = {
     IconLayer,
     ArcLayer,
     LineLayer,
+    RasterTileLayer,
+    VectorTileLayer,
     // Interpolators as classes (can be instantiated)
     FlyToInterpolator,
     LinearInterpolator,

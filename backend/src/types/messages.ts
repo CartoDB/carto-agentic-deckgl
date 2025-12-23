@@ -1,7 +1,9 @@
 // backend/src/types/messages.ts
 
 // Initial state sent from frontend with demo context
+// Supports both slide-based context (DemoContext) and layer-based context (MapInitialState)
 export interface InitialState {
+  // === Slide-based context (DemoContext) ===
   demoId?: string;
   currentSlide?: number;
   totalSlides?: number;
@@ -19,6 +21,17 @@ export interface InitialState {
       unit?: string;
     };
   }>;
+  currentFilterValue?: number;
+
+  // === Layer-based context (MapInitialState) ===
+  layers?: Array<{
+    id: string;
+    type: string;
+    visible?: boolean;
+  }>;
+  availableTools?: string[];
+
+  // === Shared properties ===
   initialViewState?: {
     longitude?: number;
     latitude?: number;
@@ -26,7 +39,6 @@ export interface InitialState {
     pitch?: number;
     bearing?: number;
   };
-  currentFilterValue?: number;
 }
 
 export interface ClientMessage {
