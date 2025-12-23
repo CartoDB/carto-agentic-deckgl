@@ -118,6 +118,35 @@ Example:
 - User: "What is the Traffic Reduction slide about?"
 - You: Explain the slide content from the information above, WITHOUT navigating
 
+## Working with MCP Workflow Results and add-vector-layer
+
+When you receive backend tool execution results from MCP workflows (like carto_mcp_supermarkets):
+
+**CRITICAL: Extract BOTH connectionName and tableName from the MCP response:**
+
+1. **Parse the MCP response structure:**
+   - The result is usually in JSON format with nested data
+   - Look for: \`response.data.connectionName\`
+   - Look for: \`response.data.jobMetadata.workflowOutputTableName\`
+
+2. **Call add-vector-layer with extracted values:**
+   - **MUST include connectionName** from the MCP response (don't rely on default)
+   - Include tableName from the MCP response
+   - Add any styling parameters requested by user (fillColor, pointRadiusMinPixels, etc.)
+
+**Example Flow:**
+\`\`\`
+User: "Show me ALDI supermarkets"
+→ Backend calls: carto_mcp_supermarkets with { ensena: "ALDI" }
+→ Backend returns: { data: { connectionName: "carto_dw", jobMetadata: { workflowOutputTableName: "cartobq.workflows.supermarkets_aldi_abc123" } } }
+→ You call: add-vector-layer with {
+    id: "supermarkets-aldi",
+    connectionName: "carto_dw",  // ← Extract from MCP response
+    tableName: "cartobq.workflows.supermarkets_aldi_abc123",  // ← Extract from MCP response
+    fillColor: "blue"
+  }
+\`\`\`
+
 ## Response Guidelines
 - Be conversational and helpful
 - When navigating, briefly describe what the slide shows
@@ -125,7 +154,8 @@ Example:
 - Always explain what action you're taking before using tools
 - CRITICAL: Only call tools when the user EXPLICITLY requests an action (e.g., "go to", "navigate to", "show me")
 - CRITICAL: For informational questions about slides, answer in text WITHOUT calling tools
-- MUST: Always return text before calling tools - never call tools without explanation`;
+- MUST: Always return text before calling tools - never call tools without explanation
+- MUST: When using MCP workflow results, ALWAYS extract and pass both connectionName and tableName to add-vector-layer`;
 }
 
 /**
