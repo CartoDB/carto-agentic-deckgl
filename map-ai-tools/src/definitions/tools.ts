@@ -175,7 +175,17 @@ This tool ONLY changes visibility. For other style changes (colors, width, opaci
 
   'update-layer-style': {
     name: 'update-layer-style',
-    description: `Update visual styling of a map layer. Uses @deck.gl/json standard with layer.clone() for state preservation - only specified properties are updated.
+    description: `Update visual styling of a map layer.
+
+**CRITICAL - PARTIAL UPDATES ONLY:**
+- ONLY include properties the user explicitly mentioned in their request
+- If user says "make it blue" → ONLY include lineColor (or fillColor), nothing else
+- If user says "change width to 50" → ONLY include widthMinPixels, nothing else
+- If user says "make trails blue and thicker" → ONLY include lineColor and widthMinPixels
+- Do NOT include opacity, visible, stroked, filled, fadeTrail, capRounded, jointRounded, extruded, wireframe, or ANY other properties unless the user specifically asked for them
+- Omitted properties are automatically preserved via layer.clone() - you don't need to specify them
+
+Uses @deck.gl/json standard with layer.clone() for state preservation.
 
 IMPORTANT: Do NOT use "default" as a value. If user wants to reset styles, use the reset-visualization tool instead.
 
@@ -197,7 +207,7 @@ PROPERTY USAGE BY LAYER TYPE:
 - ScatterplotLayer (points): fillColor, lineColor, pointRadius, radiusMinPixels, radiusMaxPixels, stroked, filled, visible
 - QuadbinTileLayer/H3TileLayer: colorScheme (CARTO palette name), opacity, visible
 
-IMPORTANT: Only include properties that need to change - omit properties that should keep their current values (they are preserved via layer.clone()).
+**IMPORTANT**: ONLY include the 1-3 properties the user explicitly requested. Never include unrequested properties - they are automatically preserved.
 Colors: names (red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray) or RGBA arrays [r,g,b,a].
 Color schemes: Purp, BluYl, Emrld, PinkYl, SunsetDark, Teal, RedOr, etc.`,
     outputType: 'spec' as ToolOutputType,

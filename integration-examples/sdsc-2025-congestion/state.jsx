@@ -195,6 +195,11 @@ export const AppStateStore = ({children}) => {
     setLayerOverrides({});
   }, []);
 
+  // getLayerOverrides - get current overrides for a specific layer (for AI tools)
+  const getLayerOverrides = useCallback((layerId) => {
+    return layerOverrides[layerId] || {};
+  }, [layerOverrides]);
+
   // addLayer - dynamically add a new layer (for AI tools)
   const addLayer = useCallback((layerSpec) => {
     // layerSpec should be a deck.gl JSON spec with @@type
@@ -271,6 +276,7 @@ export const AppStateStore = ({children}) => {
         updateViewState,
         updateLayerStyle,
         resetLayerStyles,
+        getLayerOverrides,
         addLayer,
         slidesNumber: slides.length
       }}

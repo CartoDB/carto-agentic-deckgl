@@ -1,44 +1,70 @@
-#  🗺️ The Importance of Vegetation for Cities Story Map
+# SDSC 2025 Congestion Demo setup with frontend tools
 
-This repository contains the source code for the [The Importance of Vegetation for Cities story map](https://3dtiles.carto.com).
+This guide will walk you through the setup process for the SDSC 2025 Congestion Demo with frontend tools.
 
-<img width="1093" alt="Captura de Pantalla 2023-04-24 a las 16 47 58" src="https://user-images.githubusercontent.com/1161870/234032881-6da79cd7-7b87-4259-84af-11761a319d97.png">
+## Prerequisites
 
-Checkout also the overall technical blog post we published if you want to get more context.
+- Node.js v18+
+- npm or pnpm
+- yarn
 
-## 🧱 Overall structure of the code
+Repository: https://github.com/CartoDB/ps-frontend-tools-poc
+Branch: feature/sc-526574/angular-integration-example
 
-We are following a classical React App structure.
+## Clone the repository
 
- * `assets`: images, icons, etc.
- * `components`: JSX components of the app
- * `layers`: where the actual juice is. With each slide/visualization on a separate file
+```bash
+git clone https://github.com/CartoDB/ps-frontend-tools-poc.git
+cd ps-frontend-tools-poc
+git checkout feature/sc-526574/angular-integration-example
+```
 
-## 🏃🏽‍♀️ How to run it
+## Step 1: Setup map-ai-tools
 
-Checkout the code and...
+Go to map-ai-tools folder and run:
+```bash
+npm install
+npm run build
+```
 
-Install all dependencies with:
+## Step 2: Setup backend
 
-```yarn```
+Go to backend folder
 
-Specify your Google Maps API Key to use. You can get a Google Maps API Key on the GCP console. Remember to authorize localhost to it. You will need to update .env file with your API key.
+Create a .env file from .env.example and fill in the variables.
 
-```yarn start```
+## Step 3: Setup frontend
 
-will start the server on localhost:8080
+Go to integration-examples/sdsc-2025-congestion folder and run:
 
-## How to build it
+Create a .env file from .env.example and fill in the variables.
 
-```yarn build```
+Then run:
+```bash
+yarn
+yarn start
+```
 
-Then deploy the files in the `dist` folder to a web server of your choice.
+# 3D Demos Questions
 
-## 💬 issues/comments/whatever?
-
-You can contact CARTO always at contact@carto.com, but we also hangout on the CARTO Users community Slack server:
-
-https://cartousercommunity.slack.com/join/shared_invite/zt-t7t7k5s4-3c4pZJLrLlkVow3AEDt~ZQ#/shared-invite/email
-
-  
-
+- Tell me about this visualization
+- Tell me about the tools that are available
+- Got to the next slide
+- Update blue to the traffic trails, and 50 for line width to the traffic trails
+- fly to central park
+- Fly to the Empire State Building
+- Rotate map 180º with a transition of 40 seconds
+- Orange color and 30% of opacity to congestion zone mask
+- Red color and 20% of opacity to congestion-zone
+- Fly to Brooklyn Bridge
+- Zoom in
+- Fly to Holland Tunnel
+- Fly to Lincoln Tunnel and rotate 180º with a transition of 20 seconds
+- Remove color to congestion-zone and congestion zone mask
+- Update White color to the traffic trails, and 20 for line width
+- Make the congestion zone fill red with opacity 0.5
+- Set trail length to 200 for traffic-before
+- Hide the subway layer
+- Extrude the congestion zone with elevation 500
+- reset styles or reset visualization
+- restore defaults

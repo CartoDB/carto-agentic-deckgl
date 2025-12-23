@@ -39,6 +39,55 @@ const TOOL_NAMES = {
 };
 
 /**
+ * Filter props to preserve existing user modifications.
+ * Colors are always applied (user usually wants to change color).
+ * Numeric props are only applied if they differ significantly from existing.
+ *
+ * This prevents OpenAI's auto-filled default values from overwriting
+ * previous user modifications (e.g., user sets width to 50, then asks
+ * to change color - width should stay 50, not reset to 2).
+ *
+ * @param {Object} newProps - New properties from tool call
+ * @param {Object} existingOverrides - Existing layer overrides from previous tool calls
+ * @returns {Object} Filtered props that should be applied
+ */
+function filterPropsPreservingOverrides(newProps, existingOverrides) {
+  const filtered = {};
+
+  // Properties that should always be applied (colors - usually what user wants to change)
+  const alwaysApply = ['getFillColor', 'getColor', 'getLineColor', 'colorScheme'];
+
+  // Properties with small values (1-10) are likely OpenAI defaults
+  const isLikelyDefault = (value) => typeof value === 'number' && value >= 0 && value <= 10;
+
+  for (const [key, value] of Object.entries(newProps)) {
+    // Always apply color properties
+    if (alwaysApply.includes(key)) {
+      filtered[key] = value;
+      continue;
+    }
+
+    // If no existing override, apply the new value
+    if (!(key in existingOverrides)) {
+      filtered[key] = value;
+      continue;
+    }
+
+    // If existing value exists and new value looks like a default, preserve existing
+    if (isLikelyDefault(value) && !isLikelyDefault(existingOverrides[key])) {
+      // Skip - preserve existing user modification
+      console.log(`[slideToolExecutors] Preserving existing "${key}": ${existingOverrides[key]} (ignoring default-like value: ${value})`);
+      continue;
+    }
+
+    // Otherwise apply the new value
+    filtered[key] = value;
+  }
+
+  return filtered;
+}
+
+/**
  * Find slide index by name or keyword
  */
 function findSlideByName(slidesConfig, target) {
@@ -452,10 +501,21 @@ export function createSlideToolExecutors({ appState, slidesConfig }) {
         return { success: false, message: 'No style properties specified' };
       }
 
-      // Apply the JSONConverter-resolved props to the layer
-      appState.updateLayerStyle(layerId, props);
+      // Get existing overrides for this layer to preserve user modifications
+      const existingOverrides = appState.getLayerOverrides?.(layerId) || {};
 
-      const updates = Object.keys(props).join(', ');
+      // Filter props to preserve existing user modifications
+      // (prevents OpenAI defaults from overwriting previous user changes)
+      const filteredProps = filterPropsPreservingOverrides(props, existingOverrides);
+
+      if (Object.keys(filteredProps).length === 0) {
+        return { success: false, message: 'No new style properties to apply' };
+      }
+
+      // Apply the filtered props to the layer
+      appState.updateLayerStyle(layerId, filteredProps);
+
+      const updates = Object.keys(filteredProps).join(', ');
       return {
         success: true,
         message: `Updated "${layerId}" styling: ${updates}`,
