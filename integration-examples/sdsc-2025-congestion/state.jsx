@@ -88,6 +88,7 @@ export const AppStateStore = ({children}) => {
   };
 
   const [remoteLayers, setRemoteLayers] = useState([]);
+  const [dynamicLayers, setDynamicLayers] = useState([]);
 
   useEffect(() => {
     // Defer load of remote layers until initial zoom in completes
@@ -97,7 +98,7 @@ export const AppStateStore = ({children}) => {
     })
   }, [loadRemoteLayers]);
 
-  // Combine local and remote layers
+  // Combine local, remote, and dynamic layers
   useEffect(() => {
     setAllLayers([
       Google3DLayer,
@@ -109,24 +110,33 @@ export const AppStateStore = ({children}) => {
       RegionalImprovementLayer,
       SubwayLayer,
       SubwayShadowLayer,
-      ...remoteLayers
+      ...remoteLayers,
+      ...dynamicLayers
     ]);
-  }, [time, remoteLayers]);
+  }, [time, remoteLayers, dynamicLayers]);
 
   // Update layers when allLayers, currentSlide, or layerOverrides changes
   useEffect(
     () => {
       const {layers: visibleLayers} = slides[currentSlide];
 
+      // Get IDs of dynamic layers (always visible unless overridden)
+      const dynamicLayerIds = dynamicLayers.map(l => l.id);
+
       const baseLayers = allLayers.map(l => {
-        const visible = visibleLayers.indexOf(l.id) !== -1;
+        // Dynamic layers are visible by default, slide layers follow slide config
+        const isDynamic = dynamicLayerIds.includes(l.id);
+        const visible = isDynamic ? true : visibleLayers.indexOf(l.id) !== -1;
         const props = {visible};
 
-        // Limit to single zoom level to avoid flashing (due to fade in transition)
+        // For slide layers: limit to single zoom level to avoid flashing (due to fade in transition)
         // and to limit data use on mobile
-        props.minZoom = 12;
-        props.maxZoom = 12;
-        props.extent = isDesktop ? FULL_EXTENT : LIMITED_EXTENT;
+        // For dynamic layers: allow full zoom range
+        if (!isDynamic) {
+          props.minZoom = 12;
+          props.maxZoom = 12;
+          props.extent = isDesktop ? FULL_EXTENT : LIMITED_EXTENT;
+        }
 
         // Apply layer style overrides from AI tools
         const overrides = layerOverrides[l.id] || {};
@@ -137,7 +147,7 @@ export const AppStateStore = ({children}) => {
 
       setLayers(baseLayers);
     },
-    [currentSlide, isDesktop, allLayers, layerOverrides]
+    [currentSlide, isDesktop, allLayers, layerOverrides, dynamicLayers]
   );
 
   // Update view when currentSlide changes
@@ -185,6 +195,34 @@ export const AppStateStore = ({children}) => {
     setLayerOverrides({});
   }, []);
 
+  // addLayer - dynamically add a new layer (for AI tools)
+  const addLayer = useCallback((layerSpec) => {
+    // layerSpec should be a deck.gl JSON spec with @@type
+    // Convert spec to actual layer instance using JSONConverter
+    console.log('[State] addLayer called with layerSpec:', layerSpec);
+    try {
+      // Dynamically import JSONConverter
+      import('./config/deckJsonConfig.js').then(({ getJsonConverter }) => {
+        const converter = getJsonConverter();
+        console.log('[State] About to convert spec:', { layers: [layerSpec] });
+        const converted = converter.convert({ layers: [layerSpec] });
+        console.log('[State] Conversion result:', converted);
+
+        if (converted.layers && converted.layers[0]) {
+          const newLayer = converted.layers[0];
+          console.log('[State] New layer instance:', newLayer);
+          console.log('[State] New layer props:', newLayer.props);
+          setDynamicLayers(prev => [...prev, newLayer]);
+          console.log('[State] Added dynamic layer:', newLayer.id);
+        } else {
+          console.error('[State] No layers in conversion result');
+        }
+      });
+    } catch (error) {
+      console.error('[State] Failed to add layer:', error);
+    }
+  }, []);
+
   return (
     <AppStateContext.Provider
       value={{
@@ -208,6 +246,7 @@ export const AppStateStore = ({children}) => {
         updateViewState,
         updateLayerStyle,
         resetLayerStyles,
+        addLayer,
         slidesNumber: slides.length
       }}
     >

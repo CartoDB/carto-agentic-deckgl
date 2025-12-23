@@ -68,6 +68,7 @@ export function useSlideAwareAIToolsHttp({
         get setFilterValue() { return appStateRef.current?.setFilterValue; },
         get updateLayerStyle() { return appStateRef.current?.updateLayerStyle; },
         get resetLayerStyles() { return appStateRef.current?.resetLayerStyles; },
+        get addLayer() { return appStateRef.current?.addLayer; },
       },
       slidesConfig
     });

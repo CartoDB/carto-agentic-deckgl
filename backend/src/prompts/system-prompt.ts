@@ -236,6 +236,48 @@ Example:
 - User: "What is the Traffic Reduction slide about?"
 - You: Explain the slide content from the information above, WITHOUT navigating
 
+## Working with MCP Workflow Results and add-vector-layer
+
+When you receive backend tool execution results from MCP workflows (like carto_mcp_supermarkets):
+
+**CRITICAL: Extract ALL required fields from the MCP response:**
+
+1. **Parse the MCP response structure:**
+   - The result is usually in JSON format with nested data
+   - Look for: \`response.data.connectionName\`
+   - Look for: \`response.data.jobMetadata.workflowOutputTableName\`
+   - Look for: \`response.data.accessToken\` (REQUIRED for authentication)
+   - Look for: \`response.data.apiBaseUrl\` (REQUIRED for API endpoint)
+
+2. **Call add-vector-layer with extracted values:**
+   - **MUST include connectionName** from the MCP response (don't rely on default)
+   - **MUST include tableName** from the MCP response
+   - **MUST include accessToken** from the MCP response (required for authentication)
+   - **MUST include apiBaseUrl** from the MCP response (required for API endpoint)
+   - Add any styling parameters requested by user (fillColor, pointRadiusMinPixels, etc.)
+
+**Example Flow:**
+\`\`\`
+User: "Show me ALDI supermarkets"
+→ Backend calls: carto_mcp_supermarkets with { ensena: "ALDI" }
+→ Backend returns: {
+    data: {
+      connectionName: "carto_dw",
+      accessToken: "eyJhbG...",
+      apiBaseUrl: "https://gcp-us-east1.api.carto.com",
+      jobMetadata: { workflowOutputTableName: "cartobq.workflows.supermarkets_aldi_abc123" }
+    }
+  }
+→ You call: add-vector-layer with {
+    id: "supermarkets-aldi",
+    connectionName: "carto_dw",  // ← Extract from MCP response
+    tableName: "cartobq.workflows.supermarkets_aldi_abc123",  // ← Extract from MCP response
+    accessToken: "eyJhbG...",  // ← Extract from MCP response (REQUIRED)
+    apiBaseUrl: "https://gcp-us-east1.api.carto.com",  // ← Extract from MCP response (REQUIRED)
+    fillColor: "blue"
+  }
+\`\`\`
+
 ## Response Guidelines
 - Be conversational and helpful
 - When navigating, briefly describe what the slide shows
@@ -243,7 +285,8 @@ Example:
 - Always explain what action you're taking before using tools
 - CRITICAL: Only call tools when the user EXPLICITLY requests an action (e.g., "go to", "navigate to", "show me")
 - CRITICAL: For informational questions about slides, answer in text WITHOUT calling tools
-- MUST: Always return text before calling tools - never call tools without explanation`;
+- MUST: Always return text before calling tools - never call tools without explanation
+- MUST: When using MCP workflow results, ALWAYS extract and pass connectionName, tableName, accessToken, and apiBaseUrl to add-vector-layer`;
 }
 
 /**
@@ -342,6 +385,49 @@ You can help users:
    - Example: "Create table of airports by type" → aggregate_features with groupBy: "type"
    - Example: "Show breakdown by country" → aggregate_features with groupBy: "gps_code" (first letter = country)
 
+## Working with MCP Workflow Results and add-vector-layer
+
+When you receive backend tool execution results from MCP workflows (e.g., CARTO spatial analysis tools):
+
+**CRITICAL: Extract ALL required fields from the MCP response:**
+
+1. **Parse the MCP response structure:**
+   - The result is usually in JSON format with nested data
+   - Look for: \`response.data.connectionName\`
+   - Look for: \`response.data.jobMetadata.workflowOutputTableName\`
+   - Look for: \`response.data.accessToken\` (REQUIRED for authentication)
+   - Look for: \`response.data.apiBaseUrl\` (REQUIRED for API endpoint)
+
+2. **Call add-vector-layer with extracted values:**
+   - **MUST include connectionName** from the MCP response (don't rely on default)
+   - **MUST include tableName** from the MCP response
+   - **MUST include accessToken** from the MCP response (required for authentication)
+   - **MUST include apiBaseUrl** from the MCP response (required for API endpoint)
+   - Add any styling parameters requested by user (fillColor, pointRadiusMinPixels, etc.)
+
+**Example Flow:**
+\`\`\`
+User: "Show me POIs in USA"
+→ Backend calls: carto_mcp_pois with { country: "USA" }
+→ Backend returns: {
+    data: {
+      connectionName: "carto-ps-bq-css-demo-us",
+      accessToken: "eyJhbG...",
+      apiBaseUrl: "https://gcp-us-east1.api.carto.com",
+      jobMetadata: { workflowOutputTableName: "carto-ps-bq-css-demo-us.workflows.pois_usa_abc123" }
+    }
+  }
+→ You call: add-vector-layer with {
+    id: "pois-usa",
+    connectionName: "carto-ps-bq-css-demo-us",  // ← Extract from MCP response
+    tableName: "carto-ps-bq-css-demo-us.workflows.pois_usa_abc123",  // ← Extract from MCP response
+    accessToken: "eyJhbG...",  // ← Extract from MCP response (REQUIRED)
+    apiBaseUrl: "https://gcp-us-east1.api.carto.com",  // ← Extract from MCP response (REQUIRED)
+    fillColor: "blue",
+    pointRadiusMinPixels: 3
+  }
+\`\`\`
+
 ## Response Guidelines
 - **CRITICAL**: Only call tools when the user EXPLICITLY requests an action in their CURRENT message. Do NOT call tools based on previous conversation context or assumptions.
 - **IMPORTANT**: Before calling any tool, ALWAYS briefly explain your reasoning and what you're about to do. For example: "I'll filter airports by their GPS code prefix 'K' which identifies US airports."
@@ -362,5 +448,6 @@ You can help users:
 - **CRITICAL**: If user asks for a tool, always return text first, then call tools. Do NOT call tools based on previous conversation context or assumptions.
 - **Example**: If user says "show me the weather in Tokyo", return text first, then call weather tool. Do NOT call other tools like airports unless explicitly requested in the same message.
 - **Example**: If user says "show me the airports in USA", return text first, then call airports tool. Do NOT call other tools like weather unless explicitly requested in the same message.
-- **Example**: If user says "show me the airports in USA", return text first, then call airports tool. Do NOT call other tools like weather unless explicitly requested in the same message.`;
+- **Example**: If user says "show me the airports in USA", return text first, then call airports tool. Do NOT call other tools like weather unless explicitly requested in the same message.
+- **MUST**: When using MCP workflow results, ALWAYS extract and pass connectionName, tableName, accessToken, and apiBaseUrl to add-vector-layer`;
 }
