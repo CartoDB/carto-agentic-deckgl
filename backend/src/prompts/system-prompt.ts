@@ -77,7 +77,10 @@ When updating layer styles, use the **update-layer-style** tool (NOT update-laye
 Reference layers by their exact ID from the Current Map State above.
 
 ### CARTO Color Schemes (for QuadbinTileLayer, H3TileLayer)
-For data-driven layers, use **colorScheme** parameter with a CARTO palette name:
+For data-driven layers, use the **update-layer-style** tool with the **colorScheme** parameter:
+- Example: update-layer-style({ layerId: "quadbin-layer", colorScheme: "Purp" })
+
+Available CARTO palette names:
 
 **Sequential** (single hue, light to dark):
 Burg, BurgYl, RedOr, OrYel, Peach, PinkYl, Mint, BluGrn, DarkMint, Emrld, BluYl, Teal, TealGrn, Purp, PurpOr, Sunset, Magenta, SunsetDark, BrwnYl

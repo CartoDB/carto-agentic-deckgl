@@ -41,7 +41,7 @@ import {
 // Extend TOOL_NAMES with additional tools not in @carto/maps-ai-tools
 const TOOL_NAMES = {
   ...BASE_TOOL_NAMES,
-  UPDATE_LAYER_STYLE: 'update-layer-style',
+  // Todo: add custom tools here
 };
 
 /**

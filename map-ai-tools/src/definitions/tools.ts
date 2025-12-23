@@ -188,18 +188,23 @@ COLOR SELECTION RULES (CRITICAL - follow exactly):
 - If user mentions "fill", "background", "interior", or "inside" → ONLY set fillColor, do NOT set lineColor
 - If user request is ambiguous (e.g., "make it red", "change color") → set BOTH fillColor and lineColor
 - NEVER add a color property that wasn't implied by user's words
+- For data-driven layers (QuadbinTileLayer, H3TileLayer), use colorScheme instead of fillColor/lineColor
 
 PROPERTY USAGE BY LAYER TYPE:
 - GeoJsonLayer (polygons): fillColor, lineColor, lineWidth, lineWidthMinPixels, opacity, stroked, filled, extruded, elevation, visible
 - TripsLayer (trails): lineColor, widthMinPixels, trailLength, opacity, fadeTrail, visible
 - PathLayer (lines): lineColor, widthMinPixels, widthMaxPixels, opacity, capRounded, jointRounded, visible
 - ScatterplotLayer (points): fillColor, lineColor, pointRadius, radiusMinPixels, radiusMaxPixels, stroked, filled, visible
+- QuadbinTileLayer/H3TileLayer: colorScheme (CARTO palette name), opacity, visible
 
 Only include properties that need to change - omit properties that should keep their current values (they are preserved via layer.clone()).
-Colors: names (red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray) or RGBA arrays [r,g,b,a].`,
+Colors: names (red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray) or RGBA arrays [r,g,b,a].
+Color schemes: Purp, BluYl, Emrld, PinkYl, SunsetDark, Teal, RedOr, etc.`,
     outputType: 'spec' as ToolOutputType,
     schema: z.object({
       layerId: z.string().describe('The layer ID to update'),
+      colorScheme: z.string().optional()
+        .describe('CARTO color palette name for data-driven layers (e.g., "Purp", "BluYl", "SunsetDark", "Emrld", "PinkYl")'),
       fillColor: colorSchema
         .describe('Fill color for polygons/points - name or RGBA array'),
       lineColor: colorSchema

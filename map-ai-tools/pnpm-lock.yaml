@@ -11,6 +11,9 @@ importers:
       '@deck.gl/core':
         specifier: ^9.2.2
         version: 9.2.5
+      '@deck.gl/json':
+        specifier: ^9.2.0
+        version: 9.2.5(@deck.gl/core@9.2.5)
       tslib:
         specifier: ^2.8.1
         version: 2.8.1
@@ -44,6 +47,11 @@ packages:
 
   '@deck.gl/core@9.2.5':
     resolution: {integrity: sha512-/PGNX4Wd7rEahYi6ivC4WExJ3U6Hqgl42R83guNzTL6gM2+02PUQRoQG9QdFagj5d6kWYVN0LVJME2a5WQmzOg==}
+
+  '@deck.gl/json@9.2.5':
+    resolution: {integrity: sha512-DER3A31hM9+Qq9taIUOUYHKKJAv3ztnRV+WMY83+XjGg2bQWPqNu5cpBHZgtICTdAZur2Sn3COiVNCORy0s6ew==}
+    peerDependencies:
+      '@deck.gl/core': ~9.2.0
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
@@ -332,6 +340,10 @@ packages:
   is-reference@1.2.1:
     resolution: {integrity: sha512-U82MsXXiFIrjCK4otLT+o2NA2Cd2g5MLoOVXUZjIOhLurrRxpEXzI8O0KZHr3IjLvlAH1kTPYSuqer5T9ZVBKQ==}
 
+  jsep@0.3.5:
+    resolution: {integrity: sha512-AoRLBDc6JNnKjNcmonituEABS5bcfqDhQAWWXNTFrqu6nVXBpBAGfcoTGZMFlIrh9FjmE1CQyX9CTNwZrXMMDA==}
+    engines: {node: '>= 6.0.0'}
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -397,6 +409,11 @@ snapshots:
       '@types/offscreencanvas': 2019.7.3
       gl-matrix: 3.4.4
       mjolnir.js: 3.0.0
+
+  '@deck.gl/json@9.2.5(@deck.gl/core@9.2.5)':
+    dependencies:
+      '@deck.gl/core': 9.2.5
+      jsep: 0.3.5
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
@@ -635,6 +652,8 @@ snapshots:
   is-reference@1.2.1:
     dependencies:
       '@types/estree': 1.0.8
+
+  jsep@0.3.5: {}
 
   magic-string@0.30.21:
     dependencies:
