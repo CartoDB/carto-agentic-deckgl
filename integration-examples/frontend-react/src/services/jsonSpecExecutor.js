@@ -6,7 +6,7 @@
  * and coordinates with the layer registry and filter state.
  */
 
-import { createJsonConverter, resolveFunctionRef } from '../config/deckJsonConfig';
+import { createJsonConverter, resolveFunctionRef, deckJsonConfiguration } from '../config/deckJsonConfig';
 import { scheduleRedraws, REDRAW_PRESETS } from './deckUtils/redraw';
 import { findLayerById, syncMapLibreView } from './deckUtils/layerUtils';
 import { filterFeatures, createPropertyMatcher } from './deckUtils/propertyMatcher';
@@ -92,15 +92,7 @@ export function createJsonSpecExecutor({ deck, map, mapTools }) {
     if (!ref.startsWith('@@#')) return null;
 
     const constName = ref.slice(3);
-    // Import constants from config
-    const { FlyToInterpolator, LinearInterpolator } = require('@deck.gl/core');
-
-    const constants = {
-      FlyToInterpolator: new FlyToInterpolator(),
-      LinearInterpolator: new LinearInterpolator(),
-    };
-
-    return constants[constName] || null;
+    return deckJsonConfiguration.constants[constName] || null;
   };
 
   /**

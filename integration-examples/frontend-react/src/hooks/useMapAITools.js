@@ -73,6 +73,44 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
   executorsRef.current = executors;
 
   // ============================================
+  // Initial State for AI Context
+  // ============================================
+
+  /**
+   * Create initial state object to send with each message
+   * This gives the AI context about current layers and view state
+   */
+  const createInitialState = useCallback(() => {
+    if (!mapInstances) return null;
+
+    const { deck } = mapInstances;
+    if (!deck) return null;
+
+    // Get current view state
+    const viewState = deck.props.initialViewState || deck.viewState || {};
+    const initialViewState = {
+      longitude: viewState.longitude,
+      latitude: viewState.latitude,
+      zoom: viewState.zoom,
+      pitch: viewState.pitch || 0,
+      bearing: viewState.bearing || 0,
+    };
+
+    // Get current layers
+    const currentLayers = deck.props.layers || [];
+    const layers = currentLayers.map((layer) => ({
+      id: layer.id,
+      type: layer.constructor.name,
+      visible: layer.props.visible !== false,
+    }));
+
+    return {
+      initialViewState,
+      layers,
+    };
+  }, [mapInstances]);
+
+  // ============================================
   // Message Management
   // ============================================
 
@@ -280,11 +318,15 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
         return false;
       }
 
+      // Get current map state to provide context to AI
+      const initialState = createInitialState();
+
       wsRef.current.send(
         JSON.stringify({
           type: 'chat_message',
           content,
           timestamp: Date.now(),
+          initialState, // Include layer and view state context for AI
         })
       );
 
@@ -299,7 +341,7 @@ export function useMapAITools({ wsUrl, mapInstances, mapTools, onError }) {
 
       return true;
     },
-    [addMessage]
+    [addMessage, createInitialState]
   );
 
   // ============================================

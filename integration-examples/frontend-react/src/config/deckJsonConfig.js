@@ -200,4 +200,80 @@ export function resolveFunctionRef(ref) {
   return parsed.args ? func(parsed.args) : func;
 }
 
+/**
+ * Resolve an interpolator reference
+ * @param {string|Object} ref - Interpolator name or config object
+ * @returns {Object} Interpolator instance
+ */
+export function resolveInterpolator(ref) {
+  if (!ref) return null;
+
+  // String reference: "FlyToInterpolator" or "LinearInterpolator"
+  if (typeof ref === 'string') {
+    const name = ref.replace('@@#', '');
+    return deckJsonConfiguration.constants[name] || null;
+  }
+
+  // Object with @@type for custom config
+  if (typeof ref === 'object' && ref['@@type']) {
+    const typeName = ref['@@type'];
+    if (typeName === 'LinearInterpolator' && ref.transitionProps) {
+      return new LinearInterpolator({ transitionProps: ref.transitionProps });
+    }
+    return deckJsonConfiguration.constants[typeName] || null;
+  }
+
+  return null;
+}
+
+/**
+ * Create a LinearInterpolator for specific properties
+ * @param {string[]} transitionProps - Properties to interpolate
+ * @returns {LinearInterpolator} Interpolator instance
+ */
+export function createLinearInterpolator(transitionProps) {
+  return new LinearInterpolator({ transitionProps });
+}
+
+/**
+ * Resolve a value that may contain @@ references
+ * @param {*} value - Value to resolve
+ * @returns {*} Resolved value
+ */
+export function resolveValue(value) {
+  if (!value) return value;
+
+  // String constant reference
+  if (typeof value === 'string' && value.startsWith('@@#')) {
+    const constName = value.slice(3);
+    return deckJsonConfiguration.constants[constName] ?? value;
+  }
+
+  // Object with nested @@ references
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const resolved = {};
+    for (const [key, val] of Object.entries(value)) {
+      resolved[key] = resolveValue(val);
+    }
+    return resolved;
+  }
+
+  return value;
+}
+
+/**
+ * Resolve a color value (name, array, or @@ reference)
+ * @param {string|Array} color - Color to resolve
+ * @returns {Array} RGBA color array
+ */
+export function resolveColor(color) {
+  if (Array.isArray(color)) return color;
+  if (typeof color === 'string' && color.startsWith('@@#')) {
+    const constName = color.slice(3);
+    return deckJsonConfiguration.constants[constName] ?? [128, 128, 128, 180];
+  }
+  // Return as-is for named colors or other formats
+  return color;
+}
+
 export default deckJsonConfiguration;
