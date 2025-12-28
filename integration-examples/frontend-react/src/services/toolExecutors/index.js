@@ -21,12 +21,14 @@ import {
   getLayerData,
   createPropertyMatcher,
   countMatchingFeatures,
-  filterFeatures,
 } from '../deckUtils';
 import {
-  DEFAULT_LAYER_COLOR,
-  DEFAULT_POINT_SIZE,
-} from '../../config/constants';
+  resolveInterpolator,
+  createLinearInterpolator,
+  resolveValue,
+  resolveColor,
+} from '../../config/deckJsonConfig';
+import { colorBins } from '@deck.gl/carto';
 
 
 /**
@@ -45,7 +47,7 @@ export function createExecutors({ deck, map, mapTools }) {
   // Create the JSON spec executor for spec-based tools
   const specExecutor = createJsonSpecExecutor({ deck, map, mapTools });
 
-  return {
+  const executors = {
     // =========================================
     // View Executors (spec-based)
     // =========================================
@@ -106,6 +108,83 @@ export function createExecutors({ deck, map, mapTools }) {
       };
     },
 
+    'rotate-map': (params) => {
+      const { bearing, relative = false, transitionDuration = 1000, transitionInterpolator } = params;
+
+      const currentView = deck.props.initialViewState || deck.viewState || {};
+      const currentBearing = currentView.bearing || 0;
+      const newBearing = relative ? currentBearing + bearing : bearing;
+      const normalizedBearing = ((newBearing + 180) % 360) - 180;
+
+      // Use provided interpolator or default to LinearInterpolator for bearing
+      const interpolator = transitionInterpolator
+        ? resolveInterpolator(transitionInterpolator)
+        : createLinearInterpolator(['bearing']);
+
+      const newViewState = {
+        ...currentView,
+        bearing: normalizedBearing,
+        transitionDuration,
+        transitionInterpolator: interpolator,
+      };
+
+      deck.setProps({ initialViewState: newViewState });
+
+      // Sync with MapLibre if available
+      if (map) {
+        map.jumpTo({
+          center: [newViewState.longitude, newViewState.latitude],
+          zoom: newViewState.zoom,
+          bearing: normalizedBearing,
+          pitch: newViewState.pitch,
+        });
+      }
+
+      scheduleRedraws(deck, REDRAW_PRESETS.flyTo);
+
+      return {
+        success: true,
+        message: `Rotated map to ${normalizedBearing.toFixed(1)}°`,
+      };
+    },
+
+    'set-pitch': (params) => {
+      const { pitch, transitionDuration = 1000, transitionInterpolator } = params;
+
+      const currentView = deck.props.initialViewState || deck.viewState || {};
+
+      // Use provided interpolator or default to LinearInterpolator for pitch
+      const interpolator = transitionInterpolator
+        ? resolveInterpolator(transitionInterpolator)
+        : createLinearInterpolator(['pitch']);
+
+      const newViewState = {
+        ...currentView,
+        pitch,
+        transitionDuration,
+        transitionInterpolator: interpolator,
+      };
+
+      deck.setProps({ initialViewState: newViewState });
+
+      // Sync with MapLibre if available
+      if (map) {
+        map.jumpTo({
+          center: [newViewState.longitude, newViewState.latitude],
+          zoom: newViewState.zoom,
+          bearing: newViewState.bearing,
+          pitch,
+        });
+      }
+
+      scheduleRedraws(deck, REDRAW_PRESETS.flyTo);
+
+      return {
+        success: true,
+        message: `Set map tilt to ${pitch}°`,
+      };
+    },
+
     // =========================================
     // Layer Visibility & Styling (spec-based)
     // =========================================
@@ -152,61 +231,25 @@ export function createExecutors({ deck, map, mapTools }) {
       };
     },
 
-    [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: (params) => {
-      const {
-        layerId = 'points-layer',
-        property,
-        operator = 'equals',
-        value,
-        r,
-        g,
-        b,
-        a = 180,
-      } = params;
+    /**
+     * Update Layer Style Tool - uses JSONConverter for @@ reference resolution
+     *
+     * Supports:
+     * - Color names or RGBA arrays
+     * - @@# references: "@@#Red", "@@#Warning"
+     * - Numeric properties: opacity, lineWidth, pointRadius
+     * - colorScheme: CARTO palette names for data-driven layers (Teal, Purp, BluYl, etc.)
+     *
+     * @example
+     * { layerId: 'my-layer', fillColor: [255, 0, 0, 200], opacity: 0.8 }
+     * { layerId: 'quadbin-layer', colorScheme: 'Teal' }
+     */
+    'update-layer-style': (params) => {
+      const { layerId, colorScheme, ...styleProps } = params;
 
-      // For color-by-property, we need to track filters in mapTools
-      const filterColor = [r, g, b, a];
-      const filterKey = `${property}:${operator}:${value}`;
-      const newFilter = {
-        key: filterKey,
-        property,
-        operator,
-        value,
-        color: filterColor,
-      };
-
-      // Add filter to context
-      const filters = mapTools.addColorFilter(layerId, newFilter);
-
-      // Create color accessor using mapTools
-      const colorAccessor = mapTools.createColorAccessor(layerId, DEFAULT_LAYER_COLOR);
-
-      // Apply directly since we need custom accessor from mapTools
-      const currentLayers = deck.props.layers || [];
-      const updatedLayers = updateLayer(currentLayers, layerId, (layer) =>
-        layer.clone({
-          getFillColor: colorAccessor,
-          updateTriggers: { getFillColor: JSON.stringify(filters) },
-        })
-      );
-
-      deck.setProps({ layers: updatedLayers });
-      scheduleRedraws(deck, REDRAW_PRESETS.dataUpdate);
-
-      return {
-        success: true,
-        message: `Colored features where ${property} ${operator} "${value}"`,
-      };
-    },
-
-    [TOOL_NAMES.FILTER_FEATURES_BY_PROPERTY]: (params) => {
-      const {
-        layerId = 'points-layer',
-        property,
-        operator = 'equals',
-        value = '',
-        reset = false,
-      } = params;
+      if (!layerId) {
+        return { success: false, message: 'No layer ID specified' };
+      }
 
       const currentLayers = deck.props.layers || [];
       const layer = findLayerById(currentLayers, layerId);
@@ -215,118 +258,74 @@ export function createExecutors({ deck, map, mapTools }) {
         return { success: false, message: `Layer "${layerId}" not found` };
       }
 
-      // Store/retrieve original data through mapTools
-      const originalData = mapTools.getOrSetOriginalData(layerId, getLayerData(layer));
+      // Resolve any @@ references in the style props
+      const resolvedProps = {};
 
-      if (!originalData || !originalData.features) {
-        return { success: false, message: 'No feature data available' };
+      // Handle colorScheme for CARTO data-driven layers (QuadbinTileLayer, H3TileLayer, etc.)
+      if (colorScheme) {
+        // Default domain for population-style data
+        const defaultDomain = [0, 100, 1000, 10000, 100000, 1000000];
+
+        // Check if existing getFillColor has colorBins-like structure
+        // colorBins returns an accessor function, so we need to create a new one
+        resolvedProps.getFillColor = colorBins({
+          attr: 'value',
+          domain: defaultDomain,
+          colors: colorScheme,
+        });
+
+        // Track for updateTriggers
+        resolvedProps._colorScheme = colorScheme;
       }
 
-      if (reset) {
-        const updatedLayers = updateLayer(currentLayers, layerId, (l) =>
-          l.clone({ data: originalData, updateTriggers: { data: 'reset' } })
-        );
-        deck.setProps({ layers: updatedLayers });
-        scheduleRedraws(deck, REDRAW_PRESETS.instant);
-        mapTools.clearActiveFilter(layerId);
-
-        return {
-          success: true,
-          message: `Filter cleared - showing all ${originalData.features.length} features`,
-        };
+      // Process other style properties
+      for (const [key, value] of Object.entries(styleProps)) {
+        if (key === 'fillColor' || key === 'getFillColor') {
+          // Only set if colorScheme wasn't specified
+          if (!colorScheme) {
+            resolvedProps.getFillColor = resolveColor(value);
+          }
+        } else if (key === 'lineColor' || key === 'getLineColor') {
+          resolvedProps.getLineColor = resolveColor(value);
+        } else if (key === 'pointColor' || key === 'getColor') {
+          resolvedProps.getColor = resolveColor(value);
+        } else {
+          resolvedProps[key] = resolveValue(value);
+        }
       }
 
-      if (!property) {
-        return {
-          success: false,
-          message: 'Property is required for filtering. Use reset=true to clear filters.',
-        };
+      // Remove internal tracking property before applying
+      const colorSchemeValue = resolvedProps._colorScheme;
+      delete resolvedProps._colorScheme;
+
+      if (Object.keys(resolvedProps).length === 0) {
+        return { success: false, message: 'No style properties specified' };
       }
 
-      const matcher = createPropertyMatcher(property, operator, value);
-      const filteredData = filterFeatures(originalData, matcher);
+      // Add updateTriggers for any color properties
+      const updateTriggers = {};
+      if (resolvedProps.getFillColor) {
+        updateTriggers.getFillColor = colorSchemeValue || JSON.stringify(resolvedProps.getFillColor);
+      }
+      if (resolvedProps.getLineColor) updateTriggers.getLineColor = JSON.stringify(resolvedProps.getLineColor);
+      if (resolvedProps.getColor) updateTriggers.getColor = JSON.stringify(resolvedProps.getColor);
 
       const updatedLayers = updateLayer(currentLayers, layerId, (l) =>
         l.clone({
-          data: filteredData,
-          updateTriggers: { data: `${property}:${operator}:${value}` },
-        })
-      );
-
-      deck.setProps({ layers: updatedLayers });
-      scheduleRedraws(deck, REDRAW_PRESETS.dataUpdate);
-      mapTools.setActiveFilter(layerId, { property, operator, value });
-
-      return {
-        success: true,
-        message: `Filtered to ${filteredData.features.length} features where ${property} ${operator} "${value}"`,
-      };
-    },
-
-    [TOOL_NAMES.SIZE_FEATURES_BY_PROPERTY]: (params) => {
-      const {
-        layerId = 'points-layer',
-        property,
-        sizeRules = [],
-        defaultSize = DEFAULT_POINT_SIZE,
-        reset = false,
-      } = params;
-
-      const currentLayers = deck.props.layers || [];
-      const layer = findLayerById(currentLayers, layerId);
-
-      if (!layer) {
-        return { success: false, message: `Layer "${layerId}" not found` };
-      }
-
-      if (reset) {
-        mapTools.clearSizeRules(layerId);
-
-        const updatedLayers = updateLayer(currentLayers, layerId, (l) =>
-          l.clone({
-            getPointRadius: defaultSize,
-            pointRadiusUnits: 'pixels',
-            pointRadiusMinPixels: 1,
-            pointRadiusMaxPixels: 200,
-            updateTriggers: { getPointRadius: 'reset' },
-          })
-        );
-
-        deck.setProps({ layers: updatedLayers });
-        scheduleRedraws(deck, REDRAW_PRESETS.instant);
-
-        return { success: true, message: `Size reset to uniform ${defaultSize}px` };
-      }
-
-      if (!property || sizeRules.length === 0) {
-        return {
-          success: false,
-          message: 'Property and sizeRules are required. Use reset=true to clear size rules.',
-        };
-      }
-
-      mapTools.mergeSizeRules(layerId, property, sizeRules, defaultSize);
-      const sizeAccessor = mapTools.createSizeAccessor(layerId, property);
-      const allRules = mapTools.getSizeRulesArray(layerId);
-
-      const updatedLayers = updateLayer(currentLayers, layerId, (l) =>
-        l.clone({
-          getPointRadius: sizeAccessor,
-          pointRadiusUnits: 'pixels',
-          pointRadiusMinPixels: 1,
-          pointRadiusMaxPixels: 200,
-          updateTriggers: { getPointRadius: JSON.stringify(allRules) },
+          ...resolvedProps,
+          updateTriggers: Object.keys(updateTriggers).length > 0 ? updateTriggers : undefined,
         })
       );
 
       deck.setProps({ layers: updatedLayers });
       scheduleRedraws(deck, REDRAW_PRESETS.dataUpdate);
 
-      const rulesDescription = allRules.map((r) => `${r.value}=${r.size}px`).join(', ');
-
+      const updates = colorSchemeValue
+        ? `colorScheme: ${colorSchemeValue}`
+        : Object.keys(resolvedProps).join(', ');
       return {
         success: true,
-        message: `Size rules merged: ${rulesDescription} (default: ${defaultSize}px)`,
+        message: `Updated "${layerId}" styling: ${updates}`,
       };
     },
 
@@ -501,4 +500,6 @@ export function createExecutors({ deck, map, mapTools }) {
       };
     },
   };
+
+  return executors;
 }
