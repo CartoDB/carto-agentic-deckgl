@@ -44,7 +44,19 @@
       "Bash(npm run build:notes:pptx:*)",
       "Bash(tree:*)",
       "WebFetch(domain:zod.dev)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "mcp__github__get_file_contents",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(find:*)",
+      "Bash(yarn install)",
+      "Bash(timeout 10 yarn start:*)",
+      "Skill(playwright-skill:playwright-skill)",
+      "Bash(lsof:*)",
+      "Bash(yarn build)",
+      "WebFetch(domain:carto.com)",
+      "Bash(git -C /Users/danielarlandispons/Documents/GitHub/ps-frontend-tools-poc diff integration-examples/frontend-react/src/services/toolExecutors/index.js)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

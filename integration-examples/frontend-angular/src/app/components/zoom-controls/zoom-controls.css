@@ -1,34 +1,53 @@
 .zoom-controls {
-  position: absolute;
-  top: 10px;
-  left: 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  z-index: 100;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
 }
 
-.zoom-button {
-  width: 32px;
-  height: 32px;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 18px;
-  font-weight: bold;
-  cursor: pointer;
+.zoom-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: background-color 0.2s;
+  width: 36px;
+  height: 36px;
+  background: white;
+  border: none;
+  cursor: pointer;
+  color: #475569;
+  font-size: 18px;
+  font-weight: bold;
+  transition: background 0.2s;
 }
 
-.zoom-button:hover:not(:disabled) {
-  background-color: #f5f5f5;
+.zoom-btn:hover {
+  background: #f1f5f9;
 }
 
-.zoom-button:disabled {
+.zoom-btn:active {
+  background: #e2e8f0;
+}
+
+.zoom-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.zoom-btn:disabled:hover {
+  background: white;
+}
+
+.zoom-level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
 }

@@ -1,17 +1,28 @@
-import { Component, Input, Output, EventEmitter, AfterViewChecked, ElementRef, ViewChild } from '@angular/core';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  AfterViewChecked,
+  ElementRef,
+  ViewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { Message } from '../../models/message.model';
+import { MarkdownModule } from 'ngx-markdown';
+import { Message, LoaderState } from '../../models/message.model';
 
 @Component({
   selector: 'app-chat-ui',
-  imports: [FormsModule, CommonModule],
+  standalone: true,
+  imports: [FormsModule, CommonModule, MarkdownModule],
   templateUrl: './chat-ui.html',
   styleUrl: './chat-ui.css',
 })
 export class ChatUi implements AfterViewChecked {
   @Input() isConnected: boolean = false;
   @Input() messages: Message[] = [];
+  @Input() loaderState: LoaderState = null;
   @Output() sendMessage = new EventEmitter<string>();
 
   @ViewChild('messagesEnd') private messagesEnd!: ElementRef;
@@ -25,7 +36,9 @@ export class ChatUi implements AfterViewChecked {
   scrollToBottom(): void {
     try {
       this.messagesEnd?.nativeElement.scrollIntoView({ behavior: 'smooth' });
-    } catch (err) {}
+    } catch (err) {
+      // Ignore scroll errors
+    }
   }
 
   handleSend(): void {
@@ -43,11 +56,11 @@ export class ChatUi implements AfterViewChecked {
 
   getMessageStyle(msg: Message): Record<string, string> {
     const baseStyle: Record<string, string> = {
-      'padding': '10px',
+      padding: '10px',
       'border-radius': '8px',
       'max-width': '80%',
       'white-space': 'pre-wrap',
-      'word-break': 'break-word'
+      'word-break': 'break-word',
     };
 
     switch (msg.type) {
@@ -55,47 +68,47 @@ export class ChatUi implements AfterViewChecked {
         return {
           ...baseStyle,
           'align-self': 'flex-end',
-          'background': '#3b82f6',
-          'color': 'white'
+          background: '#3b82f6',
+          color: 'white',
         };
       case 'assistant':
         return {
           ...baseStyle,
           'align-self': 'flex-start',
-          'background': '#f3f4f6',
-          'color': '#111'
+          background: '#f3f4f6',
+          color: '#111',
         };
       case 'action':
         return {
           ...baseStyle,
           'align-self': 'flex-start',
-          'background': '#10b981',
-          'color': 'white',
+          background: '#10b981',
+          color: 'white',
           'font-family': 'monospace',
-          'font-size': '13px'
+          'font-size': '13px',
         };
       case 'error':
         return {
           ...baseStyle,
           'align-self': 'flex-start',
-          'background': '#ef4444',
-          'color': 'white'
+          background: '#ef4444',
+          color: 'white',
         };
       case 'system':
         return {
           ...baseStyle,
           'align-self': 'center',
-          'background': '#f1f5f9',
-          'color': '#64748b',
+          background: '#f1f5f9',
+          color: '#64748b',
           'font-size': '12px',
-          'font-style': 'italic'
+          'font-style': 'italic',
         };
       default:
         return {
           ...baseStyle,
           'align-self': 'flex-start',
-          'background': '#f3f4f6',
-          'color': '#111'
+          background: '#f3f4f6',
+          color: '#111',
         };
     }
   }
