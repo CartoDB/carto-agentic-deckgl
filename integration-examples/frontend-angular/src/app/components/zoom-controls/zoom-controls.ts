@@ -1,28 +1,36 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MapToolsService } from '../../services/map-tools.service';
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
 
+/**
+ * ZoomControls - Zoom in/out buttons with level display
+ * Updated to use Input/Output pattern like React
+ */
 @Component({
   selector: 'app-zoom-controls',
+  standalone: true,
   imports: [CommonModule],
   templateUrl: './zoom-controls.html',
   styleUrl: './zoom-controls.css',
 })
 export class ZoomControls {
   @Input() disabled: boolean = false;
+  @Input() zoomLevel: number = 10;
+  @Output() zoomIn = new EventEmitter<void>();
+  @Output() zoomOut = new EventEmitter<void>();
 
-  constructor(private mapToolsService: MapToolsService) {}
-
-  async zoomIn(): Promise<void> {
-    if (this.mapToolsService.isInitialized()) {
-      await this.mapToolsService.execute(TOOL_NAMES.ZOOM_MAP, { direction: 'in', levels: 1 });
+  onZoomIn(): void {
+    if (!this.disabled) {
+      this.zoomIn.emit();
     }
   }
 
-  async zoomOut(): Promise<void> {
-    if (this.mapToolsService.isInitialized()) {
-      await this.mapToolsService.execute(TOOL_NAMES.ZOOM_MAP, { direction: 'out', levels: 1 });
+  onZoomOut(): void {
+    if (!this.disabled) {
+      this.zoomOut.emit();
     }
+  }
+
+  get formattedZoom(): string {
+    return this.zoomLevel.toFixed(1);
   }
 }

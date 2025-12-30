@@ -1,15 +1,16 @@
 <div class="zoom-controls">
   <button
-    (click)="zoomIn()"
+    (click)="onZoomIn()"
     [disabled]="disabled"
-    class="zoom-button"
+    class="zoom-btn"
     title="Zoom In">
     +
   </button>
+  <div class="zoom-level">{{ formattedZoom }}</div>
   <button
-    (click)="zoomOut()"
+    (click)="onZoomOut()"
     [disabled]="disabled"
-    class="zoom-button"
+    class="zoom-btn"
     title="Zoom Out">
     −
   </button>

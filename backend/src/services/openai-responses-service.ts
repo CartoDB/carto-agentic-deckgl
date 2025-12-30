@@ -6,7 +6,7 @@ import {
   formatToolResponse,
   validateWithZod,
 } from '@carto/maps-ai-tools';
-import { buildSystemPrompt } from '../prompts/system-prompt.js';
+import { buildSystemPrompt, buildDynamicPrompt, type MapInitialState } from '../prompts/system-prompt.js';
 import { getCustomToolNames, getCustomTool, initializeMCPTools } from './custom-tools.js';
 import * as z from 'zod';
 
@@ -77,6 +77,13 @@ export class OpenAIResponsesService {
 
     console.log('[OpenAI Responses] Service created (initialization pending)');
     console.log('[OpenAI Responses] Model:', this.model);
+  }
+
+  /**
+   * Get the model name
+   */
+  getModel(): string {
+    return this.model;
   }
 
   /**
@@ -185,10 +192,17 @@ export class OpenAIResponsesService {
   async streamChatCompletion(
     messages: Message[],
     res: Response,
-    previousResponseId?: string
+    previousResponseId?: string,
+    initialState?: any,
+    conversationHistory: any[] = [] // Add conversation history parameter for multi-turn
   ): Promise<{ message: any; responseId?: string; hadToolCalls?: boolean } | null> {
     console.log('[OpenAI Responses] Starting streamChatCompletion...');
     console.log('[OpenAI Responses] Previous response ID:', previousResponseId || '(none)');
+    console.log('[OpenAI Responses] Initial state:', initialState ? `demoId=${initialState.demoId}, slide=${initialState.currentSlide}` : '(none)');
+    console.log('[OpenAI Responses] Conversation history length:', conversationHistory.length);
+    if (initialState) {
+      console.log('[OpenAI Responses] Using dynamic context with', initialState.layers?.length || 0, 'layers');
+    }
 
     // Ensure tools are initialized before processing
     await this.initialize();
@@ -196,23 +210,61 @@ export class OpenAIResponsesService {
     const messageId = `msg_${Date.now()}`;
 
     try {
-      // Set headers for streaming
-      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
-      res.setHeader('Transfer-Encoding', 'chunked');
+      // Set headers for streaming (only on first call)
+      if (conversationHistory.length === 0) {
+        res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+      }
 
-      // CRITICAL: Only send the LAST user message to prevent AI from inferring
-      // actions from previous conversation context
-      const lastUserMessage = messages.filter((m: any) => m.role === 'user').slice(-1);
+      // Build input for Responses API
+      let inputText: string;
+
+      if (conversationHistory.length > 0) {
+        // Multi-turn: construct input from conversation history
+        // Format as: "User request: [original request]\n\nTool results:\n[tool results]\n\nPlease continue..."
+        const originalRequest = messages.filter((m: any) => m.role === 'user').slice(-1)[0]?.content || '';
+        const toolResults = conversationHistory
+          .filter((m: any) => m.role === 'tool')
+          .map((m: any) => `- ${m.tool_name || 'tool'}: ${JSON.stringify(m.content)}`)
+          .join('\n');
+
+        inputText = `Original user request: ${originalRequest}\n\nBackend tool execution results:\n${toolResults}\n\nBased on these results, please call the appropriate frontend tools (like add-vector-layer) to complete the user's request.`;
+        console.log('[OpenAI Responses] Multi-turn mode: constructed input from tool results');
+      } else {
+        // First turn: use last user message
+        const lastUserMessage = messages.filter((m: any) => m.role === 'user').slice(-1);
+        inputText = lastUserMessage[0]?.content || '';
+        console.log('[OpenAI Responses] First turn: using last user message');
+      }
 
       console.log('[OpenAI Responses] Total messages in history:', messages.length);
-      console.log('[OpenAI Responses] Sending to AI: last user message only');
-      console.log('[OpenAI Responses] Last user message:', lastUserMessage[0]?.content);
+      //console.log('[OpenAI Responses] Input preview:', inputText.substring(0, 200) + '...');
+
+      // Build dynamic system prompt based on demo context (if provided)
+      // Convert tool definitions back to Chat format for buildSystemPrompt
+      const chatFormatTools = this.allToolDefinitions.map(tool => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
+        }
+      }));
+
+      console.log('[OpenAI Responses] Building system prompt with initialState:', JSON.stringify(initialState, null, 2));
+
+      const systemPrompt = initialState
+        ? buildSystemPrompt(chatFormatTools, initialState)
+        : this.systemPrompt;
+
+      console.log('[OpenAI Responses] Using system prompt:', initialState ? `dynamic (${initialState.demoId})` : 'default');
+      //console.log('[OpenAI Responses] System prompt preview:', systemPrompt.substring(0, 500) + '...');
 
       // Build request options for OpenAI Responses API
       const requestOptions: any = {
         model: this.model,
-        input: lastUserMessage[0]?.content || '',
-        instructions: this.systemPrompt,
+        input: inputText,
+        instructions: systemPrompt,
         stream: true,
         tools: this.allToolDefinitions,
       };
@@ -277,12 +329,12 @@ export class OpenAIResponsesService {
       stream.on('response.function_call_arguments.delta', (event: any) => {
         const delta = event.delta;
         const lastCallId = Array.from(toolCallsMap.keys()).pop();
-        console.log('[OpenAI Responses] Function arguments delta:', delta, 'for call:', lastCallId);
+        //console.log('[OpenAI Responses] Function arguments delta:', delta, 'for call:', lastCallId);
         if (lastCallId && delta) {
           const toolCall = toolCallsMap.get(lastCallId);
           if (toolCall) {
             toolCall.arguments += delta;
-            console.log('[OpenAI Responses] Accumulated arguments so far:', toolCall.arguments);
+            //console.log('[OpenAI Responses] Accumulated arguments so far:', toolCall.arguments);
           }
         }
       });
@@ -291,7 +343,7 @@ export class OpenAIResponsesService {
       const finalResponse = await stream.finalResponse();
 
       console.log('[OpenAI Responses] Final response received');
-      console.log('[OpenAI Responses] Final response structure:', JSON.stringify(finalResponse, null, 2));
+      //console.log('[OpenAI Responses] Final response structure:', JSON.stringify(finalResponse, null, 2));
 
       // Extract response ID from final response if not already set
       if (finalResponse?.id && !responseId) {
@@ -371,6 +423,10 @@ export class OpenAIResponsesService {
       if (toolCalls.length > 0) {
         console.log('[OpenAI Responses] Processing tool calls:', toolCalls.length);
 
+        // Collect backend tool results for potential multi-turn execution
+        const backendToolResults: any[] = [];
+        let hasBackendTools = false;
+
         for (const toolCall of toolCalls) {
           try {
             const toolName = toolCall.name;
@@ -393,10 +449,14 @@ export class OpenAIResponsesService {
                 console.log(`[OpenAI Responses] Validation passed for custom tool: ${toolName}`);
 
                 if (customTool.execute) {
+                  // Backend-executed custom tool (has execute function)
                   console.log(`[OpenAI Responses] Executing custom tool function for: ${toolName}`);
                   const executeResult = await customTool.execute(validatedArgs);
                   console.log(`[OpenAI Responses] Custom tool execution complete:`, executeResult);
 
+                  hasBackendTools = true;
+
+                  // Send tool result to client for visibility
                   const toolMessage = {
                     type: 'tool_result',
                     toolName,
@@ -407,6 +467,27 @@ export class OpenAIResponsesService {
                   console.log(`[OpenAI Responses] Sending tool result to client:`, toolMessage);
                   res.write(JSON.stringify(toolMessage) + '\n');
                   console.log(`[OpenAI Responses] Tool result sent successfully`);
+
+                  // Collect for multi-turn execution
+                  backendToolResults.push({
+                    role: 'tool',
+                    tool_call_id: toolCall.id,
+                    tool_name: toolName,
+                    content: executeResult
+                  });
+                } else {
+                  // Frontend-executed custom tool (no execute function)
+                  // Send tool_call to frontend, same as CARTO library tools
+                  console.log(`[OpenAI Responses] Custom tool without execute function, sending to frontend: ${toolName}`);
+                  const toolMessage = {
+                    type: 'tool_call',
+                    toolName,
+                    data: validatedArgs,
+                    callId: toolCall.id
+                  };
+                  console.log(`[OpenAI Responses] Sending custom tool to frontend:`, toolMessage);
+                  res.write(JSON.stringify(toolMessage) + '\n');
+                  console.log(`[OpenAI Responses] Custom tool sent to frontend successfully`);
                 }
               } catch (validationError: any) {
                 console.error(`[OpenAI Responses] Validation failed for custom tool ${toolName}:`, validationError);
@@ -473,9 +554,37 @@ export class OpenAIResponsesService {
             res.write(JSON.stringify(errorMessage) + '\n');
           }
         }
+
+        // Multi-turn execution: if backend tools were executed, make another AI call with their results
+        if (hasBackendTools && backendToolResults.length > 0) {
+          console.log('[OpenAI Responses] Backend tools executed, starting multi-turn execution');
+          console.log('[OpenAI Responses] Backend tool results count:', backendToolResults.length);
+
+          // Build conversation history with tool results
+          const newConversationHistory = [...backendToolResults];
+
+          // Recursively call streamChatCompletion with tool results
+          // Note: do NOT end the response - let the recursive call continue streaming
+          // IMPORTANT: Do NOT pass previous_response_id for multi-turn execution
+          // because we're embedding tool results as text context, not as proper tool outputs
+          console.log('[OpenAI Responses] Making recursive call with tool results...');
+
+          const followUpResult = await this.streamChatCompletion(
+            messages,
+            res,
+            undefined, // Don't use previous_response_id for multi-turn - causes "No tool output found" error
+            initialState,
+            newConversationHistory
+          );
+
+          console.log('[OpenAI Responses] Multi-turn execution complete');
+
+          // Return the final result from the recursive call
+          return followUpResult;
+        }
       }
 
-      // Send completion signal
+      // Send completion signal (only if no multi-turn execution)
       const completeMessage = {
         type: 'stream_chunk',
         content: '',

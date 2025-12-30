@@ -1,136 +1,124 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { TOOL_NAMES } from '@carto/maps-ai-tools';
 import { MapView } from './components/map-view/map-view';
 import { ChatUi } from './components/chat-ui/chat-ui';
 import { ZoomControls } from './components/zoom-controls/zoom-controls';
 import { LayerToggle } from './components/layer-toggle/layer-toggle';
-import { WebSocketService } from './services/websocket.service';
+import { SnackbarComponent } from './components/snackbar/snackbar';
+import { MapAIToolsService } from './services/map-ai-tools.service';
 import { MapToolsService } from './services/map-tools.service';
-import { Message, WebSocketMessage, MapInstances } from './models/message.model';
+import { MapToolsStateService } from './services/map-tools-state.service';
+import { ViewState } from './services/deck-map.service';
+import {
+  Message,
+  MapInstances,
+  LoaderState,
+  LayerConfig,
+  SnackbarConfig,
+} from './models/message.model';
 
 const WS_URL = 'ws://localhost:3000/ws';
 
 @Component({
   selector: 'app-root',
-  imports: [MapView, ChatUi, ZoomControls, LayerToggle],
+  standalone: true,
+  imports: [MapView, ChatUi, ZoomControls, LayerToggle, SnackbarComponent],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrl: './app.css',
 })
 export class App implements OnInit, OnDestroy {
+  // State
   messages: Message[] = [];
   isConnected: boolean = false;
-  private subscription?: Subscription;
-  private messageIdCounter = 0;
+  loaderState: LoaderState = null;
+  zoomLevel: number = 4;
+  layers: LayerConfig[] = [];
+  snackbar: SnackbarConfig = { message: null, type: 'error' };
 
-  // Streaming message state - accumulates content instead of replacing
-  private streamingContent = new Map<string, string>();
+  private mapInstances: MapInstances | null = null;
+  private subscriptions: Subscription[] = [];
 
   constructor(
-    private wsService: WebSocketService,
-    private mapToolsService: MapToolsService
+    private aiToolsService: MapAIToolsService,
+    private mapToolsService: MapToolsService,
+    private stateService: MapToolsStateService
   ) {}
 
   ngOnInit(): void {
-    this.wsService.connect(WS_URL);
+    // Connect to WebSocket via MapAIToolsService
+    this.aiToolsService.connect(WS_URL);
 
-    this.subscription = this.wsService.isConnected$.subscribe(
-      (connected) => (this.isConnected = connected)
-    );
-
-    this.wsService.message$.subscribe(
-      async (data) => await this.handleMessage(data)
+    // Subscribe to state observables
+    this.subscriptions.push(
+      this.aiToolsService.isConnected$.subscribe((c) => (this.isConnected = c)),
+      this.aiToolsService.messages$.subscribe((m) => (this.messages = m)),
+      this.aiToolsService.loaderState$.subscribe((s) => (this.loaderState = s)),
+      this.aiToolsService.error$.subscribe((err) => this.showSnackbar(err)),
+      this.stateService.layers$.subscribe((l) => (this.layers = l))
     );
   }
 
   ngOnDestroy(): void {
-    this.subscription?.unsubscribe();
-    this.wsService.disconnect();
+    this.subscriptions.forEach((s) => s.unsubscribe());
   }
 
   handleMapInit(instances: MapInstances): void {
+    this.mapInstances = instances;
     this.mapToolsService.initialize(instances.deck, instances.map);
+
+    // Register layer in state service
+    this.stateService.registerLayer({
+      id: 'points-layer',
+      name: 'Airports',
+      color: '#c80050',
+      visible: true,
+    });
   }
 
-  private generateMessageId(): string {
-    return `local_${Date.now()}_${this.messageIdCounter++}`;
-  }
-
-  async handleMessage(data: WebSocketMessage): Promise<void> {
-    if (data.type === 'stream_chunk' && data.messageId) {
-      // Handle streaming chunks - accumulate content
-      const isNewMessage = !this.streamingContent.has(data.messageId);
-
-      // Skip empty completion chunks
-      if (data.isComplete && !data.content) {
-        // Just mark the message as not streaming anymore
-        this.messages = this.messages.map(msg =>
-          msg.messageId === data.messageId
-            ? { ...msg, streaming: false }
-            : msg
-        );
-        return;
-      }
-
-      if (isNewMessage) {
-        // New message - initialize content and add to messages
-        this.streamingContent.set(data.messageId, data.content || '');
-        this.messages = [...this.messages, {
-          id: this.generateMessageId(),
-          type: 'assistant',
-          content: data.content || '',
-          streaming: true,
-          messageId: data.messageId
-        }];
-      } else {
-        // Existing message - accumulate content
-        const existingContent = this.streamingContent.get(data.messageId) || '';
-        const newContent = existingContent + (data.content || '');
-        this.streamingContent.set(data.messageId, newContent);
-
-        // Update the message in the array
-        this.messages = this.messages.map(msg =>
-          msg.messageId === data.messageId
-            ? { ...msg, content: newContent, streaming: !data.isComplete }
-            : msg
-        );
-      }
-
-      // Clean up streaming content when complete
-      if (data.isComplete) {
-        this.streamingContent.delete(data.messageId);
-      }
-    } else if (data.type === 'tool_call' && data.tool && this.mapToolsService.isInitialized()) {
-      const result = await this.mapToolsService.execute(data.tool, data.parameters);
-      this.messages = [...this.messages, {
-        id: this.generateMessageId(),
-        type: 'action',
-        content: result.success ? `✓ ${result.message}` : `✗ ${result.message}`
-      }];
-    } else if (data.type === 'error') {
-      this.messages = [...this.messages, {
-        id: this.generateMessageId(),
-        type: 'error',
-        content: `Error: ${data.content}`
-      }];
-    } else if (data.type === 'welcome') {
-      console.log('Server welcome:', data.content);
-    }
+  handleViewStateChange(viewState: ViewState): void {
+    this.zoomLevel = viewState.zoom;
   }
 
   handleSendMessage(content: string): void {
-    // Clear streaming state for new conversation turn
-    this.streamingContent.clear();
+    this.aiToolsService.sendMessage(content);
+  }
 
-    this.messages = [...this.messages, {
-      id: this.generateMessageId(),
-      type: 'user',
-      content: content
-    }];
+  async handleZoomIn(): Promise<void> {
+    if (this.mapToolsService.isInitialized()) {
+      await this.mapToolsService.execute(TOOL_NAMES.ZOOM_MAP, { direction: 'in', levels: 1 });
+    }
+  }
 
-    this.wsService.send({
-      type: 'chat_message',
-      content: content,
-      timestamp: Date.now()
-    });
+  async handleZoomOut(): Promise<void> {
+    if (this.mapToolsService.isInitialized()) {
+      await this.mapToolsService.execute(TOOL_NAMES.ZOOM_MAP, { direction: 'out', levels: 1 });
+    }
+  }
+
+  async handleLayerToggle(event: { layerId: string; visible: boolean }): Promise<void> {
+    if (this.mapToolsService.isInitialized()) {
+      const result = await this.mapToolsService.execute(TOOL_NAMES.TOGGLE_LAYER, {
+        layerName: event.layerId,
+        visible: event.visible,
+      });
+
+      // Update state service on success
+      if (result.success) {
+        this.stateService.setLayerVisibility(event.layerId, event.visible);
+      }
+    }
+  }
+
+  showSnackbar(message: string, type: 'error' | 'info' = 'error'): void {
+    this.snackbar = { message, type };
+  }
+
+  hideSnackbar(): void {
+    this.snackbar = { message: null, type: 'error' };
+  }
+
+  get controlsDisabled(): boolean {
+    return !this.isConnected || !this.mapInstances;
   }
 }

@@ -237,8 +237,8 @@ export class VercelAIService {
             const isCustomTool = getCustomToolNames().includes(toolName as any);
 
             if (isCustomTool) {
-              // Handle custom tool execution (backend-side)
-              console.log(`[VercelAI] Executing custom tool: ${toolName}`);
+              // Handle custom tool
+              console.log(`[VercelAI] Processing custom tool: ${toolName}`);
 
               const customTool = getCustomTool(toolName);
 
@@ -247,8 +247,8 @@ export class VercelAIService {
                 const validatedArgs = customTool.schema.parse(args);
                 console.log(`[VercelAI] Validation passed for custom tool: ${toolName}`);
 
-                // Execute the tool if it has an execute function
                 if (customTool.execute) {
+                  // Backend-executed tool - execute and send result
                   console.log(`[VercelAI] Executing custom tool function for: ${toolName}`);
                   const executeResult = await customTool.execute(validatedArgs);
                   console.log(`[VercelAI] Custom tool execution complete:`, executeResult);
@@ -263,6 +263,17 @@ export class VercelAIService {
                   console.log(`[VercelAI] Sending tool result to client:`, toolMessage);
                   res.write(JSON.stringify(toolMessage) + '\n');
                   console.log(`[VercelAI] Tool result sent successfully`);
+                } else {
+                  // Frontend-executed tool - send tool call to frontend
+                  console.log(`[VercelAI] Sending custom tool to frontend for execution: ${toolName}`);
+                  const toolMessage = {
+                    type: 'tool_call',
+                    toolName,
+                    data: validatedArgs,
+                    callId: toolCall.toolCallId
+                  };
+                  res.write(JSON.stringify(toolMessage) + '\n');
+                  console.log(`[VercelAI] Tool call sent to frontend successfully`);
                 }
               } catch (validationError: any) {
                 console.error(`[VercelAI] Validation failed for custom tool ${toolName}:`, validationError);

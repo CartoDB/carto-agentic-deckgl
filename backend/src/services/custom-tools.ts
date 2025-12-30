@@ -34,11 +34,9 @@ export const weatherTool = {
   }),
 };
 
-// Static custom tools
-const staticCustomTools = {
+// Export all custom tools as an object
+export const staticCustomTools = {
   weather: weatherTool,
-  // Add more custom tools here as needed
-  // example: exampleTool,
 } as const;
 
 // Cache for all custom tools (static + MCP)

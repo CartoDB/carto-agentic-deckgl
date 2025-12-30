@@ -1,35 +1,49 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import { Deck } from '@deck.gl/core';
 import { GeoJsonLayer } from '@deck.gl/layers';
 import { BASEMAP } from '@deck.gl/carto';
 import maplibregl from 'maplibre-gl';
 
 const INITIAL_VIEW_STATE = {
-  longitude: -95.7129,
-  latitude: 37.0902,
-  zoom: 4,
+  longitude: 0,
+  latitude: 20,
+  zoom: 2,
   pitch: 0,
-  bearing: 0
+  bearing: 0,
 };
 
+export interface ViewState {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  pitch: number;
+  bearing: number;
+}
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class DeckMapService {
   private deck: Deck | null = null;
   private map: maplibregl.Map | null = null;
-  private layers: any[] = [];
+  private layers: GeoJsonLayer[] = [];
 
-  constructor() {}
+  // Observable for view state changes
+  private viewStateSubject = new Subject<ViewState>();
+  public viewStateChange$ = this.viewStateSubject.asObservable();
 
-  async initialize(containerId: string, canvasId: string): Promise<{ deck: Deck; map: maplibregl.Map }> {
+  async initialize(
+    containerId: string,
+    canvasId: string
+  ): Promise<{ deck: Deck; map: maplibregl.Map }> {
     // Create MapLibre map
     this.map = new maplibregl.Map({
       container: containerId,
       style: BASEMAP.VOYAGER,
       interactive: false,
       center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
-      zoom: INITIAL_VIEW_STATE.zoom
+      zoom: INITIAL_VIEW_STATE.zoom,
     });
 
     await new Promise((resolve) => {
@@ -52,11 +66,22 @@ export class DeckMapService {
             center: [viewState.longitude, viewState.latitude],
             zoom: viewState.zoom,
             bearing: viewState.bearing,
-            pitch: viewState.pitch
+            pitch: viewState.pitch,
           });
         }
-      }
+        // Emit view state changes
+        this.viewStateSubject.next({
+          longitude: viewState.longitude,
+          latitude: viewState.latitude,
+          zoom: viewState.zoom,
+          pitch: viewState.pitch,
+          bearing: viewState.bearing,
+        });
+      },
     });
+
+    // Emit initial view state
+    this.viewStateSubject.next(INITIAL_VIEW_STATE);
 
     return { deck: this.deck, map: this.map };
   }
@@ -77,7 +102,7 @@ export class DeckMapService {
         pointRadiusMinPixels: 4,
         pointRadiusMaxPixels: 100,
         visible: true,
-        opacity: 1
+        opacity: 1,
       });
 
       this.layers = [pointsLayer];
