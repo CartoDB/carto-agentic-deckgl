@@ -15,7 +15,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.85",
     "@carto/maps-ai-tools": "file:../map-ai-tools",
-    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@modelcontextprotocol/sdk": "^1.25.2",
     "ai": "^5.0.112",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
