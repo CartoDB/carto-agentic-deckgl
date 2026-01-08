@@ -12,13 +12,47 @@ import { ChatContainer, ZoomControls, LayerToggle, ToolStatus } from './ui/index
 // Import from @carto/maps-ai-tools library
 import { TOOL_NAMES, parseToolResponse } from '@carto/maps-ai-tools';
 
+// Backend configuration for different AI agent frameworks
+const BACKENDS = {
+  'original': {
+    url: 'ws://localhost:3000/ws',
+    httpUrl: 'http://localhost:3000/api/litellm-chat',
+    name: 'Original (OpenAI Chat API)',
+    port: 3000
+  },
+  'openai-agents': {
+    url: 'ws://localhost:3001/ws',
+    httpUrl: 'http://localhost:3001/api/chat',
+    name: 'OpenAI Agents SDK',
+    port: 3001
+  },
+  'google-adk': {
+    url: 'ws://localhost:3002/ws',
+    httpUrl: 'http://localhost:3002/api/chat',
+    name: 'Google ADK',
+    port: 3002
+  },
+  'vercel-ai': {
+    url: 'ws://localhost:3003/ws',
+    httpUrl: 'http://localhost:3003/api/chat',
+    name: 'Vercel AI SDK',
+    port: 3003
+  },
+};
+
+// Get backend from URL param or environment variable
+const urlParams = new URLSearchParams(window.location.search);
+const selectedBackend = urlParams.get('backend') || import.meta.env.VITE_BACKEND || 'original';
+const backendConfig = BACKENDS[selectedBackend] || BACKENDS['original'];
+
 // Configuration
 // Set USE_HTTP to true to use the new HTTP streaming endpoint, false for WebSocket
 const USE_HTTP = import.meta.env.VITE_USE_HTTP === 'true' || false;
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws';
-const HTTP_API_URL = import.meta.env.VITE_HTTP_API_URL || 'http://localhost:3000/api/litellm-chat';
+const WS_URL = import.meta.env.VITE_WS_URL || backendConfig.url;
+const HTTP_API_URL = import.meta.env.VITE_HTTP_API_URL || backendConfig.httpUrl;
 const GEOJSON_PATH = '/data/airports.geojson';
 
+console.log(`[Config] Backend: ${backendConfig.name} (${selectedBackend})`);
 console.log(`[Config] Using ${USE_HTTP ? 'HTTP' : 'WebSocket'} mode`);
 console.log(`[Config] ${USE_HTTP ? 'HTTP' : 'WebSocket'} URL:`, USE_HTTP ? HTTP_API_URL : WS_URL);
 
@@ -487,4 +521,59 @@ window.addEventListener('beforeunload', () => {
   client.disconnect();
 });
 
+// Create backend indicator UI
+const backendIndicator = document.createElement('div');
+backendIndicator.id = 'backend-indicator';
+backendIndicator.style.cssText = `
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+// Add backend selector dropdown
+const selectorHtml = `
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <span style="color: #4ade80;">●</span>
+    <select id="backend-select" style="
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+    ">
+      ${Object.entries(BACKENDS).map(([key, config]) => `
+        <option value="${key}" ${key === selectedBackend ? 'selected' : ''}>
+          ${config.name}
+        </option>
+      `).join('')}
+    </select>
+  </div>
+  <div style="font-size: 10px; color: #888;">
+    Port: ${backendConfig.port} | ${USE_HTTP ? 'HTTP' : 'WebSocket'}
+  </div>
+`;
+backendIndicator.innerHTML = selectorHtml;
+document.body.appendChild(backendIndicator);
+
+// Handle backend selection change
+document.getElementById('backend-select')?.addEventListener('change', (e) => {
+  const newBackend = e.target.value;
+  const url = new URL(window.location.href);
+  url.searchParams.set('backend', newBackend);
+  window.location.href = url.toString();
+});
+
 console.log('✓ Application initialized with @carto/maps-ai-tools');
+console.log(`✓ Connected to: ${backendConfig.name}`);
