@@ -6,8 +6,10 @@ import 'dotenv/config';
 import { startServer } from './server.js';
 
 // Validate required environment variables
-if (!process.env.GOOGLE_API_KEY) {
-  console.error('Error: GOOGLE_API_KEY environment variable is required');
+// Google ADK looks for GOOGLE_GENAI_API_KEY or GEMINI_API_KEY
+const hasApiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
+if (!hasApiKey) {
+  console.error('Error: GOOGLE_GENAI_API_KEY or GEMINI_API_KEY environment variable is required');
   console.error('Please create a .env file with your Google API key');
   process.exit(1);
 }
