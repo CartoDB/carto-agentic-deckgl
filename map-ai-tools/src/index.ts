@@ -131,4 +131,15 @@ export {
   hasViewStateChanges,
   hasLayerChanges,
   getAffectedLayerIds,
+  // Agentic SDK converters
+  getToolsForOpenAIAgents,
+  getToolsForGoogleADK,
+  getToolsForVercelAI,
+  getToolsRecordForVercelAI,
+  isFrontendToolResult,
+  parseFrontendToolResult,
+  type OpenAIAgentToolDef,
+  type GoogleADKToolDef,
+  type VercelAIToolDef,
+  type FrontendToolResult,
 } from './converters';
