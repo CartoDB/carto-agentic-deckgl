@@ -6,6 +6,7 @@
  * Initial map state sent with chat messages
  */
 export interface InitialState {
+  // View state - supports both naming conventions
   viewState?: {
     longitude: number;
     latitude: number;
@@ -13,18 +14,21 @@ export interface InitialState {
     pitch?: number;
     bearing?: number;
   };
+  initialViewState?: {
+    longitude: number;
+    latitude: number;
+    zoom: number;
+    pitch?: number;
+    bearing?: number;
+  };
+
+  // Layers
   layers?: Array<{
     id: string;
-    type: string;
-    visible: boolean;
+    type?: string;
+    visible?: boolean;
     [key: string]: unknown;
   }>;
-  currentSlide?: number;
-  slideMetadata?: {
-    index: number;
-    title?: string;
-    description?: string;
-  };
 }
 
 /**
