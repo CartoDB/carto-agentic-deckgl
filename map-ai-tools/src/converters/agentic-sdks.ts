@@ -36,12 +36,13 @@ export interface GoogleADKToolDef {
 }
 
 /**
- * Tool definition for Vercel AI SDK
+ * Tool definition for Vercel AI SDK v6
  * Compatible with tool() from 'ai'
+ * Note: AI SDK v6 uses 'inputSchema' instead of 'parameters'
  */
 export interface VercelAIToolDef {
   description: string;
-  parameters: import('zod').ZodTypeAny;
+  inputSchema: import('zod').ZodTypeAny;
   execute: (args: unknown) => Promise<Record<string, unknown>>;
 }
 
@@ -170,7 +171,7 @@ export function getToolsForVercelAI(
     return {
       name: toolDef.name,
       description: toolDef.description,
-      parameters: toolDef.schema,
+      inputSchema: toolDef.schema,
       execute: async (args: unknown): Promise<Record<string, unknown>> => {
         // Validate using Zod
         const validation = validateWithZod(name, args);
@@ -211,7 +212,7 @@ export function getToolsRecordForVercelAI(
   return Object.fromEntries(
     toolDefs.map((def) => [def.name, {
       description: def.description,
-      parameters: def.parameters,
+      inputSchema: def.inputSchema,
       execute: def.execute,
     }])
   );
