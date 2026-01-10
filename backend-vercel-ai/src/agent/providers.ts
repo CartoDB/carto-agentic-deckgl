@@ -1,18 +1,18 @@
 /**
- * Multi-provider support for Vercel AI SDK
+ * Multi-provider support for Vercel AI SDK v6
  */
 
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 
 export type ProviderName = 'openai' | 'anthropic' | 'google';
 
 /**
  * Get the language model for the specified provider
  */
-export function getProvider(providerName?: string): LanguageModelV1 {
+export function getProvider(providerName?: string): LanguageModel {
   const provider = providerName || process.env.DEFAULT_PROVIDER || 'openai';
 
   switch (provider) {

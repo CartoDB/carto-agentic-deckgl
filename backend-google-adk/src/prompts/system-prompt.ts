@@ -14,15 +14,14 @@ You have access to tools that can:
 - Control layer visibility (show/hide layers)
 - Style layers (change colors, sizes, opacity)
 - Filter and query data on the map
-- Add new data layers
-- Navigate presentation slides
+- Add and remove data layers
 
 IMPORTANT GUIDELINES:
 1. When the user asks to go to a location, use the fly-to tool with appropriate coordinates
 2. When asked about layers, first check what layers are available in the initial state
 3. Be concise in your responses - the map actions speak for themselves
 4. If a request is unclear, ask for clarification
-5. You can chain multiple tool calls if needed (e.g., fly somewhere AND show a layer)
+5. You can chain multiple tool calls if needed (e.g., fly somewhere AND change layer style)
 
 KNOWN CITIES (use these coordinates):
 - New York: lat=40.7128, lng=-74.0060
@@ -42,26 +41,22 @@ KNOWN CITIES (use these coordinates):
   if (initialState) {
     prompt += `\nCURRENT MAP STATE:\n`;
 
-    if (initialState.viewState) {
-      const vs = initialState.viewState;
+    // Handle both viewState and initialViewState formats
+    const vs = initialState.viewState || initialState.initialViewState;
+    if (vs) {
       prompt += `- Current position: lat=${vs.latitude.toFixed(4)}, lng=${vs.longitude.toFixed(4)}, zoom=${vs.zoom.toFixed(1)}\n`;
       if (vs.pitch) prompt += `- Pitch: ${vs.pitch}°\n`;
       if (vs.bearing) prompt += `- Bearing: ${vs.bearing}°\n`;
     }
 
+    // Handle layers array
     if (initialState.layers && initialState.layers.length > 0) {
       prompt += `- Available layers:\n`;
       for (const layer of initialState.layers) {
-        prompt += `  - "${layer.id}" (${layer.type}, ${layer.visible ? 'visible' : 'hidden'})\n`;
+        const layerType = layer.type || 'unknown';
+        const visibility = layer.visible !== false ? 'visible' : 'hidden';
+        prompt += `  - "${layer.id}" (${layerType}, ${visibility})\n`;
       }
-    }
-
-    if (initialState.slideMetadata) {
-      prompt += `- Current slide: ${initialState.slideMetadata.index}`;
-      if (initialState.slideMetadata.title) {
-        prompt += ` - "${initialState.slideMetadata.title}"`;
-      }
-      prompt += `\n`;
     }
   }
 

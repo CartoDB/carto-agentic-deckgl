@@ -1,10 +1,10 @@
 /**
- * Tool definitions for Vercel AI SDK
+ * Tool definitions for Vercel AI SDK v6
  *
  * Uses map-ai-tools converters for Vercel AI SDK format
  */
 
-import { tool, type CoreTool } from 'ai';
+import { tool, type Tool } from 'ai';
 import {
   getToolsForVercelAI,
   isFrontendToolResult,
@@ -12,11 +12,11 @@ import {
 } from '@carto/maps-ai-tools';
 
 /**
- * Create map tools for Vercel AI SDK
+ * Create map tools for Vercel AI SDK v6
  *
- * Returns tools in the format expected by streamText({ tools: ... })
+ * Returns tools in the format expected by ToolLoopAgent
  */
-export function createMapTools(): Record<string, CoreTool> {
+export function createMapTools(): Record<string, Tool> {
   const toolDefs = getToolsForVercelAI();
 
   return Object.fromEntries(
@@ -24,7 +24,7 @@ export function createMapTools(): Record<string, CoreTool> {
       def.name,
       tool({
         description: def.description,
-        parameters: def.parameters,
+        inputSchema: def.inputSchema,
         execute: def.execute,
       }),
     ])
