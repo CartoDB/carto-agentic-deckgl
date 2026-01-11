@@ -119,7 +119,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     sdk: 'vercel-ai',
-    providers: ['openai', 'anthropic', 'google'],
+    providers: ['openai', 'anthropic', 'google', 'carto'],
     defaultProvider: process.env.DEFAULT_PROVIDER || 'openai',
     activeSessions: conversationManager.getActiveSessionCount(),
   });
