@@ -285,23 +285,6 @@ export function createToolExecutors(
       return { success: true, message: `Pitch set to ${pitch}` };
     },
 
-    [TOOL_NAMES.RESET_VIEW]: () => {
-      const defaultView = {
-        latitude: 41.8097343,
-        longitude: -110.5556199,
-        zoom: 3,
-        bearing: 0,
-        pitch: 0,
-        transitionDuration: 1000
-      };
-
-      deck.setProps({ initialViewState: defaultView });
-      scheduleRedraws(deck);
-      zoomControls.setZoomLevel(3);
-
-      return { success: true, message: 'View reset to default' };
-    },
-
     // ==================== LAYER VISIBILITY TOOLS ====================
 
     [TOOL_NAMES.TOGGLE_LAYER]: (params) => {

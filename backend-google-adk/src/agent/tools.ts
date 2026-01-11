@@ -118,24 +118,12 @@ export function createMapTools(): FunctionTool[] {
       execute: (args) => createFrontendResult('update-layer-style', args),
     }),
 
-    // Slide tools
-    createTool({
-      name: 'navigate-slide',
-      description: 'Navigate to a specific slide in the presentation.',
-      parameters: z.object({
-        target: z.number().min(0).optional().describe('Target slide number (0-based)'),
-        direction: z.enum(['next', 'previous', 'first', 'last']).optional().describe('Navigation direction'),
-      }),
-      execute: (args) => createFrontendResult('navigate-slide', args),
-    }),
-
     createTool({
       name: 'reset-visualization',
       description: 'Reset the visualization to its original state.',
       parameters: z.object({
         resetLayers: z.boolean().default(true).optional().describe('Reset layer styles'),
         resetViewState: z.boolean().default(false).optional().describe('Reset camera position'),
-        targetSlide: z.number().min(0).optional().describe('Navigate to slide after reset'),
       }),
       execute: (args) => createFrontendResult('reset-visualization', args),
     }),
@@ -153,7 +141,6 @@ export function getToolNames(): string[] {
     'toggle-layer',
     'show-hide-layer',
     'update-layer-style',
-    'navigate-slide',
     'reset-visualization',
   ];
 }
