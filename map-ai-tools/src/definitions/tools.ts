@@ -282,8 +282,6 @@ Use this tool instead of trying to set properties to "default" values.`,
         .describe('Reset all layer styles to original (default: true)'),
       resetViewState: optionalBoolean
         .describe('Reset camera/view to original position (default: false)'),
-      targetSlide: optionalNumber(0)
-        .describe('Navigate to specific slide number after reset. Use the slide number as shown in the presentation (e.g., "Slide 1" → targetSlide: 1, "Slide 0" → targetSlide: 0). Do NOT convert from 1-indexed.'),
     }),
   },
 
@@ -402,54 +400,6 @@ Use this tool instead of trying to set properties to "default" values.`,
     }),
   },
 
-  // ============================================================================
-  // Presentation/Slide Tools
-  // ============================================================================
-
-  'navigate-slide': {
-    name: 'navigate-slide',
-    description: 'Navigate to a specific slide in the presentation by number or name. Use this when the user wants to go to a specific section of the story.',
-    outputType: 'data' as ToolOutputType,
-    schema: z.object({
-      target: z.union([
-        z.number().min(0).describe('Slide number (0-based index)'),
-        z.string().describe('Slide name or keyword (e.g., "cover", "intro", "temperature")'),
-      ]).nullable().optional().describe('Target slide - either a number or name/keyword'),
-      direction: z.enum(['next', 'previous', 'first', 'last']).nullable().optional()
-        .describe('Alternative: navigate relative to current slide'),
-    }),
-  },
-
-  'get-slide-info': {
-    name: 'get-slide-info',
-    description: 'Get information about the current slide including its index, title, available layers, and any filter controls.',
-    outputType: 'data' as ToolOutputType,
-    schema: z.object({
-      includeAllSlides: z.boolean().default(false)
-        .describe('If true, returns info about all slides, not just current'),
-    }),
-  },
-
-  'set-filter-value': {
-    name: 'set-filter-value',
-    description: 'Set the filter slider value for data filtering (e.g., temperature range, distance threshold, priority level). The value meaning depends on the current slide context.',
-    outputType: 'data' as ToolOutputType,
-    schema: z.object({
-      value: z.number().describe('Filter value - meaning depends on slide context'),
-      normalized: z.boolean().default(true)
-        .describe('If true, value is 0-1 normalized; if false, uses actual data units'),
-    }),
-  },
-
-  'reset-view': {
-    name: 'reset-view',
-    description: 'Reset the map view to the default position for the current slide or to the initial app view.',
-    outputType: 'data' as ToolOutputType,
-    schema: z.object({
-      toSlideDefault: z.boolean().default(true)
-        .describe('Reset to slide\'s default view. If false, resets to initial app view.'),
-    }),
-  },
 } as const;
 
 /**
