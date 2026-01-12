@@ -45,9 +45,9 @@ export async function initializeMCPClients(): Promise<void> {
         });
       }
 
-      console.log(`[MCP] ${config.name}: ${toolDefs.length} tools loaded`);
+      console.log(`[MCP:${config.name}] ${toolDefs.length} tools loaded`);
     } catch (error) {
-      console.error(`[MCP] ${config.name}: failed to initialize -`, (error as Error).message);
+      console.error(`[MCP:${config.name}] failed to initialize -`, (error as Error).message);
     }
   }
 
