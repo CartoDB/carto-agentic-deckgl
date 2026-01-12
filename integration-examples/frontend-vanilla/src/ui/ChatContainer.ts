@@ -3,6 +3,7 @@
  */
 
 import { marked } from 'marked';
+import { LoadingIndicator, type LoadingState } from './LoadingIndicator';
 
 // Configure marked for safe rendering
 marked.setOptions({
@@ -24,11 +25,14 @@ export class ChatContainer {
   private input!: HTMLInputElement;
   private sendBtn!: HTMLButtonElement;
   private connectionStatus!: HTMLElement;
+  private loadingIndicator!: LoadingIndicator;
 
   constructor(container: HTMLElement) {
     this.container = container;
     this.render();
     this.attachEvents();
+    // Create loading indicator
+    this.loadingIndicator = new LoadingIndicator(this.container);
   }
 
   private render(): void {
@@ -201,6 +205,29 @@ export class ChatContainer {
   hideConnectionStatus(): void {
     if (this.connectionStatus) {
       this.connectionStatus.style.display = 'none';
+    }
+  }
+
+  /**
+   * Set loading state (thinking or executing)
+   */
+  setLoadingState(state: LoadingState): void {
+    if (state === null) {
+      this.loadingIndicator.hide();
+      // Re-enable input when not loading
+      this.input.disabled = false;
+      this.sendBtn.disabled = false;
+    } else {
+      this.loadingIndicator.setState(state);
+      // Disable input during loading
+      if (state === 'thinking') {
+        this.input.disabled = true;
+        this.sendBtn.disabled = true;
+      } else {
+        // Allow input during tool execution
+        this.input.disabled = false;
+        this.sendBtn.disabled = false;
+      }
     }
   }
 

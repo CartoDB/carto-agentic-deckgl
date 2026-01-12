@@ -81,10 +81,15 @@ MCP tools run asynchronously. You MUST complete the full workflow:
    - "done" → get results immediately
    - "failed" → report error
 
-3. When status is "done", call async_workflow_job_get_results_v1_0_0 to get the data.
+3. When status is "done", and the user request the results, call async_workflow_job_get_results_v1_0_0 to get the data. Present results to the user.
 
-4. Present results to the user.
+4. When status is "done", and the user request a layer, we can get the tablename, connectionName, accessToken fom the results. We need to 
+create the apiurl from de Location parameter. The values are :
+      'US': 'https://gcp-us-east1.api.carto.com',
+      'EU': 'https://gcp-europe-west1.api.carto.com',
+      'ASIA': 'https://gcp-asia-southeast1.api.carto.com',
 
+      
 CRITICAL RULES:
 - NEVER stop polling while status is "running" - always continue until "done" or "failed"
 - Do NOT add unnecessary text between status polls - just keep polling silently
