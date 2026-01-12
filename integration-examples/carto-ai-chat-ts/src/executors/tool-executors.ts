@@ -1,5 +1,7 @@
 import { Deck, Layer } from '@deck.gl/core';
 import { TOOL_NAMES, parseToolResponse } from '@carto/maps-ai-tools';
+import { VectorTileLayer } from '@deck.gl/carto';
+import { vectorTableSource } from '@carto/api-client';
 import { scheduleRedraws } from '../map/deckgl-map';
 import type { ZoomControls } from '../ui/ZoomControls';
 import type { LayerToggle } from '../ui/LayerToggle';
@@ -17,7 +19,7 @@ export interface ToolResult {
   message: string;
 }
 
-export type ToolExecutor = (params: unknown) => ToolResult;
+export type ToolExecutor = (params: unknown) => ToolResult | Promise<ToolResult>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface ToolExecutorContext {
@@ -738,6 +740,138 @@ export function createToolExecutors(
       return { success: true, message: `Layer "${layerId}" removed` };
     },
 
+    // ==================== ADD VECTOR LAYER ====================
+
+    [TOOL_NAMES.ADD_VECTOR_LAYER]: async (params) => {
+      const {
+        id,
+        connectionName = 'carto_dw',
+        tableName,
+        accessToken,
+        apiBaseUrl = 'https://gcp-us-east1.api.carto.com',
+        columns,
+        spatialDataColumn,
+        visible = true,
+        opacity = 1,
+        fillColor,
+        lineColor,
+        pointRadiusMinPixels = 2,
+        lineWidthMinPixels = 0.3,
+        pickable = true,
+      } = params as {
+        id: string;
+        connectionName?: string;
+        tableName: string;
+        accessToken?: string;
+        apiBaseUrl?: string;
+        columns?: string[];
+        spatialDataColumn?: string;
+        visible?: boolean;
+        opacity?: number;
+        fillColor?: string | number[];
+        lineColor?: string | number[];
+        pointRadiusMinPixels?: number;
+        lineWidthMinPixels?: number;
+        pickable?: boolean;
+      };
+
+      console.log('[ToolExecutor] ADD_VECTOR_LAYER called with params:', params);
+
+      try {
+        // Build vectorTableSource configuration
+        const sourceConfig: {
+          connectionName: string;
+          tableName: string;
+          accessToken: string;
+          apiBaseUrl: string;
+          columns?: string[];
+          spatialDataColumn?: string;
+        } = {
+          connectionName,
+          tableName,
+          accessToken: accessToken || import.meta.env.VITE_API_ACCESS_TOKEN || '',
+          apiBaseUrl: apiBaseUrl || import.meta.env.VITE_API_BASE_URL || 'https://gcp-us-east1.api.carto.com',
+        };
+
+        // Handle columns - if empty/not specified but spatialDataColumn is provided, include it
+        let finalColumns = columns;
+        if ((!finalColumns || finalColumns.length === 0) && spatialDataColumn) {
+          finalColumns = [spatialDataColumn];
+        }
+        if (finalColumns && finalColumns.length > 0) {
+          sourceConfig.columns = finalColumns;
+        }
+
+        if (spatialDataColumn) {
+          sourceConfig.spatialDataColumn = spatialDataColumn;
+        }
+
+        console.log('[ToolExecutor] Creating vectorTableSource with config:', sourceConfig);
+
+        // Create the data source
+        const dataSource = await vectorTableSource(sourceConfig);
+
+        console.log('[ToolExecutor] Data source created:', dataSource);
+
+        // Parse colors
+        const parsedFillColor = fillColor ? parseColor(fillColor) : [0, 0, 255, 180];
+        const parsedLineColor = lineColor ? parseColor(lineColor) : [255, 255, 255, 255];
+
+        // Create the VectorTileLayer
+        const newLayer = new VectorTileLayer({
+          id,
+          data: dataSource,
+          visible,
+          opacity,
+          pickable,
+          getFillColor: (parsedFillColor || [0, 0, 255, 180]) as [number, number, number, number],
+          getLineColor: (parsedLineColor || [255, 255, 255, 255]) as [number, number, number, number],
+          pointRadiusMinPixels,
+          lineWidthMinPixels,
+          getPointRadius: 50,
+          getLineWidth: 10,
+        });
+
+        console.log('[ToolExecutor] Layer created:', newLayer);
+
+        // Add layer to deck
+        const currentLayers = (deck.props.layers || []) as Layer[];
+        deck.setProps({ layers: [...currentLayers, newLayer] });
+
+        // Register the layer
+        layerRegistry.set(id, id);
+
+        // Update layer toggle UI
+        layerToggle.setLayers([
+          ...layerToggle.getLayers(),
+          {
+            id,
+            name: id,
+            visible,
+            color: Array.isArray(parsedFillColor)
+              ? `rgb(${parsedFillColor[0]}, ${parsedFillColor[1]}, ${parsedFillColor[2]})`
+              : '#0000ff'
+          }
+        ]);
+
+        // Force redraws to ensure layer is visible
+        scheduleRedraws(deck);
+
+        console.log('[ToolExecutor] Layer added successfully, scheduled redraws');
+
+        return {
+          success: true,
+          message: `Added vector layer "${id}" from table "${tableName}"`,
+        };
+      } catch (error) {
+        console.error('[ToolExecutor] Error adding vector layer:', error);
+        return {
+          success: false,
+          message: `Failed to add layer: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        };
+      }
+    },
+
     // ==================== UPDATE LAYER PROPS ====================
 
     [TOOL_NAMES.UPDATE_LAYER_PROPS]: (params) => {
@@ -866,7 +1000,7 @@ export async function handleToolCall(
   if (executor && data) {
     try {
       console.log('[ToolExecutor] Executing tool:', toolName, 'with data:', data);
-      const result = executor(data);
+      const result = await executor(data);
       console.log('[ToolExecutor] Execution result:', result);
       toolStatus.showSuccess(result.message);
       chatContainer.addToolCall({

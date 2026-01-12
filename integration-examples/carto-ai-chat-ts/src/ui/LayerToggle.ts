@@ -47,6 +47,13 @@ export class LayerToggle {
     this.renderLayers();
   }
 
+  /**
+   * Get the current layers
+   */
+  getLayers(): LayerInfo[] {
+    return this.layers;
+  }
+
   private renderLayers(): void {
     if (!this.layerList) return;
 
