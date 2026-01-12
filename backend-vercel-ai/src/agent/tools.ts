@@ -2,6 +2,7 @@
  * Tool definitions for Vercel AI SDK v6
  *
  * Uses map-ai-tools converters for Vercel AI SDK format
+ * Combines local map tools with remote MCP server tools
  */
 
 import { tool, type Tool } from 'ai';
@@ -10,9 +11,10 @@ import {
   isFrontendToolResult,
   type VercelAIToolDef,
 } from '@carto/maps-ai-tools';
+import { getMCPTools, getMCPToolNames } from './mcp-tools.js';
 
 /**
- * Create map tools for Vercel AI SDK v6
+ * Create local map tools for Vercel AI SDK v6
  *
  * Returns tools in the format expected by ToolLoopAgent
  */
@@ -32,7 +34,31 @@ export function createMapTools(): Record<string, Tool> {
 }
 
 /**
- * Get tool names for system prompt
+ * Get all tools (local map tools + MCP tools)
+ *
+ * Local tools take precedence over MCP tools on name conflicts.
+ */
+export function getAllTools(): Record<string, Tool> {
+  const mcpTools = getMCPTools();
+  const localTools = createMapTools();
+
+  // Local tools override MCP tools on conflict
+  return { ...mcpTools, ...localTools };
+}
+
+/**
+ * Get all tool names for system prompt
+ */
+export function getAllToolNames(): string[] {
+  const localNames = getToolsForVercelAI().map((t: VercelAIToolDef & { name: string }) => t.name);
+  const mcpNames = getMCPToolNames();
+
+  // Deduplicate
+  return [...new Set([...localNames, ...mcpNames])];
+}
+
+/**
+ * Get local tool names only
  */
 export function getToolNames(): string[] {
   return getToolsForVercelAI().map((t: VercelAIToolDef & { name: string }) => t.name);

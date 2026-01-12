@@ -64,5 +64,34 @@ KNOWN CITIES (use these coordinates):
     prompt += `\nAVAILABLE TOOLS: ${toolNames.join(', ')}\n`;
   }
 
+  // Add CARTO MCP async workflow instructions if those tools are available
+  const hasAsyncWorkflowTools =
+    toolNames.includes('async_workflow_job_get_status_v1_0_0') &&
+    toolNames.includes('async_workflow_job_get_results_v1_0_0');
+
+  if (hasAsyncWorkflowTools) {
+    prompt += `
+CARTO MCP ASYNC WORKFLOW:
+MCP tools run asynchronously. You MUST complete the full workflow:
+
+1. Tell the user what you're doing, then call the MCP tool. It returns a job_id.
+
+2. Poll status with async_workflow_job_get_status_v1_0_0 until the job completes:
+   - "running" or "pending" → keep polling (jobs can take 30+ polls)
+   - "done" → get results immediately
+   - "failed" → report error
+
+3. When status is "done", call async_workflow_job_get_results_v1_0_0 to get the data.
+
+4. Present results to the user.
+
+CRITICAL RULES:
+- NEVER stop polling while status is "running" - always continue until "done" or "failed"
+- Do NOT add unnecessary text between status polls - just keep polling silently
+- Only provide a brief update every 5-10 polls to avoid verbosity
+- You MUST complete the workflow - do not give up or suggest checking back later
+`;
+  }
+
   return prompt;
 }

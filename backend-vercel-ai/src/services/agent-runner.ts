@@ -6,7 +6,7 @@
 
 import { ToolLoopAgent, stepCountIs, type ModelMessage } from 'ai';
 import { WebSocket } from 'ws';
-import { createMapTools, isFrontendToolResult } from '../agent/tools.js';
+import { getAllTools, getAllToolNames, isFrontendToolResult } from '../agent/tools.js';
 import { getProvider } from '../agent/providers.js';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
 import type { InitialState, ConversationMessage } from '../types/messages.js';
@@ -14,22 +14,25 @@ import type { FrontendToolResult } from '@carto/maps-ai-tools';
 
 /**
  * Create a Map Control Agent using ToolLoopAgent
+ *
+ * Uses all available tools (local + MCP)
  */
-function createMapAgent(
-  toolNames: string[],
-  initialState?: InitialState,
-  provider?: string
-) {
+let stepCounter = 0;
+
+function createMapAgent(initialState?: InitialState, provider?: string) {
   const model = getProvider(provider);
-  const tools = createMapTools();
+  const tools = getAllTools();
+  const toolNames = getAllToolNames();
+  stepCounter = 0;
 
   return new ToolLoopAgent({
     model,
     instructions: buildSystemPrompt(toolNames, initialState),
     tools,
-    stopWhen: stepCountIs(10), // Stop after 10 steps max
+    stopWhen: stepCountIs(50), // Stop after 50 steps max (MCP async jobs need polling)
     onStepFinish: (stepResult) => {
-      console.log(`[Agent] Step finished with ${stepResult.toolCalls.length} tool calls`);
+      stepCounter++;
+      console.log(`[Agent] Step ${stepCounter} finished with ${stepResult.toolCalls.length} tool calls`);
     },
   });
 }
@@ -46,12 +49,10 @@ export async function runMapAgent(
   provider?: string
 ): Promise<ConversationMessage | null> {
   const messageId = `msg_${Date.now()}`;
-  const tools = createMapTools();
-  const toolNames = Object.keys(tools);
 
   try {
-    // Create the agent
-    const agent = createMapAgent(toolNames, initialState, provider);
+    // Create the agent with all available tools (local + MCP)
+    const agent = createMapAgent(initialState, provider);
 
     // Build messages array from history, adding the new user message
     const messages: ModelMessage[] = [
@@ -71,6 +72,11 @@ export async function runMapAgent(
 
     // Process the stream
     for await (const part of streamResult.fullStream) {
+      // Debug: log all stream events
+      if (part.type !== 'text-delta') {
+        console.log(`[Agent] Stream event: ${part.type}`, JSON.stringify(part).substring(0, 300));
+      }
+
       switch (part.type) {
         case 'text-delta': {
           // AI SDK v6: part.text is the actual delta (not accumulated)
@@ -89,8 +95,21 @@ export async function runMapAgent(
           break;
         }
 
+        case 'tool-call':
+          // Notify client that a tool is being called
+          console.log(`[Agent] Tool call: ${part.toolName}`);
+          ws.send(
+            JSON.stringify({
+              type: 'tool_call_start',
+              toolName: part.toolName,
+              input: part.input,
+              callId: part.toolCallId,
+            })
+          );
+          break;
+
         case 'tool-result':
-          // Check if this is a frontend tool result
+          // Check if this is a frontend tool result (local map tools)
           if (isFrontendToolResult(part.output)) {
             const frontendResult = part.output as FrontendToolResult;
             ws.send(
@@ -100,6 +119,17 @@ export async function runMapAgent(
                 data: frontendResult.data,
                 callId: part.toolCallId,
                 message: `Executing ${frontendResult.toolName}`,
+              })
+            );
+          } else {
+            // MCP tool result - log and notify client
+            console.log(`[Agent] MCP tool result for ${part.toolName}:`, JSON.stringify(part.output).substring(0, 200));
+            ws.send(
+              JSON.stringify({
+                type: 'mcp_tool_result',
+                toolName: part.toolName,
+                result: part.output,
+                callId: part.toolCallId,
               })
             );
           }
