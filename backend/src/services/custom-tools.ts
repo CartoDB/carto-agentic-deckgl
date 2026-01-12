@@ -22,7 +22,7 @@ import { getMCPClient, parseMCPServerConfigs } from './mcp-client.js';
 
 export const weatherTool = {
   name: 'weather',
-  description: 'Get the current weather in a specific location',
+  description: 'Get the current weather information (temperature, condition, humidity) for a specific location. Use this when user asks about weather, temperature, or climate. Do NOT use map navigation tools for weather queries.',
   schema: z.object({
     location: z.string().describe('The location to get the weather for (city name or address)'),
   }),
