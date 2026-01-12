@@ -7,6 +7,19 @@ import type { ToolStatus } from '../ui/ToolStatus';
 import type { ChatContainer } from '../ui/ChatContainer';
 import type { ToolCallMessage } from '../chat/types';
 
+// Import JSONConverter utilities
+import {
+  resolveColor,
+  resolveInterpolator,
+  createLinearInterpolator,
+  convertJson
+} from '../config/deckJsonConfig';
+
+import {
+  executeLayerStyleSpec,
+  executeAddLayerSpec
+} from './json-spec-executor';
+
 // Layer with clone method
 interface CloneableLayer extends Layer {
   clone(props: Record<string, unknown>): Layer;
@@ -15,6 +28,8 @@ interface CloneableLayer extends Layer {
 export interface ToolResult {
   success: boolean;
   message: string;
+  data?: any;
+  error?: Error;
 }
 
 export type ToolExecutor = (params: unknown) => ToolResult;
@@ -39,39 +54,7 @@ interface ColorFilter {
 }
 
 let colorFilters: ColorFilter[] = [];
-let basePointColor: [number, number, number, number] = [3, 111, 226, 200];
-
-// Color name to RGBA mapping
-const COLOR_MAP: Record<string, [number, number, number, number]> = {
-  red: [255, 0, 0, 200],
-  green: [0, 255, 0, 200],
-  blue: [0, 0, 255, 200],
-  yellow: [255, 255, 0, 200],
-  orange: [255, 165, 0, 200],
-  purple: [128, 0, 128, 200],
-  pink: [255, 192, 203, 200],
-  cyan: [0, 255, 255, 200],
-  white: [255, 255, 255, 200],
-  black: [0, 0, 0, 200],
-  gray: [128, 128, 128, 200],
-  grey: [128, 128, 128, 200]
-};
-
-/**
- * Convert color value (name or RGBA array) to RGBA array
- */
-function parseColor(color: unknown): [number, number, number, number] | null {
-  if (Array.isArray(color) && color.length >= 3) {
-    return [color[0], color[1], color[2], color[3] ?? 200];
-  }
-  if (typeof color === 'string') {
-    const normalized = color.toLowerCase().trim();
-    if (COLOR_MAP[normalized]) {
-      return COLOR_MAP[normalized];
-    }
-  }
-  return null;
-}
+let basePointColor: [number, number, number, number] = [3, 111, 226, 200]; // CARTO blue
 
 /**
  * Find layer ID by name (case-insensitive)
@@ -138,664 +121,914 @@ export function createToolExecutors(
     // ==================== VIEW STATE TOOLS ====================
 
     [TOOL_NAMES.FLY_TO]: (params) => {
-      const { lat, lng, zoom, pitch, bearing, transitionDuration } = params as {
-        lat: number;
-        lng: number;
-        zoom?: number;
-        pitch?: number;
-        bearing?: number;
-        transitionDuration?: number;
-      };
-
-      const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
-      const newZoom = zoom ?? (currentView.zoom as number) ?? 12;
-
-      deck.setProps({
-        initialViewState: {
-          ...currentView,
-          longitude: lng,
-          latitude: lat,
-          zoom: newZoom,
-          pitch: pitch ?? (currentView.pitch as number) ?? 0,
-          bearing: bearing ?? (currentView.bearing as number) ?? 0,
-          transitionDuration: transitionDuration ?? 1000,
-          transitionInterruption: 1 // Enable smooth transitions
-        }
-      });
-
-      // Force redraws for deck.gl
-      requestAnimationFrame(() => deck.redraw('all'));
-      setTimeout(() => deck.redraw('all'), 50);
-      setTimeout(() => deck.redraw('all'), 1100);
-
-      zoomControls.setZoomLevel(newZoom);
-
-      return { success: true, message: `Flying to ${lat.toFixed(4)}, ${lng.toFixed(4)}` };
-    },
-
-    [TOOL_NAMES.ZOOM_MAP]: (params) => {
-      const { direction, levels } = params as {
-        direction: 'in' | 'out';
-        levels: number;
-      };
-
-      const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
-      const currentZoom = (currentView.zoom as number) || 10;
-      const newZoom =
-        direction === 'in'
-          ? Math.min(22, currentZoom + levels)
-          : Math.max(0, currentZoom - levels);
-
-      deck.setProps({
-        initialViewState: {
-          longitude: (currentView.longitude as number) || -110.5556199,
-          latitude: (currentView.latitude as number) || 41.8097343,
-          zoom: newZoom,
-          pitch: currentView.pitch as number,
-          bearing: currentView.bearing as number,
-          transitionDuration: 500
-        }
-      });
-
-      scheduleRedraws(deck);
-      zoomControls.setZoomLevel(newZoom);
-
-      return { success: true, message: `Zoomed ${direction} to level ${newZoom.toFixed(1)}` };
-    },
-
-    [TOOL_NAMES.SET_VIEW_STATE]: (params) => {
-      const { longitude, latitude, zoom, pitch, bearing, transitionDuration } =
-        params as {
-          longitude?: number;
-          latitude?: number;
+      try {
+        const { lat, lng, zoom, pitch, bearing, transitionDuration } = params as {
+          lat: number;
+          lng: number;
           zoom?: number;
           pitch?: number;
           bearing?: number;
           transitionDuration?: number;
         };
 
-      const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
-      const newView = {
-        longitude: longitude ?? (currentView.longitude as number) ?? -110.5556199,
-        latitude: latitude ?? (currentView.latitude as number) ?? 41.8097343,
-        zoom: zoom ?? (currentView.zoom as number) ?? 3,
-        pitch: pitch ?? (currentView.pitch as number),
-        bearing: bearing ?? (currentView.bearing as number),
-        transitionDuration: transitionDuration ?? 1000
-      };
+        const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
+        const newZoom = zoom ?? (currentView.zoom as number) ?? 12;
 
-      deck.setProps({ initialViewState: newView });
-      scheduleRedraws(deck);
+        // Use JSONConverter for interpolator if needed
+        const interpolator = resolveInterpolator('FlyToInterpolator');
 
-      if (zoom !== undefined) {
-        zoomControls.setZoomLevel(zoom);
+        deck.setProps({
+          initialViewState: {
+            ...currentView,
+            longitude: lng,
+            latitude: lat,
+            zoom: newZoom,
+            pitch: pitch ?? (currentView.pitch as number) ?? 0,
+            bearing: bearing ?? (currentView.bearing as number) ?? 0,
+            transitionDuration: transitionDuration ?? 1000,
+            transitionInterpolator: interpolator,
+            transitionInterruption: 1 // Enable smooth transitions
+          }
+        });
+
+        // Force redraws for deck.gl
+        scheduleRedraws(deck);
+
+        zoomControls.setZoomLevel(newZoom);
+
+        return { success: true, message: `Flying to ${lat.toFixed(4)}, ${lng.toFixed(4)}` };
+      } catch (error) {
+        console.error('[fly-to] Error:', error);
+        return {
+          success: false,
+          message: `Failed to fly to location: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
       }
+    },
 
-      return { success: true, message: 'View state updated' };
+    [TOOL_NAMES.ZOOM_MAP]: (params) => {
+      try {
+        const { direction, levels } = params as {
+          direction: 'in' | 'out';
+          levels: number;
+        };
+
+        const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
+        const currentZoom = (currentView.zoom as number) || 10;
+        const newZoom =
+          direction === 'in'
+            ? Math.min(22, currentZoom + levels)
+            : Math.max(0, currentZoom - levels);
+
+        deck.setProps({
+          initialViewState: {
+            longitude: (currentView.longitude as number) || -110.5556199,
+            latitude: (currentView.latitude as number) || 41.8097343,
+            zoom: newZoom,
+            pitch: currentView.pitch as number,
+            bearing: currentView.bearing as number,
+            transitionDuration: 500
+          }
+        });
+
+        scheduleRedraws(deck);
+        zoomControls.setZoomLevel(newZoom);
+
+        return { success: true, message: `Zoomed ${direction} to level ${newZoom.toFixed(1)}` };
+      } catch (error) {
+        console.error('[zoom-map] Error:', error);
+        return {
+          success: false,
+          message: `Failed to zoom map: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
+    },
+
+    [TOOL_NAMES.SET_VIEW_STATE]: (params) => {
+      try {
+        const { longitude, latitude, zoom, pitch, bearing, transitionDuration } =
+          params as {
+            longitude?: number;
+            latitude?: number;
+            zoom?: number;
+            pitch?: number;
+            bearing?: number;
+            transitionDuration?: number;
+          };
+
+        const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
+        const newView = {
+          longitude: longitude ?? (currentView.longitude as number) ?? -110.5556199,
+          latitude: latitude ?? (currentView.latitude as number) ?? 41.8097343,
+          zoom: zoom ?? (currentView.zoom as number) ?? 3,
+          pitch: pitch ?? (currentView.pitch as number),
+          bearing: bearing ?? (currentView.bearing as number),
+          transitionDuration: transitionDuration ?? 1000
+        };
+
+        deck.setProps({ initialViewState: newView });
+        scheduleRedraws(deck);
+
+        if (zoom !== undefined) {
+          zoomControls.setZoomLevel(zoom);
+        }
+
+        return { success: true, message: 'View state updated' };
+      } catch (error) {
+        console.error('[set-view-state] Error:', error);
+        return {
+          success: false,
+          message: `Failed to set view state: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     },
 
     [TOOL_NAMES.ROTATE_MAP]: (params) => {
-      const { bearing, relative, transitionDuration } = params as {
-        bearing: number;
-        relative?: boolean;
-        transitionDuration?: number;
-      };
+      try {
+        const { bearing, relative, transitionDuration, transitionInterpolator } = params as {
+          bearing: number;
+          relative?: boolean;
+          transitionDuration?: number;
+          transitionInterpolator?: string;
+        };
 
-      const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
-      const currentBearing = (currentView.bearing as number) || 0;
-      const newBearing = relative ? currentBearing + bearing : bearing;
+        const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
+        const currentBearing = (currentView.bearing as number) || 0;
+        const newBearing = relative ? currentBearing + bearing : bearing;
 
-      deck.setProps({
-        initialViewState: {
-          longitude: (currentView.longitude as number) || -110.5556199,
-          latitude: (currentView.latitude as number) || 41.8097343,
-          zoom: (currentView.zoom as number) || 3,
-          pitch: currentView.pitch as number,
-          bearing: newBearing,
-          transitionDuration: transitionDuration ?? 500
-        }
-      });
+        // Use JSONConverter for interpolator
+        const interpolator = transitionInterpolator
+          ? resolveInterpolator(transitionInterpolator)
+          : createLinearInterpolator(['bearing']);
 
-      scheduleRedraws(deck);
+        deck.setProps({
+          initialViewState: {
+            longitude: (currentView.longitude as number) || -110.5556199,
+            latitude: (currentView.latitude as number) || 41.8097343,
+            zoom: (currentView.zoom as number) || 3,
+            pitch: currentView.pitch as number,
+            bearing: newBearing,
+            transitionDuration: transitionDuration ?? 500,
+            transitionInterpolator: interpolator
+          }
+        });
 
-      return { success: true, message: `Rotated to bearing ${newBearing.toFixed(0)}` };
+        scheduleRedraws(deck);
+
+        return { success: true, message: `Rotated to bearing ${newBearing.toFixed(0)}` };
+      } catch (error) {
+        console.error('[rotate-map] Error:', error);
+        return {
+          success: false,
+          message: `Failed to rotate map: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     },
 
     [TOOL_NAMES.SET_PITCH]: (params) => {
-      const { pitch, transitionDuration } = params as {
-        pitch: number;
-        transitionDuration?: number;
-      };
+      try {
+        const { pitch, transitionDuration } = params as {
+          pitch: number;
+          transitionDuration?: number;
+        };
 
-      const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
+        const currentView = (deck.props.initialViewState as Record<string, unknown>) || {};
 
-      deck.setProps({
-        initialViewState: {
-          longitude: (currentView.longitude as number) || -110.5556199,
-          latitude: (currentView.latitude as number) || 41.8097343,
-          zoom: (currentView.zoom as number) || 3,
-          pitch: Math.min(85, Math.max(0, pitch)),
-          bearing: currentView.bearing as number,
-          transitionDuration: transitionDuration ?? 500
-        }
-      });
+        // Use JSONConverter for interpolator
+        const interpolator = createLinearInterpolator(['pitch']);
 
-      scheduleRedraws(deck);
+        deck.setProps({
+          initialViewState: {
+            longitude: (currentView.longitude as number) || -110.5556199,
+            latitude: (currentView.latitude as number) || 41.8097343,
+            zoom: (currentView.zoom as number) || 3,
+            pitch: Math.min(85, Math.max(0, pitch)),
+            bearing: currentView.bearing as number,
+            transitionDuration: transitionDuration ?? 500,
+            transitionInterpolator: interpolator
+          }
+        });
 
-      return { success: true, message: `Pitch set to ${pitch}` };
+        scheduleRedraws(deck);
+
+        return { success: true, message: `Pitch set to ${pitch}` };
+      } catch (error) {
+        console.error('[set-pitch] Error:', error);
+        return {
+          success: false,
+          message: `Failed to set pitch: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     },
 
     // ==================== LAYER VISIBILITY TOOLS ====================
 
     [TOOL_NAMES.TOGGLE_LAYER]: (params) => {
-      const { layerName, visible } = params as {
-        layerName: string;
-        visible: boolean;
-      };
+      try {
+        const { layerName, visible } = params as {
+          layerName: string;
+          visible: boolean;
+        };
 
-      const layerId = findLayerIdByName(layerName, layerRegistry) || layerName;
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const layerId = findLayerIdByName(layerName, layerRegistry) || layerName;
 
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === layerId) {
-          return layer.clone({ visible });
-        }
-        return layer;
-      });
+        // Use JSONConverter for layer update
+        const result = executeLayerStyleSpec({
+          layerId,
+          visible
+        });
 
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
-      layerToggle.updateLayerVisibility(layerId, visible);
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const updatedLayers = currentLayers.map((layer) => {
+          if (layer.id === result.layerId) {
+            return layer.clone(result.props);
+          }
+          return layer;
+        });
 
-      return {
-        success: true,
-        message: `Layer "${layerName}" ${visible ? 'shown' : 'hidden'}`
-      };
+        deck.setProps({ layers: updatedLayers as Layer[] });
+        scheduleRedraws(deck);
+        layerToggle.updateLayerVisibility(layerId, visible);
+
+        return {
+          success: true,
+          message: `Layer "${layerName}" ${visible ? 'shown' : 'hidden'}`
+        };
+      } catch (error) {
+        console.error('[toggle-layer] Error:', error);
+        return {
+          success: false,
+          message: `Failed to toggle layer: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     },
 
     [TOOL_NAMES.SHOW_HIDE_LAYER]: (params) => {
-      const { layerId, visible } = params as {
-        layerId: string;
-        visible: boolean;
-      };
+      try {
+        const { layerId, visible } = params as {
+          layerId: string;
+          visible: boolean;
+        };
 
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        // Use JSONConverter for layer update
+        const result = executeLayerStyleSpec({
+          layerId,
+          visible
+        });
 
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === layerId) {
-          return layer.clone({ visible });
-        }
-        return layer;
-      });
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const updatedLayers = currentLayers.map((layer) => {
+          if (layer.id === result.layerId) {
+            return layer.clone(result.props);
+          }
+          return layer;
+        });
 
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
-      layerToggle.updateLayerVisibility(layerId, visible);
+        deck.setProps({ layers: updatedLayers as Layer[] });
+        scheduleRedraws(deck);
+        layerToggle.updateLayerVisibility(layerId, visible);
 
-      return {
-        success: true,
-        message: `Layer ${visible ? 'shown' : 'hidden'}`
-      };
+        return {
+          success: true,
+          message: `Layer ${visible ? 'shown' : 'hidden'}`
+        };
+      } catch (error) {
+        console.error('[show-hide-layer] Error:', error);
+        return {
+          success: false,
+          message: `Failed to show/hide layer: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     },
 
     // ==================== STYLING TOOLS ====================
 
     [TOOL_NAMES.SET_POINT_COLOR]: (params) => {
-      const { layerId, r, g, b, a } = params as {
-        layerId?: string;
-        r: number;
-        g: number;
-        b: number;
-        a?: number;
-      };
+      try {
+        const { layerId, r, g, b, a, color } = params as {
+          layerId?: string;
+          r?: number;
+          g?: number;
+          b?: number;
+          a?: number;
+          color?: string | number[];
+        };
 
-      const rgba: [number, number, number, number] = [r, g, b, a ?? 200];
-      basePointColor = rgba;
+        const targetLayerId = layerId || 'pois';
+        let rgba: number[];
 
-      const targetLayerId = layerId || 'pois';
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
-
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === targetLayerId) {
-          return layer.clone({ getFillColor: rgba });
+        // Support both RGBA values and color names/arrays
+        if (color !== undefined) {
+          rgba = resolveColor(color);
+        } else if (r !== undefined && g !== undefined && b !== undefined) {
+          rgba = [r, g, b, a ?? 200];
+        } else {
+          return { success: false, message: 'Color specification required' };
         }
-        return layer;
-      });
 
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
+        basePointColor = rgba as [number, number, number, number];
 
-      return {
-        success: true,
-        message: `Color changed to rgb(${r}, ${g}, ${b})`
-      };
-    },
-
-    [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: (params) => {
-      const { layerId, property, operator, value, r, g, b, a } = params as {
-        layerId?: string;
-        property: string;
-        operator: string;
-        value: unknown;
-        r: number;
-        g: number;
-        b: number;
-        a?: number;
-      };
-
-      const rgba: [number, number, number, number] = [r, g, b, a ?? 180];
-      const filterKey = `${property}:${operator}:${value}`;
-      const newFilter: ColorFilter = {
-        key: filterKey,
-        property,
-        operator,
-        value,
-        color: rgba
-      };
-
-      // Update or add filter
-      const existingIdx = colorFilters.findIndex((f) => f.key === filterKey);
-      if (existingIdx >= 0) {
-        colorFilters[existingIdx] = newFilter;
-      } else {
-        colorFilters.push(newFilter);
-      }
-
-      const targetLayerId = layerId || 'pois';
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
-
-      // Create color accessor function
-      const colorAccessor = (feature: { properties?: Record<string, unknown> }) => {
-        for (const filter of colorFilters) {
-          if (matchesFilter(feature, filter)) {
-            return filter.color;
-          }
-        }
-        return basePointColor;
-      };
-
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === targetLayerId) {
-          return layer.clone({
-            getFillColor: colorAccessor,
-            updateTriggers: {
-              getFillColor: JSON.stringify(colorFilters)
-            }
-          });
-        }
-        return layer;
-      });
-
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
-
-      return {
-        success: true,
-        message: `Color filter applied: ${property} ${operator} ${value}`
-      };
-    },
-
-    [TOOL_NAMES.RESET_VISUALIZATION]: (params) => {
-      const { resetLayers, resetViewState } = params as {
-        resetLayers?: boolean;
-        resetViewState?: boolean;
-      };
-
-      if (resetLayers !== false) {
-        // Clear color filters
-        colorFilters = [];
-        basePointColor = [3, 111, 226, 200];
+        // Use JSONConverter for layer update
+        const result = executeLayerStyleSpec({
+          layerId: targetLayerId,
+          fillColor: rgba,
+          pointColor: rgba
+        });
 
         const currentLayers = (deck.props.layers || []) as CloneableLayer[];
         const updatedLayers = currentLayers.map((layer) => {
-          return layer.clone({
-            getFillColor: basePointColor,
-            visible: true,
-            updateTriggers: { getFillColor: 'reset' }
-          });
-        });
-        deck.setProps({ layers: updatedLayers as Layer[] });
-      }
-
-      if (resetViewState !== false) {
-        deck.setProps({
-          initialViewState: {
-            latitude: 41.8097343,
-            longitude: -110.5556199,
-            zoom: 3,
-            bearing: 0,
-            pitch: 0,
-            transitionDuration: 1000
+          if (layer.id === result.layerId) {
+            return layer.clone(result.props);
           }
+          return layer;
         });
-        zoomControls.setZoomLevel(3);
+
+        deck.setProps({ layers: updatedLayers as Layer[] });
+        scheduleRedraws(deck);
+
+        const colorDesc = typeof color === 'string' ? color : `rgb(${rgba[0]}, ${rgba[1]}, ${rgba[2]})`;
+        return {
+          success: true,
+          message: `Color changed to ${colorDesc}`
+        };
+      } catch (error) {
+        console.error('[set-point-color] Error:', error);
+        return {
+          success: false,
+          message: `Failed to set point color: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
       }
+    },
 
-      scheduleRedraws(deck);
+    [TOOL_NAMES.COLOR_FEATURES_BY_PROPERTY]: (params) => {
+      try {
+        const { layerId, property, operator, value, r, g, b, a, color } = params as {
+          layerId?: string;
+          property: string;
+          operator: string;
+          value: unknown;
+          r?: number;
+          g?: number;
+          b?: number;
+          a?: number;
+          color?: string | number[];
+        };
 
-      return { success: true, message: 'Visualization reset' };
+        let rgba: number[];
+
+        // Support both RGBA values and color names/arrays
+        if (color !== undefined) {
+          rgba = resolveColor(color);
+        } else if (r !== undefined && g !== undefined && b !== undefined) {
+          rgba = [r, g, b, a ?? 180];
+        } else {
+          return { success: false, message: 'Color specification required' };
+        }
+
+        const filterKey = `${property}:${operator}:${value}`;
+        const newFilter: ColorFilter = {
+          key: filterKey,
+          property,
+          operator,
+          value,
+          color: rgba as [number, number, number, number]
+        };
+
+        // Update or add filter
+        const existingIdx = colorFilters.findIndex((f) => f.key === filterKey);
+        if (existingIdx >= 0) {
+          colorFilters[existingIdx] = newFilter;
+        } else {
+          colorFilters.push(newFilter);
+        }
+
+        const targetLayerId = layerId || 'pois';
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+
+        // Create color accessor function
+        const colorAccessor = (feature: { properties?: Record<string, unknown> }) => {
+          for (const filter of colorFilters) {
+            if (matchesFilter(feature, filter)) {
+              return filter.color;
+            }
+          }
+          return basePointColor;
+        };
+
+        const updatedLayers = currentLayers.map((layer) => {
+          if (layer.id === targetLayerId) {
+            return layer.clone({
+              getFillColor: colorAccessor,
+              updateTriggers: {
+                getFillColor: JSON.stringify(colorFilters)
+              }
+            });
+          }
+          return layer;
+        });
+
+        deck.setProps({ layers: updatedLayers as Layer[] });
+        scheduleRedraws(deck);
+
+        return {
+          success: true,
+          message: `Color filter applied: ${property} ${operator} ${value}`
+        };
+      } catch (error) {
+        console.error('[color-features-by-property] Error:', error);
+        return {
+          success: false,
+          message: `Failed to color features: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
+    },
+
+    [TOOL_NAMES.RESET_VISUALIZATION]: (params) => {
+      try {
+        const { resetLayers, resetViewState } = params as {
+          resetLayers?: boolean;
+          resetViewState?: boolean;
+        };
+
+        if (resetLayers !== false) {
+          // Clear color filters
+          colorFilters = [];
+          basePointColor = [3, 111, 226, 200];
+
+          const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+          const updatedLayers = currentLayers.map((layer) => {
+            // Use JSONConverter to reset to default colors
+            const result = executeLayerStyleSpec({
+              layerId: layer.id,
+              fillColor: 'CartoPrimary',
+              visible: true
+            });
+            return layer.clone({
+              ...result.props,
+              updateTriggers: { getFillColor: 'reset' }
+            });
+          });
+          deck.setProps({ layers: updatedLayers as Layer[] });
+        }
+
+        if (resetViewState !== false) {
+          const interpolator = resolveInterpolator('FlyToInterpolator');
+          deck.setProps({
+            initialViewState: {
+              latitude: 41.8097343,
+              longitude: -110.5556199,
+              zoom: 3,
+              bearing: 0,
+              pitch: 0,
+              transitionDuration: 1000,
+              transitionInterpolator: interpolator
+            }
+          });
+          zoomControls.setZoomLevel(3);
+        }
+
+        scheduleRedraws(deck);
+
+        return { success: true, message: 'Visualization reset' };
+      } catch (error) {
+        console.error('[reset-visualization] Error:', error);
+        return {
+          success: false,
+          message: `Failed to reset visualization: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     },
 
     // ==================== UPDATE LAYER STYLE ====================
 
     [TOOL_NAMES.UPDATE_LAYER_STYLE]: (params) => {
-      const {
-        layerId,
-        fillColor,
-        lineColor,
-        opacity,
-        visible
-      } = params as {
-        layerId: string;
-        fillColor?: string | number[];
-        lineColor?: string | number[];
-        opacity?: number;
-        visible?: boolean;
-      };
+      try {
+        const layerParams = params as Record<string, any>;
+        const { layerId } = layerParams;
 
-      const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
-
-      // Build the update props - only include what was provided
-      const updateProps: Record<string, unknown> = {};
-      const changes: string[] = [];
-
-      if (fillColor !== undefined && fillColor !== null) {
-        const rgba = parseColor(fillColor);
-        if (rgba) {
-          updateProps.getFillColor = rgba;
-          basePointColor = rgba; // Update base color for consistency
-          changes.push(`fill: ${typeof fillColor === 'string' ? fillColor : 'custom'}`);
+        if (!layerId) {
+          return { success: false, message: 'Layer ID required' };
         }
-      }
 
-      if (lineColor !== undefined && lineColor !== null) {
-        const rgba = parseColor(lineColor);
-        if (rgba) {
-          updateProps.getLineColor = rgba;
-          changes.push(`line: ${typeof lineColor === 'string' ? lineColor : 'custom'}`);
+        const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
+
+        // Use JSONConverter to process all style parameters
+        const result = executeLayerStyleSpec({
+          ...layerParams,
+          layerId: targetLayerId
+        });
+
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        let found = false;
+
+        const updatedLayers = currentLayers.map((layer) => {
+          if (layer.id === result.layerId) {
+            found = true;
+            // Update base color if fill color was changed
+            if (result.props.getFillColor && Array.isArray(result.props.getFillColor)) {
+              basePointColor = result.props.getFillColor as [number, number, number, number];
+            }
+            // Update layer toggle if visibility changed
+            if ('visible' in result.props) {
+              layerToggle.updateLayerVisibility(result.layerId, result.props.visible as boolean);
+            }
+            return layer.clone(result.props);
+          }
+          return layer;
+        });
+
+        if (!found) {
+          return { success: false, message: `Layer "${layerId}" not found` };
         }
-      }
 
-      if (opacity !== undefined) {
-        updateProps.opacity = opacity;
-        changes.push(`opacity: ${opacity}`);
-      }
+        deck.setProps({ layers: updatedLayers as Layer[] });
+        scheduleRedraws(deck);
 
-      if (visible !== undefined) {
-        updateProps.visible = visible;
-        changes.push(`visible: ${visible}`);
-        layerToggle.updateLayerVisibility(targetLayerId, visible);
-      }
-
-      if (Object.keys(updateProps).length === 0) {
-        return { success: false, message: 'No valid style properties provided' };
-      }
-
-      // Add update triggers for color changes
-      if (updateProps.getFillColor || updateProps.getLineColor) {
-        updateProps.updateTriggers = {
-          getFillColor: JSON.stringify(updateProps.getFillColor),
-          getLineColor: JSON.stringify(updateProps.getLineColor)
+        const changes = Object.keys(result.props).join(', ');
+        return {
+          success: true,
+          message: `Layer "${layerId}" updated: ${changes}`
+        };
+      } catch (error) {
+        console.error('[update-layer-style] Error:', error);
+        return {
+          success: false,
+          message: `Failed to update layer style: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
         };
       }
+    },
 
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === targetLayerId) {
-          return layer.clone(updateProps);
+    // ==================== ADD LAYER (NEW TOOL) ====================
+
+    'add-layer': (params) => {
+      try {
+        const { layerSpec } = params as { layerSpec: Record<string, any> };
+
+        if (!layerSpec) {
+          return { success: false, message: 'Layer specification required' };
         }
-        return layer;
-      });
 
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
+        if (!layerSpec['@@type'] && !layerSpec.type) {
+          return { success: false, message: 'Layer type (@@type) required in specification' };
+        }
 
-      return {
-        success: true,
-        message: `Layer "${layerId}" updated: ${changes.join(', ')}`
-      };
+        // Ensure @@type format
+        if (layerSpec.type && !layerSpec['@@type']) {
+          layerSpec['@@type'] = layerSpec.type;
+          delete layerSpec.type;
+        }
+
+        // Use JSONConverter to create the layer
+        const resolvedLayer = executeAddLayerSpec(layerSpec);
+
+        // Add to deck
+        const currentLayers = deck.props.layers || [];
+        const updatedLayers = [...currentLayers, resolvedLayer];
+
+        deck.setProps({ layers: updatedLayers });
+        scheduleRedraws(deck);
+
+        // Register the new layer
+        if (layerSpec.name) {
+          layerRegistry.set(layerSpec.name, layerSpec.id);
+        }
+
+        // Update layer toggle if it's visible
+        if (resolvedLayer.props.visible !== false) {
+          layerToggle.updateLayerVisibility(layerSpec.id, true);
+        }
+
+        return {
+          success: true,
+          message: `Added layer: ${layerSpec.id}`,
+          data: { layerId: layerSpec.id }
+        };
+      } catch (error) {
+        console.error('[add-layer] Error:', error);
+        return {
+          success: false,
+          message: `Failed to add layer: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     },
 
     // ==================== FILTER FEATURES ====================
 
     [TOOL_NAMES.FILTER_FEATURES_BY_PROPERTY]: (params) => {
-      const { layerId, property, operator, value, reset } = params as {
-        layerId?: string;
-        property?: string;
-        operator?: string;
-        value?: string;
-        reset?: boolean;
-      };
+      try {
+        const { layerId, property, operator, value, reset } = params as {
+          layerId?: string;
+          property?: string;
+          operator?: string;
+          value?: string;
+          reset?: boolean;
+        };
 
-      const targetLayerId = layerId || 'pois';
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const targetLayerId = layerId || 'pois';
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
 
-      if (reset) {
-        // Reset filter - show all features
+        if (reset) {
+          // Reset filter - show all features
+          const updatedLayers = currentLayers.map((layer) => {
+            if (layer.id === targetLayerId) {
+              return layer.clone({
+                getFilterValue: () => 1,
+                filterRange: [0, 1],
+                updateTriggers: { getFilterValue: 'reset' }
+              });
+            }
+            return layer;
+          });
+          deck.setProps({ layers: updatedLayers as Layer[] });
+          scheduleRedraws(deck);
+          return { success: true, message: 'Filter reset - showing all features' };
+        }
+
+        if (!property || value === undefined) {
+          return { success: false, message: 'Property and value required for filtering' };
+        }
+
+        // Create filter function
+        const filterFn = (feature: { properties?: Record<string, unknown> }) => {
+          const propValue = feature.properties?.[property];
+          if (propValue === undefined) return 0;
+
+          const strValue = String(propValue).toLowerCase();
+          const filterValue = String(value).toLowerCase();
+
+          switch (operator || 'equals') {
+            case 'equals':
+              return strValue === filterValue ? 1 : 0;
+            case 'contains':
+              return strValue.includes(filterValue) ? 1 : 0;
+            case 'startsWith':
+              return strValue.startsWith(filterValue) ? 1 : 0;
+            case 'regex':
+              try {
+                return new RegExp(value, 'i').test(strValue) ? 1 : 0;
+              } catch {
+                return 0;
+              }
+            default:
+              return strValue === filterValue ? 1 : 0;
+          }
+        };
+
         const updatedLayers = currentLayers.map((layer) => {
           if (layer.id === targetLayerId) {
             return layer.clone({
-              getFilterValue: () => 1,
-              filterRange: [0, 1],
-              updateTriggers: { getFilterValue: 'reset' }
+              getFilterValue: filterFn,
+              filterRange: [1, 1],
+              extensions: [], // DataFilterExtension would be needed for proper filtering
+              updateTriggers: { getFilterValue: `${property}:${operator}:${value}` }
             });
           }
           return layer;
         });
+
         deck.setProps({ layers: updatedLayers as Layer[] });
         scheduleRedraws(deck);
-        return { success: true, message: 'Filter reset - showing all features' };
+
+        return {
+          success: true,
+          message: `Filter applied: ${property} ${operator || 'equals'} "${value}"`
+        };
+      } catch (error) {
+        console.error('[filter-features-by-property] Error:', error);
+        return {
+          success: false,
+          message: `Failed to filter features: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
       }
-
-      if (!property || value === undefined) {
-        return { success: false, message: 'Property and value required for filtering' };
-      }
-
-      // Create filter function
-      const filterFn = (feature: { properties?: Record<string, unknown> }) => {
-        const propValue = feature.properties?.[property];
-        if (propValue === undefined) return 0;
-
-        const strValue = String(propValue).toLowerCase();
-        const filterValue = String(value).toLowerCase();
-
-        switch (operator || 'equals') {
-          case 'equals':
-            return strValue === filterValue ? 1 : 0;
-          case 'contains':
-            return strValue.includes(filterValue) ? 1 : 0;
-          case 'startsWith':
-            return strValue.startsWith(filterValue) ? 1 : 0;
-          case 'regex':
-            try {
-              return new RegExp(value, 'i').test(strValue) ? 1 : 0;
-            } catch {
-              return 0;
-            }
-          default:
-            return strValue === filterValue ? 1 : 0;
-        }
-      };
-
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === targetLayerId) {
-          return layer.clone({
-            getFilterValue: filterFn,
-            filterRange: [1, 1],
-            extensions: [], // DataFilterExtension would be needed for proper filtering
-            updateTriggers: { getFilterValue: `${property}:${operator}:${value}` }
-          });
-        }
-        return layer;
-      });
-
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
-
-      return {
-        success: true,
-        message: `Filter applied: ${property} ${operator || 'equals'} "${value}"`
-      };
     },
 
     // ==================== SIZE FEATURES ====================
 
     [TOOL_NAMES.SIZE_FEATURES_BY_PROPERTY]: (params) => {
-      const { layerId, property, sizeRules, defaultSize, reset } = params as {
-        layerId?: string;
-        property?: string;
-        sizeRules?: Array<{ value: string; size: number }>;
-        defaultSize?: number;
-        reset?: boolean;
-      };
+      try {
+        const { layerId, property, sizeRules, defaultSize, reset } = params as {
+          layerId?: string;
+          property?: string;
+          sizeRules?: Array<{ value: string; size: number }>;
+          defaultSize?: number;
+          reset?: boolean;
+        };
 
-      const targetLayerId = layerId || 'pois';
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
-      const baseSize = defaultSize || 8;
+        const targetLayerId = layerId || 'pois';
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const baseSize = defaultSize || 8;
 
-      if (reset) {
+        if (reset) {
+          // Use JSONConverter for size reset
+          const result = executeLayerStyleSpec({
+            layerId: targetLayerId,
+            pointRadius: baseSize
+          });
+
+          const updatedLayers = currentLayers.map((layer) => {
+            if (layer.id === result.layerId) {
+              return layer.clone({
+                ...result.props,
+                updateTriggers: { getPointRadius: 'reset' }
+              });
+            }
+            return layer;
+          });
+          deck.setProps({ layers: updatedLayers as Layer[] });
+          scheduleRedraws(deck);
+          return { success: true, message: 'Size reset to uniform' };
+        }
+
+        if (!property) {
+          return { success: false, message: 'Property required for sizing' };
+        }
+
+        // Create size accessor function
+        const sizeAccessor = (feature: { properties?: Record<string, unknown> }) => {
+          const propValue = feature.properties?.[property];
+          if (propValue === undefined) return baseSize;
+
+          const strValue = String(propValue).toLowerCase();
+
+          if (sizeRules) {
+            for (const rule of sizeRules) {
+              if (strValue === String(rule.value).toLowerCase()) {
+                return rule.size;
+              }
+            }
+          }
+          return baseSize;
+        };
+
         const updatedLayers = currentLayers.map((layer) => {
           if (layer.id === targetLayerId) {
             return layer.clone({
-              getPointRadius: baseSize,
+              getPointRadius: sizeAccessor,
               pointRadiusMinPixels: 1,
-              updateTriggers: { getPointRadius: 'reset' }
+              updateTriggers: { getPointRadius: JSON.stringify(sizeRules) }
             });
           }
           return layer;
         });
+
         deck.setProps({ layers: updatedLayers as Layer[] });
         scheduleRedraws(deck);
-        return { success: true, message: 'Size reset to uniform' };
+
+        return {
+          success: true,
+          message: `Size by property "${property}" applied`
+        };
+      } catch (error) {
+        console.error('[size-features-by-property] Error:', error);
+        return {
+          success: false,
+          message: `Failed to size features: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
       }
-
-      if (!property) {
-        return { success: false, message: 'Property required for sizing' };
-      }
-
-      // Create size accessor function
-      const sizeAccessor = (feature: { properties?: Record<string, unknown> }) => {
-        const propValue = feature.properties?.[property];
-        if (propValue === undefined) return baseSize;
-
-        const strValue = String(propValue).toLowerCase();
-
-        if (sizeRules) {
-          for (const rule of sizeRules) {
-            if (strValue === String(rule.value).toLowerCase()) {
-              return rule.size;
-            }
-          }
-        }
-        return baseSize;
-      };
-
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === targetLayerId) {
-          return layer.clone({
-            getPointRadius: sizeAccessor,
-            pointRadiusMinPixels: 1,
-            updateTriggers: { getPointRadius: JSON.stringify(sizeRules) }
-          });
-        }
-        return layer;
-      });
-
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
-
-      return {
-        success: true,
-        message: `Size by property "${property}" applied`
-      };
     },
 
     // ==================== REMOVE LAYER ====================
 
     [TOOL_NAMES.REMOVE_LAYER]: (params) => {
-      const { layerId } = params as { layerId: string };
+      try {
+        const { layerId } = params as { layerId: string };
 
-      const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
 
-      const updatedLayers = currentLayers.filter((layer) => layer.id !== targetLayerId);
+        const updatedLayers = currentLayers.filter((layer) => layer.id !== targetLayerId);
 
-      if (updatedLayers.length === currentLayers.length) {
-        return { success: false, message: `Layer "${layerId}" not found` };
-      }
-
-      // Remove from registry
-      for (const [name, id] of layerRegistry.entries()) {
-        if (id === targetLayerId) {
-          layerRegistry.delete(name);
-          break;
+        if (updatedLayers.length === currentLayers.length) {
+          return { success: false, message: `Layer "${layerId}" not found` };
         }
+
+        // Remove from registry
+        for (const [name, id] of layerRegistry.entries()) {
+          if (id === targetLayerId) {
+            layerRegistry.delete(name);
+            break;
+          }
+        }
+
+        deck.setProps({ layers: updatedLayers as Layer[] });
+        scheduleRedraws(deck);
+
+        return { success: true, message: `Layer "${layerId}" removed` };
+      } catch (error) {
+        console.error('[remove-layer] Error:', error);
+        return {
+          success: false,
+          message: `Failed to remove layer: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
       }
-
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
-
-      return { success: true, message: `Layer "${layerId}" removed` };
     },
 
     // ==================== UPDATE LAYER PROPS ====================
 
     [TOOL_NAMES.UPDATE_LAYER_PROPS]: (params) => {
-      const { layerId, props } = params as {
-        layerId: string;
-        props: Record<string, unknown>;
-      };
+      try {
+        const { layerId, props } = params as {
+          layerId: string;
+          props: Record<string, unknown>;
+        };
 
-      const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
 
-      let found = false;
-      const updatedLayers = currentLayers.map((layer) => {
-        if (layer.id === targetLayerId) {
-          found = true;
-          return layer.clone(props);
+        // Use JSONConverter to resolve any @@ references in props
+        const resolvedProps = convertJson(props);
+
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+
+        let found = false;
+        const updatedLayers = currentLayers.map((layer) => {
+          if (layer.id === targetLayerId) {
+            found = true;
+            return layer.clone(resolvedProps);
+          }
+          return layer;
+        });
+
+        if (!found) {
+          return { success: false, message: `Layer "${layerId}" not found` };
         }
-        return layer;
-      });
 
-      if (!found) {
-        return { success: false, message: `Layer "${layerId}" not found` };
+        deck.setProps({ layers: updatedLayers as Layer[] });
+        scheduleRedraws(deck);
+
+        return {
+          success: true,
+          message: `Layer "${layerId}" props updated`
+        };
+      } catch (error) {
+        console.error('[update-layer-props] Error:', error);
+        return {
+          success: false,
+          message: `Failed to update layer props: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
       }
-
-      deck.setProps({ layers: updatedLayers as Layer[] });
-      scheduleRedraws(deck);
-
-      return {
-        success: true,
-        message: `Layer "${layerId}" props updated`
-      };
     },
 
     // ==================== QUERY TOOLS (return info to LLM) ====================
 
     [TOOL_NAMES.GET_LAYER_CONFIG]: (params) => {
-      const { layerId } = params as { layerId?: string };
+      try {
+        const { layerId } = params as { layerId?: string };
 
-      const currentLayers = (deck.props.layers || []) as CloneableLayer[];
+        const currentLayers = (deck.props.layers || []) as CloneableLayer[];
 
-      if (layerId) {
-        const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
-        const layer = currentLayers.find((l) => l.id === targetLayerId);
-        if (layer) {
-          return {
-            success: true,
-            message: `Layer "${layerId}": visible=${layer.props.visible}, opacity=${layer.props.opacity}`
-          };
+        if (layerId) {
+          const targetLayerId = findLayerIdByName(layerId, layerRegistry) || layerId;
+          const layer = currentLayers.find((l) => l.id === targetLayerId);
+          if (layer) {
+            return {
+              success: true,
+              message: `Layer "${layerId}": visible=${layer.props.visible}, opacity=${layer.props.opacity}`,
+              data: {
+                id: layer.id,
+                type: layer.constructor.name,
+                visible: layer.props.visible,
+                opacity: layer.props.opacity
+              }
+            };
+          }
+          return { success: false, message: `Layer "${layerId}" not found` };
         }
-        return { success: false, message: `Layer "${layerId}" not found` };
-      }
 
-      // Return all layers info
-      const layerInfo = currentLayers.map((l) => `${l.id} (visible: ${l.props.visible})`);
-      return {
-        success: true,
-        message: `Available layers: ${layerInfo.join(', ')}`
-      };
+        // Return all layers info
+        const layerInfo = currentLayers.map((l) => ({
+          id: l.id,
+          type: l.constructor.name,
+          visible: l.props.visible
+        }));
+        return {
+          success: true,
+          message: `Available layers: ${layerInfo.map(l => `${l.id} (visible: ${l.visible})`).join(', ')}`,
+          data: { layers: layerInfo }
+        };
+      } catch (error) {
+        console.error('[get-layer-config] Error:', error);
+        return {
+          success: false,
+          message: `Failed to get layer config: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error as Error
+        };
+      }
     }
   };
 }
@@ -853,6 +1086,7 @@ export async function handleToolCall(
 
   if (!toolName) {
     console.error('[ToolExecutor] No tool name in message. Raw message:', message);
+    toolStatus.setError('No tool name provided');
     return;
   }
 
@@ -868,7 +1102,13 @@ export async function handleToolCall(
       console.log('[ToolExecutor] Executing tool:', toolName, 'with data:', data);
       const result = executor(data);
       console.log('[ToolExecutor] Execution result:', result);
-      toolStatus.showSuccess(result.message);
+
+      if (result.success) {
+        toolStatus.showSuccess(result.message);
+      } else {
+        toolStatus.setError(result.message);
+      }
+
       chatContainer.addToolCall({
         toolName,
         status: result.success ? 'success' : 'error',
@@ -886,8 +1126,37 @@ export async function handleToolCall(
     }
   } else if (!executor) {
     console.warn(`[ToolExecutor] No executor found for tool: ${toolName}`);
-    toolStatus.showSuccess(`Tool ${toolName} executed on backend`);
+    // Check if it's the add-layer tool with a different name
+    if (toolName === 'add_layer' || toolName === 'addLayer') {
+      const addLayerExecutor = executors['add-layer'];
+      if (addLayerExecutor && data) {
+        try {
+          const result = addLayerExecutor(data);
+          if (result.success) {
+            toolStatus.showSuccess(result.message);
+          } else {
+            toolStatus.setError(result.message);
+          }
+          chatContainer.addToolCall({
+            toolName,
+            status: result.success ? 'success' : 'error',
+            message: result.message
+          });
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          toolStatus.setError(errorMessage);
+          chatContainer.addToolCall({
+            toolName,
+            status: 'error',
+            message: errorMessage
+          });
+        }
+      }
+    } else {
+      toolStatus.showSuccess(`Tool ${toolName} executed on backend`);
+    }
   } else if (!data) {
     console.warn(`[ToolExecutor] No data for tool: ${toolName}`);
+    toolStatus.setError('No parameters provided for tool');
   }
 }

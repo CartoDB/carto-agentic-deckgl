@@ -41,6 +41,28 @@ const CARTO_CONFIG = {
   connectionName: import.meta.env.VITE_CONNECTION_NAME || 'carto_dw'
 };
 
+// ==================== LOADER STATE ====================
+
+type LoaderState = null | 'thinking' | 'executing';
+let loaderState: LoaderState = null;
+
+function setLoaderState(state: LoaderState): void {
+  loaderState = state;
+
+  // Update UI based on loader state
+  if (state === 'thinking') {
+    toolStatus.showToolExecution('AI is processing...');
+  } else if (state === 'executing') {
+    // Tool status will be updated by individual tool execution
+  } else {
+    // Clear state when done
+    toolStatus.clear();
+  }
+
+  // Update chat container to show/hide loading indicator
+  chatContainer.setLoadingState(state);
+}
+
 // ==================== MAP INITIALIZATION ====================
 
 const { deck, map } = createMap('map', 'deck-canvas', (viewState) => {
@@ -95,6 +117,11 @@ function handleMessage(message: ServerMessage): void {
         isComplete: chunk.isComplete
       });
 
+      // Clear thinking state when we start receiving content
+      if (loaderState === 'thinking' && chunk.content) {
+        setLoaderState(null);
+      }
+
       const existingMsg = chatContainer
         .getMessages()
         .find((m) => m.id === chunk.messageId);
@@ -110,11 +137,22 @@ function handleMessage(message: ServerMessage): void {
           content: chunk.content || '...'
         });
       }
+
+      // Clear loader when message is complete
+      if (chunk.isComplete && !chunk.content) {
+        setLoaderState(null);
+      }
       break;
     }
 
     case 'tool_call': {
-      handleToolCall(message as ToolCallMessage, executors, executorContext);
+      // Set executing state when a tool is being called
+      setLoaderState('executing');
+      handleToolCall(message as ToolCallMessage, executors, executorContext)
+        .then(() => {
+          // Clear executing state after tool execution completes
+          setLoaderState(null);
+        });
       break;
     }
 
@@ -126,6 +164,8 @@ function handleMessage(message: ServerMessage): void {
         status: 'success',
         message: result.message || String(result.data)
       });
+      // Clear executing state
+      setLoaderState(null);
       break;
     }
 
@@ -136,6 +176,8 @@ function handleMessage(message: ServerMessage): void {
         content: `Error: ${error.content}`
       });
       toolStatus.setError(error.content);
+      // Clear loader on error
+      setLoaderState(null);
       break;
     }
 
@@ -181,6 +223,10 @@ if (USE_HTTP) {
 // Chat send handler
 chatContainer.onSend((content) => {
   chatContainer.addMessage({ role: 'user', content });
+
+  // Set thinking state when sending a message
+  setLoaderState('thinking');
+
   client.send({
     type: 'chat_message',
     content,
