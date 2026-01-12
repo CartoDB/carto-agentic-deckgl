@@ -120,6 +120,9 @@ export class MCPClient {
         // Convert MCP tool schema (JSON Schema) to Zod schema for validation
         const zodSchema = this.jsonSchemaToZod(tool.inputSchema);
 
+        // Extract default apiBaseUrl from MCP URL (e.g., https://gcp-us-east1.api.carto.com/mcp/... -> https://gcp-us-east1.api.carto.com)
+        const defaultApiBaseUrl = this.extractApiBaseUrl(this.mcpUrl);
+
         // Store both Zod (for validation) and original JSON Schema (for OpenAI)
         definitions.push({
           name: sanitizedName,
@@ -127,7 +130,28 @@ export class MCPClient {
           schema: zodSchema,
           jsonSchema: tool.inputSchema, // Keep original JSON Schema
           execute: async (args: any) => {
-            return await this.executeTool(name, args);
+            const result = await this.executeTool(name, args);
+
+            // Inject apiBaseUrl into result if it contains CARTO-specific fields
+            if (result && typeof result === 'object' && (result.tableName || result.connectionName)) {
+              // Map location to CARTO API endpoint
+              let apiBaseUrl = defaultApiBaseUrl;
+
+              if (result.location) {
+                console.log(`[MCP] Result has location field: ${result.location}`);
+                apiBaseUrl = this.getApiBaseUrlFromLocation(result.location);
+                console.log(`[MCP] Mapped location "${result.location}" to apiBaseUrl: ${apiBaseUrl}`);
+              } else {
+                console.log(`[MCP] No location field, using default apiBaseUrl: ${apiBaseUrl}`);
+              }
+
+              return {
+                ...result,
+                apiBaseUrl,
+              };
+            }
+
+            return result;
           },
         });
 
@@ -138,6 +162,37 @@ export class MCPClient {
     }
 
     return definitions;
+  }
+
+  /**
+   * Extract API base URL from MCP server URL
+   * Example: https://gcp-us-east1.api.carto.com/mcp/ac_xxx -> https://gcp-us-east1.api.carto.com
+   */
+  private extractApiBaseUrl(mcpUrl: string): string {
+    try {
+      const url = new URL(mcpUrl);
+      return `${url.protocol}//${url.host}`;
+    } catch (error) {
+      console.error(`[MCP] Failed to extract API base URL from ${mcpUrl}:`, error);
+      return mcpUrl; // Fallback to full URL
+    }
+  }
+
+  /**
+   * Map CARTO location code to API base URL
+   * @param location - Location code like "US", "EU", etc.
+   * @returns Corresponding CARTO API endpoint
+   */
+  private getApiBaseUrlFromLocation(location: string): string {
+    const locationMap: Record<string, string> = {
+      'US': 'https://gcp-us-east1.api.carto.com',
+      'EU': 'https://gcp-europe-west1.api.carto.com',
+      'ASIA': 'https://gcp-asia-southeast1.api.carto.com',
+      // Add more regions as needed
+    };
+
+    const upperLocation = location.toUpperCase();
+    return locationMap[upperLocation] || this.extractApiBaseUrl(this.mcpUrl);
   }
 
   /**
@@ -238,7 +293,7 @@ export class MCPClient {
         arguments: args,
       });
 
-      console.log(`[MCP] Tool execution result:`, response);
+      console.log(`[MCP] Tool execution result:`, JSON.stringify(response, null, 2));
 
       // Extract content from response
       const content = response.content as any[];
@@ -247,10 +302,18 @@ export class MCPClient {
         const firstContent = content[0];
 
         if (firstContent.type === 'text') {
-          return { text: firstContent.text };
+          // Try to parse text as JSON to get structured data
+          try {
+            const parsed = JSON.parse(firstContent.text);
+            console.log(`[MCP] Parsed text result:`, JSON.stringify(parsed, null, 2));
+            return parsed;
+          } catch (e) {
+            return { text: firstContent.text };
+          }
         } else if (firstContent.type === 'resource') {
           return { resource: firstContent };
         } else {
+          console.log(`[MCP] Content result:`, JSON.stringify(firstContent, null, 2));
           return firstContent;
         }
       }
