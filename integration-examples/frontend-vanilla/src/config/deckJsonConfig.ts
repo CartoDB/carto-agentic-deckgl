@@ -27,7 +27,8 @@ import {
 import {
   VectorTileLayer,
   H3TileLayer,
-  QuadbinTileLayer
+  QuadbinTileLayer,
+  vectorTableSource
 } from '@deck.gl/carto';
 
 /**
@@ -145,23 +146,69 @@ const CUSTOM_FUNCTIONS = {
   },
 
   /**
-   * Create a CARTO vector tile source
-   * Usage: { "@@function": "cartoVectorTileSource", "connectionName": "...", "tableName": "..." }
-   * Note: Returns configuration object for VectorTileLayer data prop
+   * Create a CARTO vector table source using the official CARTO API
+   * Usage: { "@@function": "createVectorTableSource", "connectionName": "...", "tableName": "..." }
+   * Note: Creates a proper CARTO data source instance for VectorTileLayer
+   * @see https://docs.carto.com/carto-for-developers/reference/data-sources/vectortablesource
    */
-  cartoVectorTileSource: (config: any) => {
-    // Get credentials from environment or config
-    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_CARTO_API_BASE_URL;
-    const accessToken = config.accessToken || import.meta.env.VITE_CARTO_ACCESS_TOKEN;
+  createVectorTableSource: (config: any) => {
+    console.log('[createVectorTableSource] Input config:', config);
+    console.log('[createVectorTableSource] Environment variables:', {
+      VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+      VITE_API_ACCESS_TOKEN: import.meta.env.VITE_API_ACCESS_TOKEN ? 'SET' : 'NOT SET'
+    });
 
-    // Return configuration for VectorTileLayer
-    return {
-      type: 'vector',
-      apiBaseUrl,
-      accessToken,
-      connectionName: config.connectionName || 'carto_dw',
-      tableName: config.tableName,
-    };
+    // Get credentials from environment or config
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+
+    if (!apiBaseUrl) {
+      console.warn('[createVectorTableSource] WARNING: No API base URL provided or found in environment');
+    }
+    if (!accessToken) {
+      console.warn('[createVectorTableSource] WARNING: No access token provided or found in environment');
+    }
+
+    // Use the CARTO vectorTableSource function to create a proper data source instance
+    try {
+      console.log('[createVectorTableSource] Calling vectorTableSource with:', {
+        apiBaseUrl,
+        accessToken: accessToken ? 'SET' : 'NOT SET',
+        connectionName: config.connectionName || 'carto_dw',
+        tableName: config.tableName,
+        columns: config.columns,
+        spatialDataColumn: config.spatialDataColumn
+      });
+
+      const dataSource = vectorTableSource({
+        apiBaseUrl,
+        accessToken,
+        connectionName: config.connectionName || 'carto_dw',
+        tableName: config.tableName,
+        columns: config.columns,
+        spatialDataColumn: config.spatialDataColumn
+      });
+
+      console.log('[createVectorTableSource] Created CARTO data source:', dataSource);
+      console.log('[createVectorTableSource] Data source type:', typeof dataSource);
+      console.log('[createVectorTableSource] Data source properties:', Object.keys(dataSource || {}));
+
+      // The vectorTableSource returns a Promise that resolves to the data source
+      // We need to return the Promise so VectorTileLayer can handle it
+      return dataSource;
+    } catch (error) {
+      console.error('[createVectorTableSource] Failed to create data source:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Wrapper for CARTO's vectorTableSource - used by tool executor
+   * This name matches what the tool executor expects
+   */
+  vectorTableSource: (config: any) => {
+    console.log('[vectorTableSource] Creating CARTO data source');
+    return CUSTOM_FUNCTIONS.createVectorTableSource(config);
   },
 };
 

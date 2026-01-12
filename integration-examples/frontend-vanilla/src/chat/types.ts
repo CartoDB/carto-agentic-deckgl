@@ -2,11 +2,34 @@
  * Message types for client-server communication
  */
 
+// Initial state context for AI
+export interface InitialState {
+  viewState: {
+    longitude: number;
+    latitude: number;
+    zoom: number;
+    pitch: number;
+    bearing: number;
+  };
+  layers: Array<{
+    id: string;
+    type: string;
+    visible: boolean;
+    opacity?: number;
+    data: string;
+  }>;
+  cartoConfig: {
+    connectionName: string;
+    hasCredentials: boolean;
+  };
+}
+
 // Client -> Server
 export interface ChatMessage {
   type: 'chat_message';
   content: string;
   timestamp: number;
+  initialState?: InitialState | null; // Optional context about current map state
 }
 
 // Server -> Client message types

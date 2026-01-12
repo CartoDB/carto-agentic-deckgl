@@ -383,7 +383,7 @@ export function executeFullSpec(fullSpec: Record<string, any>): any {
  * Creates a new layer instance from a JSON specification.
  *
  * @example
- * const layer = executeAddLayerSpec({
+ * const layer = await executeAddLayerSpec({
  *   '@@type': 'VectorTileLayer',
  *   id: 'new-points',
  *   data: {
@@ -396,18 +396,84 @@ export function executeFullSpec(fullSpec: Record<string, any>): any {
  *   getPointRadius: 100
  * });
  */
-export function executeAddLayerSpec(layerSpec: Record<string, any>): any {
+export async function executeAddLayerSpec(layerSpec: Record<string, any>): Promise<any> {
+  console.log('[executeAddLayerSpec] Input layer spec:', layerSpec);
+  console.log('[executeAddLayerSpec] Input data type:', typeof layerSpec.data);
+  console.log('[executeAddLayerSpec] Input data value:', JSON.stringify(layerSpec.data, null, 2));
+
   // Ensure the spec has @@type for layer instantiation
   if (!layerSpec['@@type']) {
+    console.error('[executeAddLayerSpec] Missing @@type property');
     throw new Error('Layer spec must include @@type property for layer class');
   }
 
   const converter = getJsonConverter();
+  console.log('[executeAddLayerSpec] Using JSONConverter to process spec');
 
-  // Convert the layer spec directly
-  const resolvedLayer = converter.convert(layerSpec);
+  try {
+    // IMPORTANT: For VectorTileLayer with CARTO data, we need to resolve the data source BEFORE
+    // passing to the layer constructor. The JSONConverter doesn't automatically resolve
+    // nested @@function references in the data property for layers.
+    let processedSpec = { ...layerSpec };
 
-  return resolvedLayer;
+    if (layerSpec.data && typeof layerSpec.data === 'object' && layerSpec.data['@@function']) {
+      console.log('[executeAddLayerSpec] Resolving @@function in data before layer creation');
+      const resolvedData = resolveValue(layerSpec.data);
+      console.log('[executeAddLayerSpec] Pre-resolved data source:', resolvedData);
+      console.log('[executeAddLayerSpec] Data source type:', typeof resolvedData);
+
+      // Check if the resolved data is a Promise (CARTO vectorTableSource returns a Promise)
+      if (resolvedData && typeof resolvedData.then === 'function') {
+        console.log('[executeAddLayerSpec] Data source is a Promise, awaiting resolution...');
+        try {
+          const awaitedData = await resolvedData;
+          console.log('[executeAddLayerSpec] Awaited data source:', awaitedData);
+          console.log('[executeAddLayerSpec] Awaited data type:', typeof awaitedData);
+          processedSpec.data = awaitedData;
+          console.log('[executeAddLayerSpec] Applied awaited data source to spec');
+        } catch (error) {
+          console.error('[executeAddLayerSpec] Failed to await data source:', error);
+          throw new Error(`Failed to resolve CARTO data source: ${error}`);
+        }
+      } else if (resolvedData) {
+        // Not a Promise, use directly
+        processedSpec.data = resolvedData;
+        console.log('[executeAddLayerSpec] Applied resolved data source to spec');
+      } else {
+        console.error('[executeAddLayerSpec] Failed to resolve data source!');
+        throw new Error('Failed to resolve CARTO data source');
+      }
+    }
+
+    // Now convert the layer spec with the resolved data
+    console.log('[executeAddLayerSpec] Converting layer spec with resolved data');
+    const resolvedLayer = converter.convert(processedSpec);
+
+    console.log('[executeAddLayerSpec] Post-conversion layer type:', resolvedLayer?.constructor?.name);
+    console.log('[executeAddLayerSpec] Post-conversion layer id:', resolvedLayer?.id);
+    console.log('[executeAddLayerSpec] Post-conversion layer has props:', !!resolvedLayer?.props);
+
+    // Verify the data is properly set
+    const finalData = resolvedLayer?.props?.data;
+    console.log('[executeAddLayerSpec] Final layer data check:', {
+      hasData: !!finalData,
+      dataType: typeof finalData,
+      dataIsNull: finalData === null,
+      dataIsUndefined: finalData === undefined,
+      dataKeys: finalData ? Object.keys(finalData) : []
+    });
+
+    if (!finalData) {
+      console.error('[executeAddLayerSpec] ERROR: Layer has no data after conversion!');
+      console.error('[executeAddLayerSpec] This will cause VectorTileLayer to fail');
+      throw new Error('Layer data is null or undefined after conversion');
+    }
+
+    return resolvedLayer;
+  } catch (error) {
+    console.error('[executeAddLayerSpec] Layer creation failed:', error);
+    throw error;
+  }
 }
 
 /**

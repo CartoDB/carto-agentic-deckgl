@@ -43,25 +43,8 @@ const CARTO_CONFIG = {
 
 // ==================== LOADER STATE ====================
 
-type LoaderState = null | 'thinking' | 'executing';
-let loaderState: LoaderState = null;
-
-function setLoaderState(state: LoaderState): void {
-  loaderState = state;
-
-  // Update UI based on loader state
-  if (state === 'thinking') {
-    toolStatus.showToolExecution('AI is processing...');
-  } else if (state === 'executing') {
-    // Tool status will be updated by individual tool execution
-  } else {
-    // Clear state when done
-    toolStatus.clear();
-  }
-
-  // Update chat container to show/hide loading indicator
-  chatContainer.setLoadingState(state);
-}
+// Track current loading message ID for tool execution stages
+let currentLoadingMessageId: string | null = null;
 
 // ==================== MAP INITIALIZATION ====================
 
@@ -117,9 +100,10 @@ function handleMessage(message: ServerMessage): void {
         isComplete: chunk.isComplete
       });
 
-      // Clear thinking state when we start receiving content
-      if (loaderState === 'thinking' && chunk.content) {
-        setLoaderState(null);
+      // Remove thinking message when we start receiving content
+      if (chatContainer.hasThinkingMessage() && chunk.content) {
+        chatContainer.removeThinkingMessage();
+        chatContainer.setInputDisabled(false);
       }
 
       const existingMsg = chatContainer
@@ -138,20 +122,113 @@ function handleMessage(message: ServerMessage): void {
         });
       }
 
-      // Clear loader when message is complete
+      // Check if message indicates an action is about to start
+      // Show transitional loader when AI mentions enrichment/workflow/mcp actions
+      if (chunk.content && !currentLoadingMessageId) {
+        const contentLower = chunk.content.toLowerCase();
+        const actionKeywords = ['enrich', 'workflow', 'population', 'demographic', 'buffer', 'isochrone', 'create a layer', 'add a layer', 'vector layer'];
+        const hasActionKeyword = actionKeywords.some(keyword => contentLower.includes(keyword));
+
+        if (hasActionKeyword) {
+          // Show transitional loader for MCP action
+          currentLoadingMessageId = chatContainer.addToolLoading('MCP Action', 'mcp_request');
+          console.log('[Frontend] Detected action keyword, showing transitional loader');
+        }
+      }
+
+      // Clear loader state when message is complete with no content
       if (chunk.isComplete && !chunk.content) {
-        setLoaderState(null);
+        chatContainer.removeThinkingMessage();
+        chatContainer.setInputDisabled(false);
       }
       break;
     }
 
     case 'tool_call': {
-      // Set executing state when a tool is being called
-      setLoaderState('executing');
-      handleToolCall(message as ToolCallMessage, executors, executorContext)
+      const toolMessage = message as ToolCallMessage;
+
+      // Remove thinking message if still showing
+      chatContainer.removeThinkingMessage();
+
+      // Show loading message in chat for tool execution
+      if (toolMessage.tool) {
+        // Determine the initial stage based on tool name
+        type LoadingStage = 'starting' | 'mcp_request' | 'mcp_processing' | 'enriching' | 'creating' | 'loading';
+        let stage: LoadingStage = 'starting';
+
+        // For vector layer or MCP tools, start with mcp_request stage
+        if (toolMessage.tool === 'add-vector-layer' || toolMessage.tool.includes('mcp')) {
+          stage = 'mcp_request';
+        }
+        // For enrichment tools, start with enriching stage
+        else if (toolMessage.tool.includes('enrich') || toolMessage.tool.includes('workflow')) {
+          stage = 'enriching';
+        }
+
+        // If transitional loader exists, update it instead of creating new one
+        if (currentLoadingMessageId) {
+          // Update existing loader with actual tool name and stage
+          chatContainer.updateToolLoading(currentLoadingMessageId, stage, `⚡ Executing ${toolMessage.tool}...`);
+          console.log('[Frontend] Updated transitional loader with actual tool:', toolMessage.tool);
+        } else {
+          // Add new loading message to chat
+          currentLoadingMessageId = chatContainer.addToolLoading(toolMessage.tool, stage);
+        }
+
+        // Update stages for specific tools with MCP operations
+        if (toolMessage.tool === 'add-vector-layer' || toolMessage.tool.includes('mcp')) {
+          // Stage 1: MCP request (immediate)
+          // Stage 2: MCP processing (after ~1s)
+          setTimeout(() => {
+            if (currentLoadingMessageId) {
+              chatContainer.updateToolLoading(currentLoadingMessageId, 'mcp_processing');
+            }
+          }, 1000);
+
+          // Stage 3: Creating layer (after ~2.5s)
+          setTimeout(() => {
+            if (currentLoadingMessageId) {
+              chatContainer.updateToolLoading(currentLoadingMessageId, 'creating');
+            }
+          }, 2500);
+
+          // Stage 4: Loading tiles (after ~4s)
+          setTimeout(() => {
+            if (currentLoadingMessageId) {
+              chatContainer.updateToolLoading(currentLoadingMessageId, 'loading');
+            }
+          }, 4000);
+        } else if (toolMessage.tool.includes('enrich')) {
+          // Enrichment-specific stages
+          setTimeout(() => {
+            if (currentLoadingMessageId) {
+              chatContainer.updateToolLoading(currentLoadingMessageId, 'creating');
+            }
+          }, 2000);
+
+          setTimeout(() => {
+            if (currentLoadingMessageId) {
+              chatContainer.updateToolLoading(currentLoadingMessageId, 'loading');
+            }
+          }, 4000);
+        }
+      }
+
+      handleToolCall(toolMessage, executors, executorContext)
         .then(() => {
-          // Clear executing state after tool execution completes
-          setLoaderState(null);
+          // Remove loading message after tool execution completes
+          if (currentLoadingMessageId) {
+            chatContainer.removeToolLoading(currentLoadingMessageId);
+            currentLoadingMessageId = null;
+          }
+        })
+        .catch((error) => {
+          // Remove loading message on error
+          if (currentLoadingMessageId) {
+            chatContainer.removeToolLoading(currentLoadingMessageId);
+            currentLoadingMessageId = null;
+          }
+          console.error('Tool execution error:', error);
         });
       break;
     }
@@ -164,8 +241,12 @@ function handleMessage(message: ServerMessage): void {
         status: 'success',
         message: result.message || String(result.data)
       });
-      // Clear executing state
-      setLoaderState(null);
+      // Clean up any remaining loading states
+      chatContainer.removeThinkingMessage();
+      if (currentLoadingMessageId) {
+        chatContainer.removeToolLoading(currentLoadingMessageId);
+        currentLoadingMessageId = null;
+      }
       break;
     }
 
@@ -176,8 +257,13 @@ function handleMessage(message: ServerMessage): void {
         content: `Error: ${error.content}`
       });
       toolStatus.setError(error.content);
-      // Clear loader on error
-      setLoaderState(null);
+      // Clean up any loading states on error
+      chatContainer.removeThinkingMessage();
+      chatContainer.setInputDisabled(false);
+      if (currentLoadingMessageId) {
+        chatContainer.removeToolLoading(currentLoadingMessageId);
+        currentLoadingMessageId = null;
+      }
       break;
     }
 
@@ -218,19 +304,80 @@ if (USE_HTTP) {
   chatContainer.hideConnectionStatus();
 }
 
+// ==================== INITIAL STATE CREATION ====================
+
+/**
+ * Create initial state object to send with each message.
+ * This gives the AI context about current layers and view state.
+ */
+function createInitialState() {
+  if (!deck) return null;
+
+  // Get current view state - use props.initialViewState which is public
+  const viewStateProps = deck.props.initialViewState || {};
+
+  // Handle both single view state and multi-view state formats
+  const viewState = 'longitude' in viewStateProps
+    ? viewStateProps
+    : INITIAL_VIEW_STATE; // Fallback to initial state
+
+  const initialViewState = {
+    longitude: Number(viewState.longitude ?? INITIAL_VIEW_STATE.longitude),
+    latitude: Number(viewState.latitude ?? INITIAL_VIEW_STATE.latitude),
+    zoom: Number(viewState.zoom ?? INITIAL_VIEW_STATE.zoom),
+    pitch: Number(viewState.pitch ?? 0),
+    bearing: Number(viewState.bearing ?? 0)
+  };
+
+  // Get current layers information
+  const currentLayers = deck.props.layers || [];
+  const layers = currentLayers.map((layer: any) => ({
+    id: layer.id,
+    type: layer.constructor.name,
+    visible: layer.props?.visible !== false,
+    // Include additional relevant properties
+    opacity: layer.props?.opacity,
+    data: Array.isArray(layer.props?.data)
+      ? `${layer.props.data.length} features`
+      : typeof layer.props?.data === 'object' && layer.props?.data?.type === 'vector'
+      ? `Vector tile: ${layer.props?.data?.tableName || 'unknown'}`
+      : 'Unknown data source'
+  }));
+
+  console.log('[createInitialState] Current state:', {
+    viewState: initialViewState,
+    layerCount: layers.length,
+    layers
+  });
+
+  return {
+    viewState: initialViewState,
+    layers,
+    cartoConfig: {
+      connectionName: CARTO_CONFIG.connectionName,
+      hasCredentials: !!CARTO_CONFIG.accessToken
+    }
+  };
+}
+
 // ==================== UI EVENT HANDLERS ====================
 
 // Chat send handler
 chatContainer.onSend((content) => {
   chatContainer.addMessage({ role: 'user', content });
 
-  // Set thinking state when sending a message
-  setLoaderState('thinking');
+  // Show inline thinking message and disable input
+  chatContainer.addThinkingMessage();
+  chatContainer.setInputDisabled(true);
+
+  // Get current map state to provide context to AI
+  const initialState = createInitialState();
 
   client.send({
     type: 'chat_message',
     content,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    initialState // Include layer and view state context for AI
   });
 });
 
@@ -266,6 +413,19 @@ async function initialize(): Promise<void> {
       // Set up empty layer list
       const layers: LayerInfo[] = [];
       layerToggle.setLayers(layers);
+
+      // Send initial state even without CARTO layers
+      setTimeout(() => {
+        const initialState = createInitialState();
+        if (initialState) {
+          console.log('[Application] Initial map state (demo mode):', initialState);
+
+          chatContainer.addMessage({
+            role: 'assistant',
+            content: `Map initialized in demo mode. Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you navigate the map and change view settings. To add vector layers, configure CARTO credentials in the .env file.`
+          });
+        }
+      }, 500);
     } else {
       // Initialize CARTO data source
       console.log('[Frontend] Initializing CARTO data source...');
@@ -287,6 +447,21 @@ async function initialize(): Promise<void> {
       // Schedule redraws after layer is added
       map.on('load', () => {
         scheduleRedraws(deck);
+
+        // Send initial state to AI after map and layers are loaded
+        // This gives the AI context about what's available on the map
+        setTimeout(() => {
+          const initialState = createInitialState();
+          if (initialState) {
+            console.log('[Application] Initial map state:', initialState);
+
+            // Optional: Show welcome message to user with context
+            chatContainer.addMessage({
+              role: 'assistant',
+              content: `Map initialized with ${initialState.layers.length} layer(s). Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you explore the map, add vector layers, change colors, zoom to locations, and more.`
+            });
+          }
+        }, 500); // Small delay to ensure everything is rendered
       });
 
       console.log('[Frontend] CARTO data source initialized');
