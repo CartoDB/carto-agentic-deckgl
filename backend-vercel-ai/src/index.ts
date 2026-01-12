@@ -4,6 +4,7 @@
 
 import 'dotenv/config';
 import { startServer } from './server.js';
+import { initializeMCPClients } from './agent/mcp-tools.js';
 
 // Check for at least one provider API key
 const hasOpenAI = !!process.env.OPENAI_API_KEY;
@@ -19,12 +20,26 @@ if (!hasOpenAI && !hasAnthropic && !hasGoogle && !hasCarto) {
 
 const PORT = parseInt(process.env.PORT || '3003', 10);
 
-console.log('Starting Vercel AI SDK backend...');
-console.log('Available providers:');
-if (hasOpenAI) console.log(`  - OpenAI (${process.env.OPENAI_MODEL || 'gpt-4o'})`);
-if (hasAnthropic) console.log(`  - Anthropic (${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'})`);
-if (hasGoogle) console.log(`  - Google (${process.env.GOOGLE_MODEL || 'gemini-2.5-flash'})`);
-if (hasCarto) console.log(`  - CARTO (${process.env.CARTO_AI_API_MODEL || 'gpt-4o'})`);
-console.log(`Default provider: ${process.env.DEFAULT_PROVIDER || 'openai'}`);
+async function main() {
+  console.log('Starting Vercel AI SDK backend...');
+  console.log('Available providers:');
+  if (hasOpenAI) console.log(`  - OpenAI (${process.env.OPENAI_MODEL || 'gpt-4o'})`);
+  if (hasAnthropic) console.log(`  - Anthropic (${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'})`);
+  if (hasGoogle) console.log(`  - Google (${process.env.GOOGLE_MODEL || 'gemini-2.5-flash'})`);
+  if (hasCarto) console.log(`  - CARTO (${process.env.CARTO_AI_API_MODEL || 'gpt-4o'})`);
+  console.log(`Default provider: ${process.env.DEFAULT_PROVIDER || 'openai'}`);
 
-startServer(PORT);
+  // Initialize MCP clients (if configured)
+  try {
+    await initializeMCPClients();
+  } catch (error) {
+    console.error('MCP initialization failed:', (error as Error).message);
+  }
+
+  startServer(PORT);
+}
+
+main().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
