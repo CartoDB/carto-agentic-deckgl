@@ -126,6 +126,13 @@ export class HttpClient {
   processJsonLine(line) {
     try {
       const message = JSON.parse(line);
+      console.log('[HttpClient] Message:', message);
+      // Update session ID if server sent a new one (happens on retry)
+      if (message.sessionId && message.sessionId !== this.sessionId) {
+        console.log('[HttpClient] Session ID updated:', this.sessionId, '->', message.sessionId);
+        this.sessionId = message.sessionId;
+      }
+
       this.onMessage(message);
     } catch (error) {
       console.error('[HttpClient] Failed to parse JSON:', line, error);

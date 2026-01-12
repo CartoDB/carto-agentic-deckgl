@@ -121,6 +121,7 @@ MCP tools run asynchronously. You MUST complete the full workflow:
    - Use update-layer-style with the layer ID from step 4d
    - Do NOT call MCP tools again - the data already exists on the map
 
+      
 CRITICAL RULES:
 - NEVER stop polling while status is "running" - always continue until "done" or "failed"
 - Do NOT add unnecessary text between status polls - just keep polling silently
