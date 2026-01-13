@@ -24,7 +24,9 @@ import type {
   ChatClient,
   ServerMessage,
   StreamChunkMessage,
-  ToolCallMessage
+  ToolCallMessage,
+  ToolCallStartMessage,
+  McpToolResultMessage
 } from './chat/types';
 
 // ==================== CONFIGURATION ====================
@@ -75,13 +77,15 @@ const layerRegistry = new Map<string, string>();
 
 // ==================== TOOL EXECUTORS ====================
 
+// Context will be updated with sendToolResult after client is created
 const executorContext: ToolExecutorContext = {
   deck,
   zoomControls,
   layerToggle,
   toolStatus,
   chatContainer,
-  layerRegistry
+  layerRegistry,
+  sendToolResult: undefined // Will be set after client creation
 };
 
 const executors = createToolExecutors(executorContext);
@@ -122,25 +126,47 @@ function handleMessage(message: ServerMessage): void {
         });
       }
 
-      // Check if message indicates an action is about to start
-      // Show transitional loader when AI mentions enrichment/workflow/mcp actions
-      if (chunk.content && !currentLoadingMessageId) {
-        const contentLower = chunk.content.toLowerCase();
-        const actionKeywords = ['enrich', 'workflow', 'population', 'demographic', 'buffer', 'isochrone', 'create a layer', 'add a layer', 'vector layer'];
-        const hasActionKeyword = actionKeywords.some(keyword => contentLower.includes(keyword));
-
-        if (hasActionKeyword) {
-          // Show transitional loader for MCP action
-          currentLoadingMessageId = chatContainer.addToolLoading('MCP Action', 'mcp_request');
-          console.log('[Frontend] Detected action keyword, showing transitional loader');
-        }
-      }
-
-      // Clear loader state when message is complete with no content
-      if (chunk.isComplete && !chunk.content) {
+      // Clear loader state when message is complete
+      if (chunk.isComplete) {
         chatContainer.removeThinkingMessage();
         chatContainer.setInputDisabled(false);
+        // Also clear any tool loading message when stream completes
+        if (currentLoadingMessageId) {
+          chatContainer.removeToolLoading(currentLoadingMessageId);
+          currentLoadingMessageId = null;
+        }
       }
+      break;
+    }
+
+    case 'tool_call_start': {
+      // Agent is starting to call a tool (backend tool execution)
+      const startMessage = message as ToolCallStartMessage;
+      console.log('[Frontend] Tool call starting:', startMessage.toolName);
+
+      // Remove thinking message if still showing
+      chatContainer.removeThinkingMessage();
+
+      // Show loading message for agent tool execution
+      if (!currentLoadingMessageId) {
+        currentLoadingMessageId = chatContainer.addToolLoading(startMessage.toolName, 'mcp_request');
+      } else {
+        // Update existing loader with the tool name
+        chatContainer.updateToolLoading(currentLoadingMessageId, 'mcp_request', `🔗 Working with ${startMessage.toolName}...`);
+      }
+      break;
+    }
+
+    case 'mcp_tool_result': {
+      // MCP tool completed on the backend
+      const mcpResult = message as McpToolResultMessage;
+      console.log('[Frontend] MCP tool result:', mcpResult.toolName);
+
+      // Update loader to show processing stage
+      if (currentLoadingMessageId) {
+        chatContainer.updateToolLoading(currentLoadingMessageId, 'mcp_processing', `⚙️ Processing ${mcpResult.toolName} result...`);
+      }
+      // Don't remove loader yet - there may be more tool calls or frontend tools coming
       break;
     }
 
@@ -221,6 +247,8 @@ function handleMessage(message: ServerMessage): void {
             chatContainer.removeToolLoading(currentLoadingMessageId);
             currentLoadingMessageId = null;
           }
+          // Re-enable input after tool execution
+          chatContainer.setInputDisabled(false);
         })
         .catch((error) => {
           // Remove loading message on error
@@ -228,6 +256,8 @@ function handleMessage(message: ServerMessage): void {
             chatContainer.removeToolLoading(currentLoadingMessageId);
             currentLoadingMessageId = null;
           }
+          // Re-enable input even on error
+          chatContainer.setInputDisabled(false);
           console.error('Tool execution error:', error);
         });
       break;
@@ -243,6 +273,7 @@ function handleMessage(message: ServerMessage): void {
       });
       // Clean up any remaining loading states
       chatContainer.removeThinkingMessage();
+      chatContainer.setInputDisabled(false);
       if (currentLoadingMessageId) {
         chatContainer.removeToolLoading(currentLoadingMessageId);
         currentLoadingMessageId = null;
@@ -298,6 +329,19 @@ function handleHttpConnectionChange(): void {
 const client: ChatClient = USE_HTTP
   ? new HttpClient(HTTP_API_URL, handleMessage, handleHttpConnectionChange)
   : new WebSocketClient(WS_URL, handleMessage, handleConnectionChange);
+
+// Wire up the sendToolResult callback now that client is created
+executorContext.sendToolResult = (result) => {
+  console.log('[Frontend] Sending tool result to server:', result);
+  client.send({
+    type: 'tool_result',
+    toolName: result.toolName,
+    callId: result.callId,
+    success: result.success,
+    message: result.message,
+    error: result.error
+  });
+};
 
 // Hide connection status for HTTP mode (not applicable)
 if (USE_HTTP) {

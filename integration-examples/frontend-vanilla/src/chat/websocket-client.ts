@@ -1,11 +1,12 @@
 import type {
   ChatClient,
-  ChatMessage,
+  ClientMessage,
   MessageHandler,
   ConnectionChangeHandler,
   ServerMessage,
   StreamChunkMessage,
-  ErrorMessage
+  ErrorMessage,
+  FrontendToolResultMessage
 } from './types';
 
 /**
@@ -139,12 +140,19 @@ export class WebSocketClient implements ChatClient {
   /**
    * Send a message to the server
    */
-  send(message: ChatMessage): void {
+  send(message: ClientMessage): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
       console.error('[WebSocket] Cannot send message - not connected');
     }
+  }
+
+  /**
+   * Send tool execution result back to the server
+   */
+  sendToolResult(result: FrontendToolResultMessage): void {
+    this.send(result);
   }
 
   /**

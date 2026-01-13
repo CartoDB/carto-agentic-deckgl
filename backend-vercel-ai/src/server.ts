@@ -11,7 +11,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import { runMapAgent } from './services/agent-runner.js';
 import { ConversationManager } from './services/conversation-manager.js';
-import type { ChatMessage } from './types/messages.js';
+import type { ChatMessage, ToolResultMessage } from './types/messages.js';
 
 const app = express();
 app.use(cors());
@@ -34,10 +34,16 @@ wss.on('connection', (ws) => {
 
   ws.on('message', async (data) => {
     try {
-      const message = JSON.parse(data.toString()) as ChatMessage & { provider?: string };
+      const rawMessage = JSON.parse(data.toString()) as { type: string; provider?: string };
       const sid = sessions.get(ws);
 
-      if (sid && message.type === 'chat_message') {
+      if (!sid) {
+        console.error('[WS] No session ID found for connection');
+        return;
+      }
+
+      if (rawMessage.type === 'chat_message') {
+        const message = rawMessage as ChatMessage & { provider?: string };
         const history = conversationManager.getHistory(sid);
         conversationManager.addMessage(sid, {
           role: 'user',
@@ -55,6 +61,46 @@ wss.on('connection', (ws) => {
 
         if (response) {
           conversationManager.addMessage(sid, response);
+        }
+      } else if (rawMessage.type === 'tool_result') {
+        // Handle tool execution results from frontend
+        const toolResult = rawMessage as ToolResultMessage;
+        console.log(`[WS] Tool result received: ${toolResult.toolName} - ${toolResult.success ? 'success' : 'failed'}`);
+
+        if (toolResult.success) {
+          // Tool succeeded - add to conversation history so AI knows what exists
+          conversationManager.addMessage(sid, {
+            role: 'assistant',
+            content: `[Tool executed successfully: ${toolResult.toolName}] ${toolResult.message}`,
+          });
+        } else {
+          // Tool failed - send a correction message to inform the user
+          const correctionMessage = `I apologize, but the ${toolResult.toolName} operation failed: ${toolResult.error || toolResult.message}`;
+
+          // Add the failure to conversation history for context
+          conversationManager.addMessage(sid, {
+            role: 'assistant',
+            content: `[Tool execution failed: ${toolResult.toolName}] ${toolResult.error || toolResult.message}`,
+          });
+
+          // Send correction as a stream chunk to the client
+          const correctionId = `correction_${Date.now()}`;
+          ws.send(
+            JSON.stringify({
+              type: 'stream_chunk',
+              content: correctionMessage,
+              messageId: correctionId,
+              isComplete: false,
+            })
+          );
+          ws.send(
+            JSON.stringify({
+              type: 'stream_chunk',
+              content: '',
+              messageId: correctionId,
+              isComplete: true,
+            })
+          );
         }
       }
     } catch (error) {

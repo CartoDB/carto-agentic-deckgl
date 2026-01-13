@@ -272,6 +272,14 @@ body {
   padding: 8px 12px;
 }
 
+.chat-message-action-error {
+  align-self: flex-start;
+  background: var(--error);
+  color: white;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
 .chat-input-container {
   display: flex;
   gap: 10px;

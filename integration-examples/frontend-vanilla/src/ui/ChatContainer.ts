@@ -13,7 +13,7 @@ marked.setOptions({
 
 interface ChatMessageData {
   id: string;
-  role: 'user' | 'assistant' | 'system' | 'action';
+  role: 'user' | 'assistant' | 'system' | 'action' | 'action-error';
   content: string;
 }
 
@@ -207,7 +207,7 @@ export class ChatContainer {
    * Add a message to the chat
    */
   addMessage(msg: {
-    role: 'user' | 'assistant' | 'system' | 'action';
+    role: 'user' | 'assistant' | 'system' | 'action' | 'action-error';
     content: string;
     id?: string;
   }): string {
@@ -283,7 +283,7 @@ export class ChatContainer {
     message: string;
   }): void {
     this.addMessage({
-      role: 'action',
+      role: status === 'success' ? 'action' : 'action-error',
       content: `${status === 'success' ? '\u2713' : '\u2717'} ${message}`
     });
   }
@@ -521,10 +521,14 @@ export class ChatContainer {
 
   /**
    * Disable/enable the input field
+   * When enabled, automatically focuses the input
    */
   setInputDisabled(disabled: boolean): void {
     this.input.disabled = disabled;
     this.sendBtn.disabled = disabled;
+    if (!disabled) {
+      this.input.focus();
+    }
   }
 
   private scrollToBottom(): void {

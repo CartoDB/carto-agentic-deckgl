@@ -42,6 +42,18 @@ export interface ChatMessage {
 }
 
 /**
+ * Client to Server: Tool execution result from frontend
+ */
+export interface ToolResultMessage {
+  type: 'tool_result';
+  toolName: string;
+  callId: string;
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+/**
  * Server to Client message types
  */
 export interface StreamChunk {
