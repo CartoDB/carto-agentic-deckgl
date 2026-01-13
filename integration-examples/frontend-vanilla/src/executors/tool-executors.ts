@@ -722,7 +722,7 @@ export function createToolExecutors(
 
     // ==================== ADD LAYER (NEW TOOL) ====================
 
-    'add-layer': async (params) => {
+    [TOOL_NAMES.ADD_LAYER]: async (params) => {
       try {
         const { layerSpec } = params as { layerSpec: Record<string, any> };
 
@@ -816,7 +816,7 @@ export function createToolExecutors(
      * - accessToken from response.data.accessToken
      * - apiBaseUrl from response.data.apiBaseUrl
      */
-    'add-vector-layer': async (params) => {
+    [TOOL_NAMES.ADD_VECTOR_LAYER]: async (params) => {
       const {
         id = '',
         displayName,
@@ -1707,7 +1707,9 @@ export async function handleToolCall(
       }
     }
   } else if (!executor) {
-    console.warn(`[ToolExecutor] No executor found for tool: ${toolName}`);
+    console.warn(`[ToolExecutor] ⚠️ NO EXECUTOR FOUND for tool: "${toolName}"`);
+    console.warn(`[ToolExecutor] Available executors:`, Object.keys(executors));
+    console.warn(`[ToolExecutor] Tool data received:`, data);
     // Check if it's the add-layer tool with a different name
     if (toolName === 'add_layer' || toolName === 'addLayer') {
       const addLayerExecutor = executors['add-layer'];
@@ -1780,6 +1782,8 @@ export async function handleToolCall(
         }
       }
     } else {
+      console.error(`[ToolExecutor] ❌ UNHANDLED TOOL: "${toolName}" - No executor and no fallback available`);
+      console.error(`[ToolExecutor] This tool needs to be implemented in createToolExecutors()`);
       toolStatus.showSuccess(`Tool ${toolName} executed on backend`);
     }
   } else if (!data) {
