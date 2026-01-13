@@ -35,6 +35,15 @@ export interface ToolResult {
 
 export type ToolExecutor = (params: unknown) => ToolResult | Promise<ToolResult>;
 
+// Callback for sending tool results back to server
+export type SendToolResultCallback = (result: {
+  toolName: string;
+  callId: string;
+  success: boolean;
+  message: string;
+  error?: string;
+}) => void;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface ToolExecutorContext {
   deck: Deck<any>;
@@ -43,6 +52,7 @@ export interface ToolExecutorContext {
   toolStatus: ToolStatus;
   chatContainer: ChatContainer;
   layerRegistry: Map<string, string>;
+  sendToolResult?: SendToolResultCallback;
 }
 
 // Color filter state for conditional coloring
@@ -1554,7 +1564,7 @@ export async function handleToolCall(
   executors: Record<string, ToolExecutor>,
   context: ToolExecutorContext
 ): Promise<void> {
-  const { toolStatus, chatContainer } = context;
+  const { toolStatus, chatContainer, sendToolResult } = context;
 
   console.log('[ToolExecutor] Received tool_call message:', JSON.stringify(message, null, 2));
   console.log('[ToolExecutor] Available executors:', Object.keys(executors));
@@ -1572,7 +1582,10 @@ export async function handleToolCall(
     message.parameters ||
     {};
 
-  console.log('[ToolExecutor] Extracted:', { rawToolName, rawData });
+  // Extract call ID for result tracking
+  const callId = message.callId || `call_${Date.now()}`;
+
+  console.log('[ToolExecutor] Extracted:', { rawToolName, rawData, callId });
 
   // Parse the tool response to get standardized format
   const parsed = parseToolResponse({
@@ -1594,6 +1607,16 @@ export async function handleToolCall(
       status: 'error',
       message: error.message
     });
+    // Send failure result back to server
+    if (sendToolResult) {
+      sendToolResult({
+        toolName: toolName || 'unknown',
+        callId,
+        success: false,
+        message: error.message,
+        error: error.message
+      });
+    }
     return;
   }
 
@@ -1630,6 +1653,17 @@ export async function handleToolCall(
           status: result.success ? 'success' : 'error',
           message: result.message
         });
+
+        // Send result back to server
+        if (sendToolResult) {
+          sendToolResult({
+            toolName,
+            callId,
+            success: result.success,
+            message: result.message,
+            error: result.success ? undefined : result.message
+          });
+        }
       }).catch(err => {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         console.error('[ToolExecutor] Execution error:', errorMessage, err);
@@ -1639,6 +1673,17 @@ export async function handleToolCall(
           status: 'error',
           message: errorMessage
         });
+
+        // Send failure result back to server
+        if (sendToolResult) {
+          sendToolResult({
+            toolName,
+            callId,
+            success: false,
+            message: errorMessage,
+            error: errorMessage
+          });
+        }
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -1649,6 +1694,17 @@ export async function handleToolCall(
         status: 'error',
         message: errorMessage
       });
+
+      // Send failure result back to server
+      if (sendToolResult) {
+        sendToolResult({
+          toolName,
+          callId,
+          success: false,
+          message: errorMessage,
+          error: errorMessage
+        });
+      }
     }
   } else if (!executor) {
     console.warn(`[ToolExecutor] No executor found for tool: ${toolName}`);
@@ -1670,6 +1726,17 @@ export async function handleToolCall(
               status: result.success ? 'success' : 'error',
               message: result.message
             });
+
+            // Send result back to server
+            if (sendToolResult) {
+              sendToolResult({
+                toolName,
+                callId,
+                success: result.success,
+                message: result.message,
+                error: result.success ? undefined : result.message
+              });
+            }
           }).catch(err => {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';
             toolStatus.setError(errorMessage);
@@ -1678,6 +1745,17 @@ export async function handleToolCall(
               status: 'error',
               message: errorMessage
             });
+
+            // Send failure result back to server
+            if (sendToolResult) {
+              sendToolResult({
+                toolName,
+                callId,
+                success: false,
+                message: errorMessage,
+                error: errorMessage
+              });
+            }
           });
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -1688,6 +1766,17 @@ export async function handleToolCall(
             status: 'error',
             message: errorMessage
           });
+
+          // Send failure result back to server
+          if (sendToolResult) {
+            sendToolResult({
+              toolName,
+              callId,
+              success: false,
+              message: errorMessage,
+              error: errorMessage
+            });
+          }
         }
       }
     } else {
