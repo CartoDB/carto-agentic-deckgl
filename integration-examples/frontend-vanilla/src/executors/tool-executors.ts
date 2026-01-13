@@ -533,6 +533,19 @@ export function createToolExecutors(
           color?: string | number[];
         };
 
+        console.log('[color-features-by-property] Starting with params:', { layerId, property, operator, value, r, g, b, a, color });
+
+        // Map common property name aliases to actual property names in the data
+        const propertyAliases: Record<string, string[]> = {
+          'type': ['group_name', 'subgroup_name', 'category', 'class', 'type'],
+          'category': ['group_name', 'subgroup_name', 'category', 'type'],
+          'class': ['subgroup_name', 'group_name', 'class', 'type'],
+          'name': ['name', 'title', 'label'],
+        };
+
+        // Get alternative property names to try
+        const propertiesToTry = propertyAliases[property.toLowerCase()] || [property];
+
         let rgba: number[];
 
         // Support both RGBA values and color names/arrays
@@ -543,6 +556,8 @@ export function createToolExecutors(
         } else {
           return { success: false, message: 'Color specification required' };
         }
+
+        console.log('[color-features-by-property] Resolved color:', rgba);
 
         const filterKey = `${property}:${operator}:${value}`;
         const newFilter: ColorFilter = {
@@ -561,33 +576,82 @@ export function createToolExecutors(
           colorFilters.push(newFilter);
         }
 
+        console.log('[color-features-by-property] Active color filters:', colorFilters);
+
         const targetLayerId = layerId || 'pois';
         const currentLayers = (deck.props.layers || []) as CloneableLayer[];
 
-        // Create color accessor function
-        const colorAccessor = (feature: { properties?: Record<string, unknown> }) => {
+        console.log('[color-features-by-property] Target layer:', targetLayerId);
+        console.log('[color-features-by-property] Available layers:', currentLayers.map(l => l.id));
+
+        // Create color accessor function with debug logging
+        let accessorCallCount = 0;
+        const colorAccessor = (feature: { properties?: Record<string, unknown> } | any) => {
+          // Handle different feature structures (GeoJSON vs MVT)
+          const props = feature.properties || feature;
+
+          // Log first few calls for debugging
+          if (accessorCallCount < 3) {
+            const allKeys = props ? Object.keys(props) : [];
+            console.log('[color-features-by-property] Feature properties:', allKeys.join(', '));
+            console.log('[color-features-by-property] Trying properties:', propertiesToTry.join(', '));
+            console.log('[color-features-by-property] Values:', propertiesToTry.map(p => `${p}=${props?.[p]}`).join(', '));
+            accessorCallCount++;
+          }
+
+          // Check each filter against alternative property names
           for (const filter of colorFilters) {
-            if (matchesFilter(feature, filter)) {
-              return filter.color;
+            // Try each alternative property name
+            for (const propName of propertiesToTry) {
+              const propValue = props?.[propName];
+              if (propValue !== undefined) {
+                // Check if value matches (case-insensitive for strings)
+                const filterValue = filter.value;
+                const matches =
+                  filter.operator === 'equals'
+                    ? String(propValue).toLowerCase() === String(filterValue).toLowerCase()
+                    : filter.operator === 'contains'
+                    ? String(propValue).toLowerCase().includes(String(filterValue).toLowerCase())
+                    : matchesFilter({ properties: { [filter.property]: propValue } }, filter);
+
+                if (matches) {
+                  return filter.color;
+                }
+              }
             }
           }
           return basePointColor;
         };
 
+        // Use timestamp to ensure updateTriggers forces re-render
+        const updateKey = `${Date.now()}-${JSON.stringify(colorFilters)}`;
+        let layerFound = false;
+
         const updatedLayers = currentLayers.map((layer) => {
           if (layer.id === targetLayerId) {
+            layerFound = true;
+            console.log('[color-features-by-property] Updating layer:', layer.id, 'type:', layer.constructor.name);
             return layer.clone({
               getFillColor: colorAccessor,
+              getColor: colorAccessor, // Some layers use getColor instead
               updateTriggers: {
-                getFillColor: JSON.stringify(colorFilters)
+                getFillColor: updateKey,
+                getColor: updateKey
               }
             });
           }
           return layer;
         });
 
+        if (!layerFound) {
+          console.warn('[color-features-by-property] Layer not found:', targetLayerId);
+          return { success: false, message: `Layer "${targetLayerId}" not found` };
+        }
+
         deck.setProps({ layers: updatedLayers as Layer[] });
         scheduleRedraws(deck);
+
+        console.log('[color-features-by-property] Layer updated successfully');
 
         return {
           success: true,
