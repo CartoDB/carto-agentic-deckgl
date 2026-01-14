@@ -1,9 +1,15 @@
+/**
+ * Frontend-Vanilla Entry Point
+ *
+ * Uses JSONConverter as the central rendering engine.
+ * Consolidated tools pattern from simpleAgentMap.
+ */
+
 import './style.css';
 import {
   createMap,
-  initDataSource,
-  createPoiLayer,
   scheduleRedraws,
+  renderFromState,
   INITIAL_VIEW_STATE
 } from './map/deckgl-map';
 import { HttpClient } from './chat/http-client';
@@ -14,12 +20,12 @@ import {
   LayerToggle,
   ToolStatus
 } from './ui';
-import type { LayerInfo } from './ui';
+import { DeckState } from './state/DeckState';
 import {
-  createToolExecutors,
+  createConsolidatedExecutors,
   handleToolCall,
-  type ToolExecutorContext
-} from './executors/tool-executors';
+  type ConsolidatedExecutorContext
+} from './executors/consolidated-executors';
 import type {
   ChatClient,
   ServerMessage,
@@ -48,13 +54,16 @@ const CARTO_CONFIG = {
 // Track current loading message ID for tool execution stages
 let currentLoadingMessageId: string | null = null;
 
-// ==================== MAP INITIALIZATION ====================
+// ==================== CENTRAL STATE ====================
 
-const { deck, map } = createMap('map', 'deck-canvas', (viewState) => {
-  // Update zoom controls when view state changes
-  if (zoomControls) {
-    zoomControls.setZoomLevel(viewState.zoom ?? 3);
-  }
+/**
+ * DeckState - Central state management
+ * All state changes go through here, and listeners are notified.
+ */
+const deckState = new DeckState({
+  viewState: INITIAL_VIEW_STATE,
+  deckConfig: { layers: [], widgets: [], effects: [] },
+  basemap: 'positron'
 });
 
 // ==================== UI COMPONENTS ====================
@@ -72,23 +81,42 @@ const toolStatus = new ToolStatus(
   document.getElementById('tool-status')!
 );
 
-// Layer registry for name-to-id mapping
-const layerRegistry = new Map<string, string>();
+// ==================== MAP INITIALIZATION ====================
+
+const { deck, map } = createMap('map', 'deck-canvas', (viewState) => {
+  // User interactions update state (but this won't re-render via subscription
+  // because we don't want to animate back to the same position)
+  // Just update zoom controls
+  zoomControls.setZoomLevel(viewState.zoom ?? 3);
+});
+
+// ==================== STATE → RENDER SUBSCRIPTION ====================
+
+/**
+ * Subscribe to state changes and render via JSONConverter
+ * This is the central rendering pipeline.
+ */
+deckState.subscribe((state, changedKeys) => {
+  console.log('[App] State changed:', changedKeys);
+  renderFromState(deck, map, state, changedKeys);
+});
 
 // ==================== TOOL EXECUTORS ====================
 
-// Context will be updated with sendToolResult after client is created
-const executorContext: ToolExecutorContext = {
-  deck,
+/**
+ * Consolidated executors - simplified tool pattern
+ * Each executor updates DeckState, rendering happens via subscription.
+ */
+const executorContext: ConsolidatedExecutorContext = {
+  deckState,
   zoomControls,
   layerToggle,
   toolStatus,
   chatContainer,
-  layerRegistry,
   sendToolResult: undefined // Will be set after client creation
 };
 
-const executors = createToolExecutors(executorContext);
+const executors = createConsolidatedExecutors(executorContext);
 
 // ==================== MESSAGE HANDLING ====================
 
@@ -182,61 +210,17 @@ function handleMessage(message: ServerMessage): void {
         type LoadingStage = 'starting' | 'mcp_request' | 'mcp_processing' | 'enriching' | 'creating' | 'loading';
         let stage: LoadingStage = 'starting';
 
-        // For vector layer or MCP tools, start with mcp_request stage
-        if (toolMessage.tool === 'add-vector-layer' || toolMessage.tool.includes('mcp')) {
-          stage = 'mcp_request';
-        }
-        // For enrichment tools, start with enriching stage
-        else if (toolMessage.tool.includes('enrich') || toolMessage.tool.includes('workflow')) {
-          stage = 'enriching';
+        // For set-deck-state, show creating stage
+        if (toolMessage.tool === 'set-deck-state') {
+          stage = 'creating';
         }
 
         // If transitional loader exists, update it instead of creating new one
         if (currentLoadingMessageId) {
-          // Update existing loader with actual tool name and stage
           chatContainer.updateToolLoading(currentLoadingMessageId, stage, `⚡ Executing ${toolMessage.tool}...`);
           console.log('[Frontend] Updated transitional loader with actual tool:', toolMessage.tool);
         } else {
-          // Add new loading message to chat
           currentLoadingMessageId = chatContainer.addToolLoading(toolMessage.tool, stage);
-        }
-
-        // Update stages for specific tools with MCP operations
-        if (toolMessage.tool === 'add-vector-layer' || toolMessage.tool.includes('mcp')) {
-          // Stage 1: MCP request (immediate)
-          // Stage 2: MCP processing (after ~1s)
-          setTimeout(() => {
-            if (currentLoadingMessageId) {
-              chatContainer.updateToolLoading(currentLoadingMessageId, 'mcp_processing');
-            }
-          }, 1000);
-
-          // Stage 3: Creating layer (after ~2.5s)
-          setTimeout(() => {
-            if (currentLoadingMessageId) {
-              chatContainer.updateToolLoading(currentLoadingMessageId, 'creating');
-            }
-          }, 2500);
-
-          // Stage 4: Loading tiles (after ~4s)
-          setTimeout(() => {
-            if (currentLoadingMessageId) {
-              chatContainer.updateToolLoading(currentLoadingMessageId, 'loading');
-            }
-          }, 4000);
-        } else if (toolMessage.tool.includes('enrich')) {
-          // Enrichment-specific stages
-          setTimeout(() => {
-            if (currentLoadingMessageId) {
-              chatContainer.updateToolLoading(currentLoadingMessageId, 'creating');
-            }
-          }, 2000);
-
-          setTimeout(() => {
-            if (currentLoadingMessageId) {
-              chatContainer.updateToolLoading(currentLoadingMessageId, 'loading');
-            }
-          }, 4000);
         }
       }
 
@@ -355,37 +339,21 @@ if (USE_HTTP) {
  * This gives the AI context about current layers and view state.
  */
 function createInitialState() {
-  if (!deck) return null;
-
-  // Get current view state - use props.initialViewState which is public
-  const viewStateProps = deck.props.initialViewState || {};
-
-  // Handle both single view state and multi-view state formats
-  const viewState = 'longitude' in viewStateProps
-    ? viewStateProps
-    : INITIAL_VIEW_STATE; // Fallback to initial state
+  const state = deckState.getState();
 
   const initialViewState = {
-    longitude: Number(viewState.longitude ?? INITIAL_VIEW_STATE.longitude),
-    latitude: Number(viewState.latitude ?? INITIAL_VIEW_STATE.latitude),
-    zoom: Number(viewState.zoom ?? INITIAL_VIEW_STATE.zoom),
-    pitch: Number(viewState.pitch ?? 0),
-    bearing: Number(viewState.bearing ?? 0)
+    longitude: state.viewState.longitude,
+    latitude: state.viewState.latitude,
+    zoom: state.viewState.zoom,
+    pitch: state.viewState.pitch ?? 0,
+    bearing: state.viewState.bearing ?? 0
   };
 
-  // Get current layers information
-  const currentLayers = deck.props.layers || [];
-  const layers = currentLayers.map((layer: any) => ({
-    id: layer.id,
-    type: layer.constructor.name,
-    visible: layer.props?.visible !== false,
-    // Include additional relevant properties
-    opacity: layer.props?.opacity,
-    data: Array.isArray(layer.props?.data)
-      ? `${layer.props.data.length} features`
-      : typeof layer.props?.data === 'object' && layer.props?.data?.type === 'vector'
-      ? `Vector tile: ${layer.props?.data?.tableName || 'unknown'}`
-      : 'Unknown data source'
+  // Get layer information from deck config
+  const layers = (state.deckConfig.layers ?? []).map((layer) => ({
+    id: layer.id as string,
+    type: (layer['@@type'] as string) || 'Unknown',
+    visible: layer.visible !== false
   }));
 
   console.log('[createInitialState] Current state:', {
@@ -425,18 +393,31 @@ chatContainer.onSend((content) => {
   });
 });
 
-// Zoom controls
+// Zoom controls - use set-map-view with current state
 zoomControls.onZoomIn(() => {
-  executors['zoom-map']({ direction: 'in', levels: 1 });
+  const currentView = deckState.getViewState();
+  const newZoom = Math.min(22, (currentView.zoom ?? 3) + 1);
+  deckState.setViewState({ zoom: newZoom });
+  zoomControls.setZoomLevel(newZoom);
 });
 
 zoomControls.onZoomOut(() => {
-  executors['zoom-map']({ direction: 'out', levels: 1 });
+  const currentView = deckState.getViewState();
+  const newZoom = Math.max(0, (currentView.zoom ?? 3) - 1);
+  deckState.setViewState({ zoom: newZoom });
+  zoomControls.setZoomLevel(newZoom);
 });
 
-// Layer toggle
+// Layer toggle - update layer visibility in deck config
 layerToggle.onToggle((layerId, visible) => {
-  executors['toggle-layer']({ layerName: layerId, visible });
+  const currentConfig = deckState.getDeckConfig();
+  const updatedLayers = (currentConfig.layers ?? []).map((layer) => {
+    if (layer.id === layerId) {
+      return { ...layer, visible };
+    }
+    return layer;
+  });
+  deckState.setLayers(updatedLayers);
 });
 
 // ==================== DATA INITIALIZATION ====================
@@ -455,8 +436,7 @@ async function initialize(): Promise<void> {
       });
 
       // Set up empty layer list
-      const layers: LayerInfo[] = [];
-      layerToggle.setLayers(layers);
+      layerToggle.setLayers([]);
 
       // Send initial state even without CARTO layers
       setTimeout(() => {
@@ -466,49 +446,33 @@ async function initialize(): Promise<void> {
 
           chatContainer.addMessage({
             role: 'assistant',
-            content: `Map initialized in demo mode. Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you navigate the map and change view settings. To add vector layers, configure CARTO credentials in the .env file.`
+            content: `Map initialized in demo mode. Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you navigate the map and add layers. Configure CARTO credentials in .env file to use data.`
           });
         }
       }, 500);
     } else {
-      // Initialize CARTO data source
-      console.log('[Frontend] Initializing CARTO data source...');
-      const dataSource = await initDataSource(CARTO_CONFIG);
+      // With credentials, we can load data via tools
+      console.log('[Frontend] CARTO credentials configured');
 
-      // Create and add POI layer
-      const poiLayer = createPoiLayer(dataSource);
-      deck.setProps({ layers: [poiLayer] });
-
-      // Register layer
-      layerRegistry.set('POIs', 'pois');
-
-      // Update layer toggle
-      const layers: LayerInfo[] = [
-        { id: 'pois', name: 'POIs', visible: true, color: '#036fe2' }
-      ];
-      layerToggle.setLayers(layers);
-
-      // Schedule redraws after layer is added
+      // Schedule redraws after map loads
       map.on('load', () => {
         scheduleRedraws(deck);
 
-        // Send initial state to AI after map and layers are loaded
-        // This gives the AI context about what's available on the map
+        // Send initial state to AI after map is loaded
         setTimeout(() => {
           const initialState = createInitialState();
           if (initialState) {
             console.log('[Application] Initial map state:', initialState);
 
-            // Optional: Show welcome message to user with context
             chatContainer.addMessage({
               role: 'assistant',
-              content: `Map initialized with ${initialState.layers.length} layer(s). Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you explore the map, add vector layers, change colors, zoom to locations, and more.`
+              content: `Map initialized. Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you explore the map, add layers from CARTO, change styling, and more. Try asking me to "show me fires worldwide" or "fly to New York".`
             });
           }
-        }, 500); // Small delay to ensure everything is rendered
+        }, 500);
       });
 
-      console.log('[Frontend] CARTO data source initialized');
+      console.log('[Frontend] CARTO data source ready');
     }
 
     // Connect to chat backend

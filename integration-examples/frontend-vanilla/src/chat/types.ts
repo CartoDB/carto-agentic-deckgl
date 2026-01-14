@@ -16,7 +16,7 @@ export interface InitialState {
     type: string;
     visible: boolean;
     opacity?: number;
-    data: string;
+    data?: string;
   }>;
   cartoConfig: {
     connectionName: string;
