@@ -162,17 +162,31 @@ Execute SQL queries against CARTO Data Warehouse.
 
   if (hasAsyncWorkflowTools) {
     prompt += `
-## MCP ASYNC WORKFLOW TOOLS
-
-MCP tools run asynchronously on remote servers. Follow this workflow:
-
-1. Call the MCP tool - it returns a job_id
-2. Poll status with async_workflow_job_get_status_v1_0_0 until "done"
-3. When done, get results with async_workflow_job_get_results_v1_0_0
-4. Use the returned data to create layers via set-deck-state
-
-For MCP layer data, extract tableName, connectionName, and Location from results,
-then use set-deck-state with vectorTableSource to display.
+MCP tools run asynchronously. You MUST complete the full workflow:
+1. Tell the user what you're doing, then call the MCP tool. It returns a job_id.
+2. Poll status with async_workflow_job_get_status_v1_0_0 until the job completes:
+   - "running" or "pending" → keep polling (jobs can take 30+ polls)
+   - "done" → get results immediately
+   - "failed" → report error
+3. When status is "done", and the user request the results, call async_workflow_job_get_results_v1_0_0 to get the data. Present results to the user.
+4. When status is "done", and the user requests a layer:
+   a. Get tableName, connectionName, accessToken from the MCP results
+   b. Convert the Location parameter to apiBaseUrl:
+      - 'US': 'https://gcp-us-east1.api.carto.com'
+      - 'EU': 'https://gcp-europe-west1.api.carto.com'
+      - 'ASIA': 'https://gcp-asia-southeast1.api.carto.com'
+   c. Choose a descriptive layer ID (e.g., "empire_state_pois_layer")
+   d. Call add-vector-layer with these parameters
+   e. REMEMBER this layer ID for future styling requests
+5. After adding a layer, if the user asks to style it:
+   - Use update-layer-style with the layer ID from step 4d
+   - Do NOT call MCP tools again - the data already exists on the map
+      
+CRITICAL RULES:
+- NEVER stop polling while status is "running" - always continue until "done" or "failed"
+- Do NOT add unnecessary text between status polls - just keep polling silently
+- Only provide a brief update every 5-10 polls to avoid verbosity
+- You MUST complete the workflow - do not give up or suggest checking back later
 `;
   }
 
