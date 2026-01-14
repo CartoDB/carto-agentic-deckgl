@@ -12,8 +12,9 @@ import { randomUUID } from 'crypto';
 import { runMapAgent } from './services/agent-runner.js';
 import { ConversationManager } from './services/conversation-manager.js';
 import type { ChatMessage, ToolResultMessage } from './types/messages.js';
+import type { Express } from 'express';
 
-const app = express();
+const app: Express = express();
 app.use(cors());
 app.use(express.json());
 

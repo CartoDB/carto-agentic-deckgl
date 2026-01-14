@@ -3,23 +3,34 @@
  *
  * Uses map-ai-tools converters for Vercel AI SDK format
  * Combines local map tools with remote MCP server tools
+ *
+ * CONSOLIDATED PATTERN: Uses 6 tools instead of 40+
  */
 
 import { tool, type Tool } from 'ai';
 import {
   getToolsForVercelAI,
+  consolidatedToolNames,
   isFrontendToolResult,
   type VercelAIToolDef,
+  type ToolName,
 } from '@carto/maps-ai-tools';
 import { getMCPTools, getMCPToolNames } from './mcp-tools.js';
 
 /**
  * Create local map tools for Vercel AI SDK v6
  *
- * Returns tools in the format expected by ToolLoopAgent
+ * Uses CONSOLIDATED tools pattern (6 tools instead of 40+):
+ * - geocode
+ * - set-map-view
+ * - set-basemap
+ * - set-deck-state
+ * - take-map-screenshot
+ * - carto-query
  */
 export function createMapTools(): Record<string, Tool> {
-  const toolDefs = getToolsForVercelAI();
+  // Pass consolidated tool names to filter to only 6 tools
+  const toolDefs = getToolsForVercelAI(consolidatedToolNames as ToolName[]);
 
   return Object.fromEntries(
     toolDefs.map((def: VercelAIToolDef & { name: string }) => [
@@ -48,9 +59,10 @@ export function getAllTools(): Record<string, Tool> {
 
 /**
  * Get all tool names for system prompt
+ * Returns consolidated tool names + MCP tool names
  */
 export function getAllToolNames(): string[] {
-  const localNames = getToolsForVercelAI().map((t: VercelAIToolDef & { name: string }) => t.name);
+  const localNames = [...consolidatedToolNames];
   const mcpNames = getMCPToolNames();
 
   // Deduplicate
@@ -58,10 +70,10 @@ export function getAllToolNames(): string[] {
 }
 
 /**
- * Get local tool names only
+ * Get local tool names only (consolidated 6 tools)
  */
 export function getToolNames(): string[] {
-  return getToolsForVercelAI().map((t: VercelAIToolDef & { name: string }) => t.name);
+  return [...consolidatedToolNames];
 }
 
 // Re-export utilities

@@ -10,7 +10,7 @@
  * @see https://deck.gl/docs/api-reference/json/conversion-reference
  */
 
-import { JSONConverter } from '@deck.gl/json';
+import { JSONConverter, _parseExpressionString as parseExpressionString } from '@deck.gl/json';
 import { FlyToInterpolator, LinearInterpolator, COORDINATE_SYSTEM } from '@deck.gl/core';
 import { Tile3DLayer, TripsLayer } from '@deck.gl/geo-layers';
 import {
@@ -28,7 +28,20 @@ import {
   VectorTileLayer,
   H3TileLayer,
   QuadbinTileLayer,
-  vectorTableSource
+  RasterTileLayer,
+  vectorTableSource,
+  vectorQuerySource,
+  vectorTilesetSource,
+  h3TableSource,
+  h3QuerySource,
+  h3TilesetSource,
+  quadbinTableSource,
+  quadbinQuerySource,
+  quadbinTilesetSource,
+  rasterSource,
+  colorBins,
+  colorCategories,
+  colorContinuous
 } from '@deck.gl/carto';
 
 /**
@@ -210,6 +223,190 @@ const CUSTOM_FUNCTIONS = {
     console.log('[vectorTableSource] Creating CARTO data source');
     return CUSTOM_FUNCTIONS.createVectorTableSource(config);
   },
+
+  // ============================================================================
+  // CARTO Data Sources (for JSONConverter @@function references)
+  // ============================================================================
+
+  /**
+   * Vector query source - execute SQL query and get vector tiles
+   * Usage: { "@@function": "vectorQuerySource", "sql": "SELECT * FROM ...", "connectionName": "..." }
+   */
+  vectorQuerySource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return vectorQuerySource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      sqlQuery: config.sqlQuery || config.sql,
+      spatialDataColumn: config.spatialDataColumn,
+    });
+  },
+
+  /**
+   * Vector tileset source - use pre-computed vector tilesets
+   */
+  vectorTilesetSource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return vectorTilesetSource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+    });
+  },
+
+  /**
+   * H3 table source - H3 hexagonal grid data from table
+   */
+  h3TableSource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return h3TableSource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+      aggregationExp: config.aggregationExp,
+      aggregationResLevel: config.aggregationResLevel,
+    });
+  },
+
+  /**
+   * H3 query source - H3 hexagonal grid data from SQL query
+   */
+  h3QuerySource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return h3QuerySource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      sqlQuery: config.sqlQuery || config.sql,
+      aggregationExp: config.aggregationExp,
+      aggregationResLevel: config.aggregationResLevel,
+    });
+  },
+
+  /**
+   * H3 tileset source - pre-computed H3 tilesets
+   */
+  h3TilesetSource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return h3TilesetSource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+    });
+  },
+
+  /**
+   * Quadbin table source - quadbin spatial index data from table
+   */
+  quadbinTableSource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return quadbinTableSource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+      aggregationExp: config.aggregationExp,
+      aggregationResLevel: config.aggregationResLevel,
+    });
+  },
+
+  /**
+   * Quadbin query source - quadbin spatial index data from SQL query
+   */
+  quadbinQuerySource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return quadbinQuerySource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      sqlQuery: config.sqlQuery || config.sql,
+      aggregationExp: config.aggregationExp,
+      aggregationResLevel: config.aggregationResLevel,
+    });
+  },
+
+  /**
+   * Quadbin tileset source - pre-computed quadbin tilesets
+   */
+  quadbinTilesetSource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return quadbinTilesetSource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+    });
+  },
+
+  /**
+   * Raster source - raster tile data
+   */
+  rasterSource: (config: any) => {
+    const apiBaseUrl = config.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
+    const accessToken = config.accessToken || import.meta.env.VITE_API_ACCESS_TOKEN;
+    return rasterSource({
+      apiBaseUrl,
+      accessToken,
+      connectionName: config.connectionName || 'carto_dw',
+      tableName: config.tableName,
+    });
+  },
+
+  // ============================================================================
+  // CARTO Styling Functions (for JSONConverter @@function references)
+  // ============================================================================
+
+  /**
+   * Color bins - assign colors based on value ranges (quantile, equal, etc.)
+   * Usage: { "@@function": "colorBins", "attr": "population", "domain": [0, 1000, 10000], "colors": "Sunset" }
+   */
+  colorBins: (config: any) => {
+    return colorBins({
+      attr: config.attr,
+      domain: config.domain,
+      colors: config.colors || 'PurpOr',
+      nullColor: config.nullColor,
+    });
+  },
+
+  /**
+   * Color categories - assign colors based on categorical values
+   * Usage: { "@@function": "colorCategories", "attr": "type", "domain": ["A", "B", "C"], "colors": ["red", "green", "blue"] }
+   */
+  colorCategories: (config: any) => {
+    return colorCategories({
+      attr: config.attr,
+      domain: config.domain,
+      colors: config.colors || 'Bold',
+      nullColor: config.nullColor,
+      othersColor: config.othersColor,
+    });
+  },
+
+  /**
+   * Color continuous - assign colors based on continuous value interpolation
+   * Usage: { "@@function": "colorContinuous", "attr": "temperature", "domain": [0, 100], "colors": "Temps" }
+   */
+  colorContinuous: (config: any) => {
+    return colorContinuous({
+      attr: config.attr,
+      domain: config.domain,
+      colors: config.colors || 'Sunset',
+      nullColor: config.nullColor,
+    });
+  },
 };
 
 /**
@@ -236,6 +433,7 @@ export const deckJsonConfiguration = {
     VectorTileLayer,
     H3TileLayer,
     QuadbinTileLayer,
+    RasterTileLayer,
     // Interpolators as classes
     FlyToInterpolator,
     LinearInterpolator,
@@ -384,6 +582,18 @@ export function resolveValue(value: any): any {
       const props = arrayMatch[1].split(',').map((p) => p.trim());
       return (d: any) => props.map((p) => d.properties?.[p] ?? d[p]);
     }
+
+    // Complex expressions (ternary, comparisons, etc.) - delegate to native deck.gl/json expression parser
+    try {
+      const func = parseExpressionString(expr, deckJsonConfiguration);
+      if (func && typeof func === 'function') {
+        console.log(`[deckJsonConfig] Compiled @@= expression: ${expr.substring(0, 50)}...`);
+        return func;
+      }
+    } catch (e) {
+      console.warn(`[deckJsonConfig] Failed to parse @@= expression: ${expr}`, e);
+    }
+
     console.warn(`[deckJsonConfig] Unsupported @@= expression: ${expr}`);
     return value;
   }

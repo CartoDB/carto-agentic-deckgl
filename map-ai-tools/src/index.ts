@@ -14,6 +14,9 @@ export {
   isDataTool,
   getSpecTools,
   getDataTools,
+  // Consolidated tools pattern (6 tools)
+  consolidatedToolNames,
+  getConsolidatedToolDefinitions,
 } from './definitions';
 
 // Re-export backwards compatibility exports
@@ -43,16 +46,6 @@ export {
   errorResponse,
   formatToolResponse,
   type ErrorCode,
-  // Response interfaces
-  type FlyToResponse,
-  type ZoomMapResponse,
-  type ToggleLayerResponse,
-  type SetPointColorResponse,
-  type ColorFeaturesByPropertyResponse,
-  type QueryFeaturesResponse,
-  type FilterFeaturesResponse,
-  type SizeFeaturesResponse,
-  type AggregateFeaturesResponse,
 } from './executors';
 
 // Re-export core validation
@@ -104,22 +97,6 @@ export {
 // ============================================================================
 
 export {
-  // View state generators
-  generateFlyToSpec,
-  generateZoomSpec,
-  generateViewStateSpec,
-  // Layer operation generators
-  generateToggleLayerSpec,
-  generateSetPointColorSpec,
-  generateColorByPropertySpec,
-  generateFilterSpec,
-  generateSizeByPropertySpec,
-  // Layer management generators
-  generateAddLayerSpec,
-  generateAddRasterLayerSpec,
-  generateAddVectorLayerSpec,
-  generateRemoveLayerSpec,
-  generateUpdateLayerPropsSpec,
   // Utilities
   mergeSpecs,
   hasViewStateChanges,
