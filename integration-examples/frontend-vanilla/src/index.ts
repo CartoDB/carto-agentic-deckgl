@@ -10,7 +10,9 @@ import {
   createMap,
   scheduleRedraws,
   renderFromState,
-  INITIAL_VIEW_STATE
+  INITIAL_VIEW_STATE,
+  initDataSource,
+  createPoiLayer
 } from './map/deckgl-map';
 import { HttpClient } from './chat/http-client';
 import { WebSocketClient } from './chat/websocket-client';
@@ -350,11 +352,25 @@ function createInitialState() {
   };
 
   // Get layer information from deck config
-  const layers = (state.deckConfig.layers ?? []).map((layer) => ({
+  const stateLayers = (state.deckConfig.layers ?? []).map((layer) => ({
     id: layer.id as string,
     type: (layer['@@type'] as string) || 'Unknown',
     visible: layer.visible !== false
   }));
+
+  // Also check deck instance for layers not in state (e.g., POI layer added directly)
+  const deckLayers = (deck.props.layers || []) as Array<{ id?: string; constructor?: { name?: string } }>;
+  const deckLayerIds = new Set(stateLayers.map(l => l.id));
+  
+  const additionalLayers = deckLayers
+    .filter(layer => layer.id && !deckLayerIds.has(layer.id))
+    .map(layer => ({
+      id: layer.id!,
+      type: layer.constructor?.name || 'Unknown',
+      visible: true
+    }));
+
+  const layers = [...stateLayers, ...additionalLayers];
 
   console.log('[createInitialState] Current state:', {
     viewState: initialViewState,
@@ -454,6 +470,31 @@ async function initialize(): Promise<void> {
       // With credentials, we can load data via tools
       console.log('[Frontend] CARTO credentials configured');
 
+      // Initialize POI data source and layer
+      try {
+        const poiDataSource = await initDataSource(CARTO_CONFIG);
+        const poiLayer = createPoiLayer(poiDataSource);
+        
+        // Add POI layer to deck
+        const currentLayers = deck.props.layers || [];
+        deck.setProps({ layers: [...currentLayers, poiLayer] });
+        scheduleRedraws(deck);
+        
+        // Register POI layer in layer toggle
+        layerToggle.setLayers([
+          {
+            id: 'pois',
+            name: 'POIs',
+            visible: true,
+            color: '#036fe2'
+          }
+        ]);
+        
+        console.log('[Frontend] POI layer initialized and registered in AI context');
+      } catch (error) {
+        console.error('[Frontend] Failed to initialize POI layer:', error);
+      }
+
       // Schedule redraws after map loads
       map.on('load', () => {
         scheduleRedraws(deck);
@@ -466,7 +507,7 @@ async function initialize(): Promise<void> {
 
             chatContainer.addMessage({
               role: 'assistant',
-              content: `Map initialized. Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you explore the map, add layers from CARTO, change styling, and more. Try asking me to "show me fires worldwide" or "fly to New York".`
+              content: `Map initialized with POI layer. Current view: ${initialState.viewState.longitude.toFixed(2)}, ${initialState.viewState.latitude.toFixed(2)} (zoom ${initialState.viewState.zoom.toFixed(1)}). I can help you explore the map, add layers from CARTO, change styling, and more. Try asking me to "show me fires worldwide" or "fly to New York".`
             });
           }
         }, 500);
