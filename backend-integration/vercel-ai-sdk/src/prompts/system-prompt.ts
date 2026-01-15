@@ -155,20 +155,48 @@ Execute SQL queries against CARTO Data Warehouse.
     prompt += `\n## TOOLS AVAILABLE: ${toolNames.join(', ')}\n`;
   }
 
-  // Add MCP tool guidance if available
+  // Add CARTO MCP tool instructions if those tools are available
   const hasAsyncWorkflowTools =
     toolNames.includes('async_workflow_job_get_status_v1_0_0') &&
     toolNames.includes('async_workflow_job_get_results_v1_0_0');
 
-  if (hasAsyncWorkflowTools) {
+  // Check if any MCP tools are available (they typically have underscores in their names)
+  const hasMcpTools = toolNames.some(name => name.includes('_'));
+
+  if (hasMcpTools) {
     prompt += `
-MCP tools run asynchronously. You MUST complete the full workflow:
+## CARTO MCP TOOL EXECUTION
+MCP tools from the CARTO server can be either **synchronous** or **asynchronous**:
+
+### SYNC vs ASYNC Tool Detection
+- **SYNC tools**: Return the result directly in the response. Process the result immediately.
+- **ASYNC tools**: Return a \`job_id\` in the response. You MUST poll for completion.
+
+**How to detect**: After calling an MCP tool, check the response:
+- If it contains a \`job_id\` field → ASYNC tool, follow the async workflow below
+- If it contains direct data/results → SYNC tool, process the result immediately
+
+### SYNC TOOL WORKFLOW:
+1. Call the MCP tool
+2. The response contains the result directly
+3. Process and present the result to the user
+4. If the result contains data for visualization, use set-deck-state to display it
+
+### ASYNC TOOL WORKFLOW:
+`;
+
+    if (hasAsyncWorkflowTools) {
+      prompt += `When an MCP tool returns a job_id, you MUST complete the full workflow:
+
 1. Tell the user what you're doing, then call the MCP tool. It returns a job_id.
+
 2. Poll status with async_workflow_job_get_status_v1_0_0 until the job completes:
    - "running" or "pending" → keep polling (jobs can take 30+ polls)
    - "done" → get results immediately
    - "failed" → report error
-3. When status is "done", and the user request the results, call async_workflow_job_get_results_v1_0_0 to get the data. Present results to the user.
+
+3. When status is "done", and the user requests the results, call async_workflow_job_get_results_v1_0_0 to get the data. Present results to the user.
+
 4. When status is "done", and the user requests a layer:
    a. Get tableName, connectionName, accessToken from the MCP results
    b. Convert the Location parameter to apiBaseUrl:
@@ -176,16 +204,24 @@ MCP tools run asynchronously. You MUST complete the full workflow:
       - 'EU': 'https://gcp-europe-west1.api.carto.com'
       - 'ASIA': 'https://gcp-asia-southeast1.api.carto.com'
    c. Choose a descriptive layer ID (e.g., "empire_state_pois_layer")
-   d. Call add-vector-layer with these parameters
+   d. Call set-deck-state with the layer configuration
    e. REMEMBER this layer ID for future styling requests
+
 5. After adding a layer, if the user asks to style it:
-   - Use update-layer-style with the layer ID from step 4d
+   - Use set-deck-state with updated layer styling
    - Do NOT call MCP tools again - the data already exists on the map
-      
+`;
+    } else {
+      prompt += `(Async workflow tools not available - async MCP tools cannot be processed)
+`;
+    }
+
+    prompt += `
 CRITICAL RULES:
-- NEVER stop polling while status is "running" - always continue until "done" or "failed"
-- Do NOT add unnecessary text between status polls - just keep polling silently
-- Only provide a brief update every 5-10 polls to avoid verbosity
+- ALWAYS check if the MCP tool response contains a job_id to determine sync vs async
+- For ASYNC: NEVER stop polling while status is "running" - always continue until "done" or "failed"
+- For ASYNC: Do NOT add unnecessary text between status polls - just keep polling silently
+- For ASYNC: Only provide a brief update every 5-10 polls to avoid verbosity
 - You MUST complete the workflow - do not give up or suggest checking back later
 `;
   }
