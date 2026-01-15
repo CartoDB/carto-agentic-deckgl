@@ -72,6 +72,75 @@ This REPLACES all existing layers - include all layers you want to keep.
 - Use ternary expressions: condition ? colorIfTrue : colorIfFalse
 - Always include alpha channel in colors: [r, g, b, alpha]
 
+**H3TileLayer (spatial aggregation with hexagons):**
+H3 layers aggregate data into hexagonal cells. IMPORTANT: aggregationExp is REQUIRED.
+
+Basic H3 layer with sum aggregation:
+{
+  "@@type": "H3TileLayer",
+  "id": "population-h3",
+  "data": {
+    "@@function": "h3TableSource",
+    "tableName": "carto-demo-data.demo_tables.derived_spatialfeatures_usa_h3int_res8_v1_yearly_v2",
+    "aggregationExp": "SUM(population) as value"
+  },
+  "opacity": 0.8,
+  "extruded": false,
+  "getFillColor": {
+    "@@function": "colorBins",
+    "attr": "value",
+    "domain": [0, 1000, 10000, 100000, 1000000],
+    "colors": "Sunset"
+  },
+  "lineWidthMinPixels": 0.5,
+  "getLineWidth": 0.5,
+  "getLineColor": [255, 255, 255, 100],
+  "pickable": true
+}
+
+H3 with continuous color interpolation:
+{
+  "@@type": "H3TileLayer",
+  "id": "temperature-h3",
+  "data": {
+    "@@function": "h3QuerySource",
+    "sqlQuery": "SELECT * FROM my_table WHERE year = 2023",
+    "aggregationExp": "AVG(temperature) as value"
+  },
+  "getFillColor": {
+    "@@function": "colorContinuous",
+    "attr": "value",
+    "domain": [0, 100],
+    "colors": "Temps"
+  }
+}
+
+**H3 Aggregation Expressions:**
+- SUM(column) as value - Total of values in each hexagon
+- AVG(column) as value - Average value per hexagon
+- COUNT(*) as value - Number of records per hexagon
+- MIN/MAX(column) as value - Min/max values
+
+**Color Styling Functions (for getFillColor):**
+1. colorBins - Threshold-based (discrete breaks):
+   { "@@function": "colorBins", "attr": "value", "domain": [100, 500, 1000], "colors": "Sunset" }
+
+2. colorCategories - Categorical data:
+   { "@@function": "colorCategories", "attr": "category", "domain": ["A", "B", "C"], "colors": "Bold" }
+
+3. colorContinuous - Smooth interpolation:
+   { "@@function": "colorContinuous", "attr": "value", "domain": [0, 100], "colors": "Temps" }
+
+**Available Color Palettes:**
+Sunset, Teal, BluYl, PurpOr, PinkYl, Bold, Temps, Emrld, Burg, OrYel, Peach, Mint, Magenta
+
+**H3 Guidelines:**
+- aggregationExp is REQUIRED - always include "as value" suffix
+- Ask user about aggregation method (SUM, AVG, COUNT, etc.) if not specified
+- Ask user about color classification preference (colorBins, colorCategories, colorContinuous)
+- Use colorBins for numeric thresholds, colorCategories for text categories
+- The "attr" in color functions must match the alias in aggregationExp (typically "value")
+
 ### 5. take-map-screenshot
 Capture a screenshot of the current map view for analysis.
 - Input: { reason: "why the screenshot is being taken" }
