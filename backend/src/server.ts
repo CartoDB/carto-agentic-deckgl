@@ -1,42 +1,185 @@
-// backend/src/server.ts
+/**
+ * Express + WebSocket Server for Vercel AI SDK
+ *
+ * Provides both WebSocket (/ws) and HTTP (/api/chat) endpoints
+ */
+
 import express from 'express';
 import cors from 'cors';
-import http from 'http';
-import { setupWebSocket } from './websocket/websocket-server.js';
-import { vercelChatRouter } from './routes/vercel-chat.js';
-import { liteLLMChatRouter } from './routes/litellm-chat.js';
-import { openAIChatRouter } from './routes/openai-chat.js';
-import { googleADKChatRouter } from './routes/googleadk-chat.js';
+import { createServer } from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
+import { randomUUID } from 'crypto';
+import { runMapAgent } from './services/agent-runner.js';
+import { ConversationManager } from './services/conversation-manager.js';
+import type { ChatMessage, ToolResultMessage } from './types/messages.js';
+import type { Express } from 'express';
 
-export function createServer() {
-  const app = express();
+const app: Express = express();
+app.use(cors());
+app.use(express.json());
 
-  // Middleware
-  app.use(cors());
-  app.use(express.json());
+const server = createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws' });
 
-  // Health check endpoint
-  app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: Date.now() });
+const conversationManager = new ConversationManager();
+
+// ============================================
+// WebSocket Handler
+// ============================================
+const sessions = new Map<WebSocket, string>();
+
+wss.on('connection', (ws) => {
+  const sessionId = randomUUID();
+  sessions.set(ws, sessionId);
+  console.log(`[WS] New connection: ${sessionId}`);
+
+  ws.on('message', async (data) => {
+    try {
+      const rawMessage = JSON.parse(data.toString()) as { type: string; provider?: string };
+      const sid = sessions.get(ws);
+
+      if (!sid) {
+        console.error('[WS] No session ID found for connection');
+        return;
+      }
+
+      if (rawMessage.type === 'chat_message') {
+        const message = rawMessage as ChatMessage & { provider?: string };
+        const history = conversationManager.getHistory(sid);
+        conversationManager.addMessage(sid, {
+          role: 'user',
+          content: message.content,
+        });
+
+        const response = await runMapAgent(
+          message.content,
+          ws,
+          sid,
+          history,
+          message.initialState,
+          message.provider // Optional: allow client to specify provider
+        );
+
+        if (response) {
+          conversationManager.addMessage(sid, response);
+        }
+      } else if (rawMessage.type === 'tool_result') {
+        // Handle tool execution results from frontend
+        const toolResult = rawMessage as ToolResultMessage;
+        console.log(`[WS] Tool result received: ${toolResult.toolName} - ${toolResult.success ? 'success' : 'failed'}`);
+
+        if (toolResult.success) {
+          // Tool succeeded - add to conversation history so AI knows what exists
+          conversationManager.addMessage(sid, {
+            role: 'assistant',
+            content: `[Tool executed successfully: ${toolResult.toolName}] ${toolResult.message}`,
+          });
+        } else {
+          // Tool failed - send a correction message to inform the user
+          const correctionMessage = `I apologize, but the ${toolResult.toolName} operation failed: ${toolResult.error || toolResult.message}`;
+
+          // Add the failure to conversation history for context
+          conversationManager.addMessage(sid, {
+            role: 'assistant',
+            content: `[Tool execution failed: ${toolResult.toolName}] ${toolResult.error || toolResult.message}`,
+          });
+
+          // Send correction as a stream chunk to the client
+          const correctionId = `correction_${Date.now()}`;
+          ws.send(
+            JSON.stringify({
+              type: 'stream_chunk',
+              content: correctionMessage,
+              messageId: correctionId,
+              isComplete: false,
+            })
+          );
+          ws.send(
+            JSON.stringify({
+              type: 'stream_chunk',
+              content: '',
+              messageId: correctionId,
+              isComplete: true,
+            })
+          );
+        }
+      }
+    } catch (error) {
+      console.error('[WS] Error:', error);
+      ws.send(
+        JSON.stringify({
+          type: 'error',
+          content: 'Invalid message format',
+        })
+      );
+    }
   });
 
-  // Vercel Chat routes
-  app.use('/api/vercel-chat', vercelChatRouter);
+  ws.on('close', () => {
+    const sid = sessions.get(ws);
+    if (sid) conversationManager.clearHistory(sid);
+    sessions.delete(ws);
+    console.log('[WS] Connection closed');
+  });
 
-  // LiteLLM Chat routes
-  app.use('/api/litellm-chat', liteLLMChatRouter);
+  ws.on('error', (error) => {
+    console.error('[WS] WebSocket error:', error);
+  });
+});
 
-  // OpenAI Chat routes (using Responses API)
-  app.use('/api/openai-chat', openAIChatRouter);
+// ============================================
+// HTTP/SSE Route
+// ============================================
+app.post('/api/chat', async (req, res) => {
+  const { message, initialState, provider } = req.body;
 
-  // Google ADK Chat routes
-  app.use('/api/googleadk-chat', googleADKChatRouter);
+  if (!message) {
+    res.status(400).json({ error: 'Message is required' });
+    return;
+  }
 
-  // Create HTTP server
-  const server = http.createServer(app);
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
 
-  // Setup WebSocket
-  setupWebSocket(server);
+  try {
+    // Create a mock WebSocket-like interface for SSE
+    const sseWriter = {
+      send: (data: string) => {
+        res.write(`data: ${data}\n\n`);
+      },
+    } as WebSocket;
 
-  return server;
+    await runMapAgent(message, sseWriter, 'http-session', [], initialState, provider);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (error) {
+    const err = error as Error;
+    res.write(`data: ${JSON.stringify({ type: 'error', content: err.message })}\n\n`);
+    res.end();
+  }
+});
+
+// Health check endpoint
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    sdk: 'vercel-ai',
+    providers: ['openai', 'anthropic', 'google', 'carto'],
+    defaultProvider: process.env.DEFAULT_PROVIDER || 'openai',
+    activeSessions: conversationManager.getActiveSessionCount(),
+  });
+});
+
+// Start server
+export function startServer(port: number = 3003): void {
+  server.listen(port, () => {
+    console.log(`[Server] Vercel AI SDK backend running on port ${port}`);
+    console.log(`  WebSocket: ws://localhost:${port}/ws`);
+    console.log(`  HTTP API:  http://localhost:${port}/api/chat`);
+    console.log(`  Health:    http://localhost:${port}/health`);
+  });
 }
+
+export { server, app };
