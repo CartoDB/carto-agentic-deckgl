@@ -92,6 +92,9 @@ Basic H3 layer with sum aggregation:
     "domain": [0, 1000, 10000, 100000, 1000000],
     "colors": "Sunset"
   },
+  "updateTriggers": {
+    "getFillColor": { "attr": "value", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "Sunset" }
+  },
   "lineWidthMinPixels": 0.5,
   "getLineWidth": 0.5,
   "getLineColor": [255, 255, 255, 100],
@@ -112,6 +115,9 @@ H3 with continuous color interpolation:
     "attr": "value",
     "domain": [0, 100],
     "colors": "Temps"
+  },
+  "updateTriggers": {
+    "getFillColor": { "attr": "value", "domain": [0, 100], "colors": "Temps" }
   }
 }
 
@@ -133,6 +139,20 @@ H3 with continuous color interpolation:
 
 **Available Color Palettes:**
 Sunset, Teal, BluYl, PurpOr, PinkYl, Bold, Temps, Emrld, Burg, OrYel, Peach, Mint, Magenta
+
+**CRITICAL: updateTriggers for Color Changes:**
+When using color styling functions (colorBins, colorCategories, colorContinuous), ALWAYS include updateTriggers to ensure deck.gl recalculates colors when parameters change:
+
+"updateTriggers": {
+  "getFillColor": { "attr": "value", "domain": [...], "colors": "Sunset" }
+}
+
+This is REQUIRED when:
+- Changing the attribute (attr) used for coloring
+- Modifying the domain/thresholds
+- Switching color palettes
+
+The updateTriggers value should mirror the color function parameters. When any parameter changes, deck.gl will detect the difference and re-evaluate the accessor.
 
 **H3 Guidelines:**
 - aggregationExp is REQUIRED - always include "as value" suffix
