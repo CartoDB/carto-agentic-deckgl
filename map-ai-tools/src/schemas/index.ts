@@ -65,6 +65,13 @@ export {
   vectorTableSourceConfigSchema,
   vectorTileLayerSpecSchema,
   type VectorTileLayerSpec,
+  // H3TileLayer
+  h3TableSourceConfigSchema,
+  type H3TableSourceConfig,
+  h3QuerySourceConfigSchema,
+  type H3QuerySourceConfig,
+  h3TileLayerSpecSchema,
+  type H3TileLayerSpec,
   // Utilities
   supportedLayerTypes,
   type SupportedLayerType,
