@@ -13,6 +13,9 @@ export {
   isDataTool,
   getSpecTools,
   getDataTools,
+  // Consolidated tools pattern (6 tools)
+  consolidatedToolNames,
+  getConsolidatedToolDefinitions,
 } from './tools';
 
 export type { ToolName } from './tools';
