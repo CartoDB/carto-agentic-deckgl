@@ -159,7 +159,7 @@ packages:
     resolution: {directory: ../../map-ai-tools, type: directory}
     peerDependencies:
       '@deck.gl/json': ^9.2.0
-      zod: ^4.1.0
+      zod: ^4.3.5
 
   '@deck.gl/aggregation-layers@9.2.2':
     resolution: {integrity: sha512-qWs3NAXzjDd3wIizP7ryTS6gJ5NThJnwfi0tmI2u8FuDr1ta01jcwwLsOxoBuQ0m+XPzCMzrbWaXQL2cCcgUPw==}
