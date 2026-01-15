@@ -1,33 +1,45 @@
-// backend/src/index.ts
-import dotenv from 'dotenv';
-import { createServer } from './server.js';
+/**
+ * Backend Vercel AI SDK Entry Point
+ */
 
-dotenv.config();
+import 'dotenv/config';
+import { startServer } from './server.js';
+import { initializeMCPClients } from './agent/mcp-tools.js';
 
-// Validate required environment variables
-const requiredEnvVars = ['OPENAI_API_KEY', 'GEMINI_API_KEY'];
-const missing = requiredEnvVars.filter(varName => !process.env[varName]);
+// Check for at least one provider API key
+const hasOpenAI = !!process.env.OPENAI_API_KEY;
+const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+const hasGoogle = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const hasCarto = !!process.env.CARTO_AI_API_KEY && !!process.env.CARTO_AI_API_BASE_URL;
 
-if (missing.length > 0) {
-  console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
-  console.error('Please create a .env file with the required variables.');
-  console.error('See .env.example for template.');
+if (!hasOpenAI && !hasAnthropic && !hasGoogle && !hasCarto) {
+  console.error('Error: At least one API key is required');
+  console.error('Please set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or CARTO_AI_API_KEY + CARTO_AI_API_BASE_URL');
   process.exit(1);
 }
 
-const PORT = process.env.PORT || 3000;
-const server = createServer();
+const PORT = parseInt(process.env.PORT || '3003', 10);
 
-server.listen(PORT, () => {
-  console.log(`=================================`);
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🤖 OpenAI Chat Model: ${process.env.OPENAI_MODEL || 'gpt-4o'}`);
-  console.log(`🤖 OpenAI Responses Model: ${process.env.OPENAI_RESPONSES_MODEL || 'gpt-4.1'}`);
-  console.log(`🤖 Gemini Model: ${process.env.GEMINI_MODEL || 'carto::gemini-2.5-flash'}`);
-  console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws`);
-  console.log(`🔗 Vercel AI endpoint: http://localhost:${PORT}/api/vercel-chat`);
-  console.log(`🔗 LiteLLM endpoint: http://localhost:${PORT}/api/litellm-chat`);
-  console.log(`🔗 OpenAI Responses endpoint: http://localhost:${PORT}/api/openai-chat`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
-  console.log(`=================================`);
+async function main() {
+  console.log('Starting Vercel AI SDK backend...');
+  console.log('Available providers:');
+  if (hasOpenAI) console.log(`  - OpenAI (${process.env.OPENAI_MODEL || 'gpt-4o'})`);
+  if (hasAnthropic) console.log(`  - Anthropic (${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'})`);
+  if (hasGoogle) console.log(`  - Google (${process.env.GOOGLE_MODEL || 'gemini-2.5-flash'})`);
+  if (hasCarto) console.log(`  - CARTO (${process.env.CARTO_AI_API_MODEL || 'gpt-4o'})`);
+  console.log(`Default provider: ${process.env.DEFAULT_PROVIDER || 'openai'}`);
+
+  // Initialize MCP clients (if configured)
+  try {
+    await initializeMCPClients();
+  } catch (error) {
+    console.error('MCP initialization failed:', (error as Error).message);
+  }
+
+  startServer(PORT);
+}
+
+main().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

@@ -31,102 +31,49 @@ export type {
 
 // ============================================================================
 // Zod-inferred parameter types (auto-generated from tool schemas)
+// Consolidated tools only (6 tools)
 // ============================================================================
 
 /**
- * Parameters for fly-to tool
+ * Parameters for geocode tool
  */
-export type FlyToParams = z.infer<typeof tools['fly-to']['schema']>;
+export type GeocodeParams = z.infer<typeof tools['geocode']['schema']>;
 
 /**
- * Parameters for zoom-map tool
+ * Parameters for set-map-view tool
  */
-export type ZoomMapParams = z.infer<typeof tools['zoom-map']['schema']>;
+export type SetMapViewParams = z.infer<typeof tools['set-map-view']['schema']>;
 
 /**
- * Parameters for set-view-state tool
+ * Parameters for set-basemap tool
  */
-export type SetViewStateParams = z.infer<typeof tools['set-view-state']['schema']>;
+export type SetBasemapParams = z.infer<typeof tools['set-basemap']['schema']>;
 
 /**
- * Parameters for toggle-layer tool
+ * Parameters for set-deck-state tool
  */
-export type ToggleLayerParams = z.infer<typeof tools['toggle-layer']['schema']>;
+export type SetDeckStateParams = z.infer<typeof tools['set-deck-state']['schema']>;
 
 /**
- * Parameters for set-point-color tool
+ * Parameters for take-map-screenshot tool
  */
-export type SetPointColorParams = z.infer<typeof tools['set-point-color']['schema']>;
+export type TakeMapScreenshotParams = z.infer<typeof tools['take-map-screenshot']['schema']>;
 
 /**
- * Parameters for color-features-by-property tool
+ * Parameters for carto-query tool
  */
-export type ColorFeaturesByPropertyParams = z.infer<typeof tools['color-features-by-property']['schema']>;
-
-/**
- * Parameters for query-features tool
- */
-export type QueryFeaturesParams = z.infer<typeof tools['query-features']['schema']>;
-
-/**
- * Parameters for filter-features-by-property tool
- */
-export type FilterFeaturesByPropertyParams = z.infer<typeof tools['filter-features-by-property']['schema']>;
-
-/**
- * Parameters for size-features-by-property tool
- */
-export type SizeFeaturesByPropertyParams = z.infer<typeof tools['size-features-by-property']['schema']>;
-
-/**
- * Parameters for aggregate-features tool
- */
-export type AggregateFeaturesParams = z.infer<typeof tools['aggregate-features']['schema']>;
-
-/**
- * Parameters for add-layer tool
- */
-export type AddLayerParams = z.infer<typeof tools['add-layer']['schema']>;
-
-/**
- * Parameters for add-raster-layer tool
- */
-export type AddRasterLayerParams = z.infer<typeof tools['add-raster-layer']['schema']>;
-
-/**
- * Parameters for remove-layer tool
- */
-export type RemoveLayerParams = z.infer<typeof tools['remove-layer']['schema']>;
-
-/**
- * Parameters for update-layer-props tool
- */
-export type UpdateLayerPropsParams = z.infer<typeof tools['update-layer-props']['schema']>;
-
-/**
- * Parameters for get-layer-config tool
- */
-export type GetLayerConfigParams = z.infer<typeof tools['get-layer-config']['schema']>;
+export type CartoQueryParams = z.infer<typeof tools['carto-query']['schema']>;
 
 /**
  * Union type of all tool parameter types
  */
 export type ToolParams =
-  | FlyToParams
-  | ZoomMapParams
-  | SetViewStateParams
-  | ToggleLayerParams
-  | SetPointColorParams
-  | ColorFeaturesByPropertyParams
-  | QueryFeaturesParams
-  | FilterFeaturesByPropertyParams
-  | SizeFeaturesByPropertyParams
-  | AggregateFeaturesParams
-  | AddLayerParams
-  | AddRasterLayerParams
-  | RemoveLayerParams
-  | UpdateLayerPropsParams
-  | GetLayerConfigParams;
+  | GeocodeParams
+  | SetMapViewParams
+  | SetBasemapParams
+  | SetDeckStateParams
+  | TakeMapScreenshotParams
+  | CartoQueryParams;
 
 /**
  * OpenAI function calling tool definition

@@ -26,4 +26,5 @@ npm-debug.log*
 # TypeScript cache
 *.tsbuildinfo
 
+simpleAgentMap-main/
 docs/
