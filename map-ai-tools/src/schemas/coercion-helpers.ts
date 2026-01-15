@@ -48,7 +48,7 @@ export const colorSchema = z.preprocess(
   z.union([
     z.string().min(1).describe('Color name (red, blue, green, yellow, orange, purple, pink, cyan, white, black, gray)'),
     z.array(z.number()).min(3).max(4).describe('RGBA array [r,g,b] or [r,g,b,a], values 0-255'),
-  ]).optional()
+  ]).nullable().optional()
 );
 
 /**
@@ -60,7 +60,7 @@ export const optionalNumber = (min?: number, max?: number) => z.preprocess(
     let schema = z.number();
     if (min !== undefined) schema = schema.min(min);
     if (max !== undefined) schema = schema.max(max);
-    return schema.optional();
+    return schema.nullable().optional();
   })()
 );
 
@@ -69,5 +69,5 @@ export const optionalNumber = (min?: number, max?: number) => z.preprocess(
  */
 export const optionalBoolean = z.preprocess(
   coerceBoolean,
-  z.boolean().optional()
+  z.boolean().nullable().optional()
 );

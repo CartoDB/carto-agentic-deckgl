@@ -86,11 +86,6 @@ export {
   // Layer state metadata
   layerStateMetadataSchema,
   type LayerStateMetadata,
-  // Slide/Presentation context
-  slideFilterConfigSchema,
-  type SlideFilterConfig,
-  slideMetadataSchema,
-  type SlideMetadata,
   // Initial state
   initialStateSchema,
   type InitialState,

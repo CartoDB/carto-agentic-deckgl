@@ -177,7 +177,7 @@ export function useSlideAwareAIToolsHttp({
 
   // Tool Call Handler
   const handleToolCall = useCallback(
-    (response) => {
+    async (response) => {
       console.log('handleToolCall', response);
 
       // Show executing loader when tool call arrives
@@ -211,18 +211,41 @@ export function useSlideAwareAIToolsHttp({
         return;
       }
 
-      console.log(`Executing tool: ${toolName}`, data);
+      // Convert tool name from snake_case to kebab-case (show_hide_layer -> show-hide-layer)
+      const normalizedToolName = toolName.replace(/_/g, '-');
+      console.log(`Executing tool: ${toolName} (normalized to ${normalizedToolName})`, data);
 
-      const executor = currentExecutors[toolName];
+      // Add delay for add-layer tools to ensure CARTO table is ready after MCP creation
+      const isAddLayerTool = normalizedToolName === 'add-vector-layer' || normalizedToolName === 'add-raster-layer';
+      if (isAddLayerTool) {
+        console.log(`Waiting 4 seconds before executing ${normalizedToolName} to allow CARTO table creation...`);
+        await new Promise(resolve => setTimeout(resolve, 4000));
+      }
+
+      const executor = currentExecutors[normalizedToolName];
       if (executor && data) {
-        const result = executor(data);
-        addMessage({
-          type: 'action',
-          content: result.message,
-        });
+        try {
+          const result = executor(data);
+          console.log(`Tool "${toolName}" execution result:`, result);
+
+          if (result && result.message) {
+            addMessage({
+              type: 'action',
+              content: result.message,
+            });
+          } else {
+            console.warn(`Tool "${toolName}" returned no message:`, result);
+          }
+        } catch (error) {
+          console.error(`Tool "${normalizedToolName}" execution error:`, error);
+          addMessage({
+            type: 'action',
+            content: `Error executing ${normalizedToolName}: ${error.message}`,
+          });
+        }
       } else {
         const availableTools = Object.keys(currentExecutors).join(', ');
-        const errorMsg = `Unknown tool "${toolName}". This tool is not implemented in the frontend. Available tools: ${availableTools}`;
+        const errorMsg = `Unknown tool "${normalizedToolName}" (original: "${toolName}"). This tool is not implemented in the frontend. Available tools: ${availableTools}`;
         console.warn(errorMsg);
 
         addMessage({
@@ -244,18 +267,54 @@ export function useSlideAwareAIToolsHttp({
     (toolResult) => {
       console.log('[Frontend] Tool result received:', toolResult);
 
-      const { toolName, data, message } = toolResult;
+      // Handle both formats: { toolName, data, message } and { toolName, result, timestamp }
+      const toolName = toolResult.toolName;
+      const data = toolResult.data || toolResult.result;
+      const message = toolResult.message;
+
+      // Normalize tool name (convert snake_case to kebab-case)
+      const normalizedToolName = toolName?.replace(/_/g, '-');
+
+      // List of tools that should NOT show results to users (support both formats)
+      const hiddenTools = [
+        'navigate-slide',
+        'get-slide-info',
+        'set-filter-value',
+        'reset-view',
+        'show-hide-layer',
+        'toggle-layer',
+        'update-layer-style',
+      ];
+
+      // Don't show results for UI manipulation tools
+      if (hiddenTools.includes(normalizedToolName)) {
+        setLoaderState(null);
+        return;
+      }
+
+      // Don't show empty results
+      if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+        setLoaderState(null);
+        return;
+      }
 
       // Format the result for display
       let displayMessage = '';
 
-      if (toolName === 'weather') {
+      if (normalizedToolName === 'weather') {
         // Format weather data nicely
-        const { location, temperature, condition, humidity } = data;
+        const { location, temperature, condition, humidity } = data || {};
         displayMessage = `Weather in ${location}: ${temperature}°F, ${condition}, ${humidity}% humidity`;
+      } else if (normalizedToolName.includes('mcp') || data.tableName) {
+        // For MCP tools, show only user-friendly summary, not technical details
+        displayMessage = message || `Data loaded successfully`;
+        // Don't show technical details like tableName, connectionName, accessToken, etc.
+      } else if (message) {
+        // Use custom message if provided
+        displayMessage = message;
       } else {
-        // Generic formatting for other custom tools
-        displayMessage = message || `${toolName} result: ${JSON.stringify(data, null, 2)}`;
+        // Generic formatting for other custom tools (simplified)
+        displayMessage = `${normalizedToolName} completed`;
       }
 
       // Add as action message (similar to tool execution)
@@ -280,6 +339,7 @@ export function useSlideAwareAIToolsHttp({
           handleToolCall(data);
           break;
         case 'tool_result':
+        case 'backend_tool_result':
           handleToolResult(data);
           break;
         case 'error':
