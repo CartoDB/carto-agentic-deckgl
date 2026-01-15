@@ -28,11 +28,6 @@ export const TOOL_NAMES = {
   QUERY_FEATURES: 'query-features',
   AGGREGATE_FEATURES: 'aggregate-features',
   GET_LAYER_CONFIG: 'get-layer-config',
-  // Presentation/Slide tools
-  NAVIGATE_SLIDE: 'navigate-slide',
-  GET_SLIDE_INFO: 'get-slide-info',
-  SET_FILTER_VALUE: 'set-filter-value',
-  RESET_VIEW: 'reset-view',
 } as const;
 
 // Re-export everything from tools.ts

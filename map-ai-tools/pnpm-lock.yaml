@@ -18,8 +18,8 @@ importers:
         specifier: ^2.8.1
         version: 2.8.1
       zod:
-        specifier: ^4.1.0
-        version: 4.1.13
+        specifier: ^4.3.5
+        version: 4.3.5
     devDependencies:
       '@rollup/plugin-commonjs':
         specifier: ^28.0.2
@@ -385,8 +385,8 @@ packages:
   wgsl_reflect@1.2.3:
     resolution: {integrity: sha512-BQWBIsOn411M+ffBxmA6QRLvAOVbuz3Uk4NusxnqC1H7aeQcVLhdA3k2k/EFFFtqVjhz3z7JOOZF1a9hj2tv4Q==}
 
-  zod@4.1.13:
-    resolution: {integrity: sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig==}
+  zod@4.3.5:
+    resolution: {integrity: sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==}
 
 snapshots:
 
@@ -709,4 +709,4 @@ snapshots:
 
   wgsl_reflect@1.2.3: {}
 
-  zod@4.1.13: {}
+  zod@4.3.5: {}
