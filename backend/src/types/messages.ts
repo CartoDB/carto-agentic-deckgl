@@ -1,67 +1,88 @@
-// backend/src/types/messages.ts
+/**
+ * Message types for WebSocket and HTTP communication
+ */
 
-// Initial state sent from frontend with demo context
-// Supports both slide-based context (DemoContext) and layer-based context (MapInitialState)
+/**
+ * Initial map state sent with chat messages
+ */
 export interface InitialState {
-  // === Slide-based context (DemoContext) ===
-  demoId?: string;
-  currentSlide?: number;
-  totalSlides?: number;
-  slides?: Array<{
-    index: number;
-    name?: string;
-    title?: string;
-    description?: string;
-    layers?: string[];
-    hasFilter?: boolean;
-    filterConfig?: {
-      property?: string;
-      min?: number;
-      max?: number;
-      unit?: string;
-    };
-  }>;
-  currentFilterValue?: number;
-
-  // === Layer-based context (MapInitialState) ===
-  layers?: Array<{
-    id: string;
-    type: string;
-    visible?: boolean;
-  }>;
-  availableTools?: string[];
-
-  // === Shared properties ===
-  initialViewState?: {
-    longitude?: number;
-    latitude?: number;
-    zoom?: number;
+  // View state - supports both naming conventions
+  viewState?: {
+    longitude: number;
+    latitude: number;
+    zoom: number;
     pitch?: number;
     bearing?: number;
   };
+  initialViewState?: {
+    longitude: number;
+    latitude: number;
+    zoom: number;
+    pitch?: number;
+    bearing?: number;
+  };
+
+  // Layers
+  layers?: Array<{
+    id: string;
+    type?: string;
+    visible?: boolean;
+    [key: string]: unknown;
+  }>;
 }
 
-export interface ClientMessage {
+/**
+ * Client to Server message types
+ */
+export interface ChatMessage {
   type: 'chat_message';
   content: string;
   timestamp: number;
   initialState?: InitialState;
 }
 
-export interface ServerMessage {
-  type: 'message' | 'error';
-  content: string;
-  timestamp: number;
+/**
+ * Client to Server: Tool execution result from frontend
+ */
+export interface ToolResultMessage {
+  type: 'tool_result';
+  toolName: string;
+  callId: string;
+  success: boolean;
+  message: string;
+  error?: string;
 }
 
-export interface MapCommand {
-  type: 'map_command';
-  action: 'zoom' | 'fly_to' | 'toggle_layer';
-  params: {
-    zoom?: number;
-    coordinates?: [number, number];
-    layerId?: string;
-    visible?: boolean;
-  };
-  originalMessage: string;
+/**
+ * Server to Client message types
+ */
+export interface StreamChunk {
+  type: 'stream_chunk';
+  content: string;
+  messageId: string;
+  isComplete: boolean;
+}
+
+export interface ToolCallMessage {
+  type: 'tool_call';
+  toolName: string;
+  data: unknown;
+  callId: string;
+  message?: string;
+}
+
+export interface ErrorMessage {
+  type: 'error';
+  content: string;
+  code?: string;
+}
+
+export type ServerMessage = StreamChunk | ToolCallMessage | ErrorMessage;
+
+/**
+ * Conversation history message
+ */
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }

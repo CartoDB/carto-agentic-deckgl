@@ -1,51 +1,58 @@
-// backend/src/services/conversation-manager.ts
-import { OpenAI } from 'openai';
+/**
+ * Conversation Manager
+ *
+ * Maintains per-session conversation history for context continuity
+ */
+
+import type { ConversationMessage } from '../types/messages.js';
+
+const MAX_HISTORY_LENGTH = 20; // Max messages per session
 
 export class ConversationManager {
-  private conversations = new Map<string, OpenAI.Chat.ChatCompletionMessageParam[]>();
-  private responseIds = new Map<string, string>(); // Track last response_id per session
-  private hadToolCalls = new Map<string, boolean>(); // Track if last response had tool calls
-  private maxHistoryLength = 10; // Keep last 10 messages
+  private sessions: Map<string, ConversationMessage[]> = new Map();
 
-  getConversation(sessionId: string): OpenAI.Chat.ChatCompletionMessageParam[] {
-    if (!this.conversations.has(sessionId)) {
-      this.conversations.set(sessionId, []);
-    }
-    return this.conversations.get(sessionId)!;
+  /**
+   * Get conversation history for a session
+   */
+  getHistory(sessionId: string): ConversationMessage[] {
+    return this.sessions.get(sessionId) || [];
   }
 
-  getLastResponseId(sessionId: string): string | undefined {
-    // Don't return response ID if last response had tool calls
-    // (OpenAI expects tool outputs which we don't provide since tools run on frontend)
-    if (this.hadToolCalls.get(sessionId)) {
-      return undefined;
-    }
-    return this.responseIds.get(sessionId);
-  }
+  /**
+   * Add a message to the conversation history
+   */
+  addMessage(sessionId: string, message: ConversationMessage): void {
+    const history = this.getHistory(sessionId);
+    history.push(message);
 
-  setResponseId(sessionId: string, responseId: string, hadToolCalls: boolean = false): void {
-    this.responseIds.set(sessionId, responseId);
-    this.hadToolCalls.set(sessionId, hadToolCalls);
-  }
-
-  addMessage(sessionId: string, message: OpenAI.Chat.ChatCompletionMessageParam): void {
-    const conversation = this.getConversation(sessionId);
-    conversation.push(message);
-
-    // Prune old messages (keep system prompt + last N messages)
-    if (conversation.length > this.maxHistoryLength) {
-      // Keep first message if it's system prompt
-      const hasSystemPrompt = conversation[0]?.role === 'system';
-      const keep = conversation.length - this.maxHistoryLength + (hasSystemPrompt ? 1 : 0);
-
-      this.conversations.set(sessionId, [
-        ...(hasSystemPrompt ? [conversation[0]] : []),
-        ...conversation.slice(keep)
-      ]);
+    // Prune old messages if exceeding max length
+    if (history.length > MAX_HISTORY_LENGTH) {
+      // Keep the first message (usually important context) and the most recent ones
+      const pruned = [history[0], ...history.slice(-MAX_HISTORY_LENGTH + 1)];
+      this.sessions.set(sessionId, pruned);
+    } else {
+      this.sessions.set(sessionId, history);
     }
   }
 
-  clearConversation(sessionId: string): void {
-    this.conversations.delete(sessionId);
+  /**
+   * Clear history for a session
+   */
+  clearHistory(sessionId: string): void {
+    this.sessions.delete(sessionId);
+  }
+
+  /**
+   * Get all session IDs
+   */
+  getSessionIds(): string[] {
+    return Array.from(this.sessions.keys());
+  }
+
+  /**
+   * Get count of active sessions
+   */
+  getActiveSessionCount(): number {
+    return this.sessions.size;
   }
 }
