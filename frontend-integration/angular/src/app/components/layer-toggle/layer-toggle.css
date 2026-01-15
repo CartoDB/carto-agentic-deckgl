@@ -1,0 +1,64 @@
+.layer-toggle {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+}
+
+.layer-toggle-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.layer-toggle-header svg {
+  color: #64748b;
+}
+
+.layer-list {
+  padding: 8px 0;
+}
+
+.layer-item {
+  padding: 6px 14px;
+}
+
+.layer-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #475569;
+}
+
+.layer-checkbox-label.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.layer-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+.layer-checkbox:disabled {
+  cursor: not-allowed;
+}
+
+.layer-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.layer-name {
+  flex: 1;
+}
