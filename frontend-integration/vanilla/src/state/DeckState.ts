@@ -22,6 +22,7 @@ export interface DeckStateData {
   viewState: MapViewState;
   deckConfig: DeckConfig;
   basemap: Basemap;
+  activeLayerId?: string;
 }
 
 /**
@@ -50,6 +51,7 @@ export class DeckState {
   private viewState: MapViewState;
   private deckConfig: DeckConfig;
   private basemap: Basemap;
+  private activeLayerId?: string;
   private listeners: Set<ChangeListener> = new Set();
   private isNotifying = false;
 
@@ -57,6 +59,7 @@ export class DeckState {
     this.viewState = initialState?.viewState ?? { ...DEFAULT_VIEW_STATE };
     this.deckConfig = initialState?.deckConfig ?? { layers: [], widgets: [], effects: [] };
     this.basemap = initialState?.basemap ?? 'positron';
+    this.activeLayerId = initialState?.activeLayerId;
   }
 
   // ==================== GETTERS ====================
@@ -77,11 +80,16 @@ export class DeckState {
     return this.basemap;
   }
 
+  getActiveLayerId(): string | undefined {
+    return this.activeLayerId;
+  }
+
   getState(): DeckStateData {
     return {
       viewState: this.getViewState(),
       deckConfig: this.getDeckConfig(),
-      basemap: this.basemap
+      basemap: this.basemap,
+      activeLayerId: this.activeLayerId
     };
   }
 
@@ -125,6 +133,15 @@ export class DeckState {
   setBasemap(basemap: Basemap): void {
     this.basemap = basemap;
     this.notify(['basemap']);
+  }
+
+  /**
+   * Set the active layer ID (the last created/modified layer)
+   * Used to track which layer to update when user doesn't specify
+   */
+  setActiveLayerId(layerId: string): void {
+    this.activeLayerId = layerId;
+    this.notify(['activeLayerId']);
   }
 
   /**
@@ -232,6 +249,7 @@ export class DeckState {
     this.viewState = initialState?.viewState ?? { ...DEFAULT_VIEW_STATE };
     this.deckConfig = initialState?.deckConfig ?? { layers: [], widgets: [], effects: [] };
     this.basemap = initialState?.basemap ?? 'positron';
-    this.notify(['viewState', 'deckConfig', 'basemap']);
+    this.activeLayerId = initialState?.activeLayerId;
+    this.notify(['viewState', 'deckConfig', 'basemap', 'activeLayerId']);
   }
 }

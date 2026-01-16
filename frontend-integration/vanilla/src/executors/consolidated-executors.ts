@@ -80,8 +80,44 @@ interface CartoQueryParams {
 // ==================== HELPER FUNCTIONS ====================
 
 /**
+ * Deep merge two objects, with source overwriting target for primitive values
+ * and recursively merging nested objects
+ */
+function deepMerge(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>
+): Record<string, unknown> {
+  const result = { ...target };
+
+  for (const key of Object.keys(source)) {
+    const sourceValue = source[key];
+    const targetValue = target[key];
+
+    // If both are objects (not arrays, not null), deep merge them
+    if (
+      sourceValue !== null &&
+      typeof sourceValue === 'object' &&
+      !Array.isArray(sourceValue) &&
+      targetValue !== null &&
+      typeof targetValue === 'object' &&
+      !Array.isArray(targetValue)
+    ) {
+      result[key] = deepMerge(
+        targetValue as Record<string, unknown>,
+        sourceValue as Record<string, unknown>
+      );
+    } else {
+      // Otherwise, overwrite with source value
+      result[key] = sourceValue;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Merge layer specs: update existing by ID, add new ones, preserve others
- * This ensures that when updating one layer, other layers keep their styling
+ * Uses deep merge to properly handle nested objects like getFillColor
  */
 function mergeLayerSpecs(
   existing: Record<string, unknown>[],
@@ -100,10 +136,10 @@ function mergeLayerSpecs(
   for (const layer of incoming) {
     const id = layer.id as string;
     if (id) {
-      // Merge with existing layer if present, otherwise add new
       const existingLayer = layerMap.get(id);
       if (existingLayer) {
-        layerMap.set(id, { ...existingLayer, ...layer });
+        // Deep merge to preserve nested properties like getFillColor.attr
+        layerMap.set(id, deepMerge(existingLayer, layer));
       } else {
         layerMap.set(id, layer);
       }
@@ -303,6 +339,15 @@ export function createConsolidatedExecutors(
         }
 
         deckState.setDeckConfig(config);
+
+        // Track the active layer (last layer in the incoming layers)
+        // This helps the AI know which layer to update when user doesn't specify
+        if (layers && layers.length > 0) {
+          const lastLayerId = layers[layers.length - 1].id as string;
+          if (lastLayerId) {
+            deckState.setActiveLayerId(lastLayerId);
+          }
+        }
 
         // Update layer toggle UI
         const layerInfo = config.layers.map((layer) => ({
