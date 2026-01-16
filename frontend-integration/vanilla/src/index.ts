@@ -10,9 +10,7 @@ import {
   createMap,
   scheduleRedraws,
   renderFromState,
-  INITIAL_VIEW_STATE,
-  initDataSource,
-  createPoiLayer
+  INITIAL_VIEW_STATE
 } from './map/deckgl-map';
 import { HttpClient } from './chat/http-client';
 import { WebSocketClient } from './chat/websocket-client';
@@ -470,16 +468,34 @@ async function initialize(): Promise<void> {
       // With credentials, we can load data via tools
       console.log('[Frontend] CARTO credentials configured');
 
-      // Initialize POI data source and layer
+      // Initialize POI layer via DeckState (not directly to deck.gl)
+      // This ensures the layer is preserved when set-deck-state merges layers
       try {
-        const poiDataSource = await initDataSource(CARTO_CONFIG);
-        const poiLayer = createPoiLayer(poiDataSource);
-        
-        // Add POI layer to deck
-        const currentLayers = deck.props.layers || [];
-        deck.setProps({ layers: [...currentLayers, poiLayer] });
-        scheduleRedraws(deck);
-        
+        const poiLayerSpec = {
+          '@@type': 'VectorTileLayer',
+          id: 'pois',
+          data: {
+            '@@function': 'vectorTableSource',
+            tableName: 'carto-demo-data.demo_tables.osm_pois_usa'
+          },
+          pickable: true,
+          opacity: 1,
+          getFillColor: [3, 111, 226],
+          getLineColor: [255, 255, 255],
+          getPointRadius: 50,
+          getLineWidth: 10,
+          pointRadiusMinPixels: 1,
+          lineWidthMinPixels: 0.3,
+          visible: true
+        };
+
+        // Add to DeckState - renderFromState will handle the actual rendering
+        deckState.setDeckConfig({
+          layers: [poiLayerSpec],
+          widgets: [],
+          effects: []
+        });
+
         // Register POI layer in layer toggle
         layerToggle.setLayers([
           {
@@ -489,8 +505,8 @@ async function initialize(): Promise<void> {
             color: '#036fe2'
           }
         ]);
-        
-        console.log('[Frontend] POI layer initialized and registered in AI context');
+
+        console.log('[Frontend] POI layer spec added to DeckState');
       } catch (error) {
         console.error('[Frontend] Failed to initialize POI layer:', error);
       }
