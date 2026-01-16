@@ -1,259 +1,648 @@
-# @carto/maps-ai-tools
+# @carto/map-ai-tools
 
-> A framework-agnostic JavaScript library for AI-powered map controls using OpenAI function calling with deck.gl and MapLibre GL.
+> A framework-agnostic TypeScript library for AI-powered map controls. Enables natural language interaction with deck.gl maps using LLM function calling.
 
-**Note:** This is a proof-of-concept and first approach for `@carto/maps-ai-tools`. The API and features are subject to change as we iterate on the design.
+## Overview
+
+`@carto/map-ai-tools` provides a set of tools that allow AI agents to control interactive maps through natural language. The library uses a "teach the agent deck.gl" pattern where the AI generates deck.gl JSON specifications that are executed on the frontend.
+
+**Key Features:**
+
+- **6 Consolidated Tools**: Complete map control with minimal complexity
+- **Framework Agnostic**: Works with Vercel AI SDK, OpenAI Agents, Google ADK
+- **Type-Safe**: Full TypeScript support with Zod validation
+- **CARTO Integration**: Native support for CARTO data sources and spatial indexes
+- **Streaming Support**: Real-time tool execution with WebSocket communication
 
 ## Table of Contents
 
-- [Features](#features)
+- [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
 - [Available Tools](#available-tools)
-- [Tech Stack](#tech-stack)
+- [Integration Guide](#integration-guide)
+  - [Vercel AI SDK](#vercel-ai-sdk)
+  - [OpenAI Agents SDK](#openai-agents-sdk)
+  - [Google ADK](#google-adk)
+- [Layer Types](#layer-types)
+- [Data Sources](#data-sources)
+- [Color Styling](#color-styling)
 - [Architecture](#architecture)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+- [API Reference](#api-reference)
+- [Examples](#examples)
 
-## Features
+---
 
-* **Framework Agnostic**: Works with React, Vue, Angular, or Vanilla JavaScript
-* **9 Built-in AI Tools**: Comprehensive map control capabilities out of the box
-* **OpenAI Function Calling**: Seamless integration with streaming responses
-* **Type-Safe Validation**: Zod-based schemas with automatic JSON Schema generation
-* **Isomorphic Design**: Works on both frontend and backend
-* **Real-Time Communication**: WebSocket-based chat with streaming AI responses
-* **deck.gl + MapLibre**: Powerful WebGL visualization with vector tile basemaps
+## Quick Start
+
+### Installation
+
+```bash
+# Install the core library
+cd map-ai-tools
+npm install
+npm run build
+
+# Install backend integration
+cd ../backend-integration/vercel-ai-sdk
+npm install
+
+# Install frontend integration
+cd ../../frontend-integration/vanilla
+npm install
+```
+
+### Environment Setup
+
+Create `.env` file in your backend directory:
+
+```env
+# Required
+OPENAI_API_KEY=sk-proj-your-key-here
+
+# CARTO credentials (for data layers)
+CARTO_ACCESS_TOKEN=your-carto-token
+CARTO_API_BASE_URL=https://gcp-us-east1.api.carto.com
+CARTO_CONNECTION_NAME=carto_dw
+```
+
+### Running the Demo
+
+```bash
+# Terminal 1: Start backend
+cd backend-integration/vercel-ai-sdk
+npm run dev
+
+# Terminal 2: Start frontend
+cd frontend-integration/vanilla
+npm run dev
+```
+
+Open http://localhost:5173 and start chatting with the map.
+
+---
 
 ## Project Structure
 
 ```
 ps-frontend-tools-poc/
-├── map-ai-tools/              # Core library (@carto/maps-ai-tools v2.0.0)
+├── map-ai-tools/                    # Core library
 │   ├── src/
-│   │   ├── core/              # Types, registry, executor factory
-│   │   ├── definitions/       # Zod-based tool schemas
-│   │   ├── executors/         # Tool execution implementations
-│   │   └── prompts/           # System prompt generation
-│   └── dist/                  # Built ESM + CJS outputs
-├── backend/                   # Node.js + TypeScript backend
-│   └── src/
-│       ├── services/          # OpenAI, conversation, message handling
-│       └── websocket/         # WebSocket server
-└── integration-examples/      # Framework integration examples
-    ├── frontend/              # Vanilla JS + Vite
-    ├── frontend-react/        # React 19 + Vite
-    ├── frontend-vue/          # Vue 3 + Vite + TypeScript
-    └── frontend-angular/      # Angular 20
+│   │   ├── definitions/             # Tool definitions with Zod schemas
+│   │   │   └── tools.ts             # 6 consolidated tools
+│   │   ├── converters/              # AI framework adapters
+│   │   │   └── agentic-sdks.ts      # Vercel, OpenAI, Google converters
+│   │   ├── schemas/                 # deck.gl JSON schemas
+│   │   │   ├── layer-specs.ts       # Layer type schemas
+│   │   │   └── initial-state.ts     # Map state schema
+│   │   └── core/                    # Validation utilities
+│   └── dist/                        # Built ESM + CJS outputs
+│
+├── backend-integration/
+│   └── vercel-ai-sdk/               # Vercel AI SDK backend
+│       ├── src/
+│       │   ├── prompts/             # System prompts for AI
+│       │   ├── services/            # Agent runner, WebSocket
+│       │   └── agent/               # Tool definitions
+│       └── server.ts                # Express + WebSocket server
+│
+└── frontend-integration/
+    ├── vanilla/                     # Vanilla TypeScript
+    ├── react/                       # React 19
+    └── vue/                         # Vue 3
 ```
 
-## Getting Started
-
-### Prerequisites
-
-* Node.js v18+
-* npm or pnpm
-* OpenAI API key ([get one here](https://platform.openai.com/api-keys))
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/CartoDB/ps-frontend-tools-poc.git
-   cd ps-frontend-tools-poc
-   ```
-
-2. Build the core library:
-   ```bash
-   cd map-ai-tools
-   npm install
-   npm run build
-   ```
-
-3. Set up the backend:
-   ```bash
-   cd ../backend
-   npm install
-   cp .env.example .env
-   ```
-
-4. Configure your OpenAI API key in `backend/.env`:
-   ```env
-   OPENAI_API_KEY=sk-proj-your-api-key-here
-   OPENAI_MODEL=gpt-4o          # Optional, defaults to gpt-4o
-   PORT=3000                    # Optional, defaults to 3000
-   ```
-
-5. Choose and install an example frontend:
-   ```bash
-   cd ../integration-examples/frontend-react
-   npm install
-   ```
-
-### Running the Application
-
-1. **Start the backend** (Terminal 1):
-   ```bash
-   cd backend
-   npm run dev
-   ```
-   Backend runs on http://localhost:3000
-
-2. **Start a frontend example** (Terminal 2):
-   ```bash
-   cd integration-examples/frontend-react
-   npm run dev
-   ```
-   Frontend runs on http://localhost:5174
-
-3. Open your browser and start chatting with the map!
-
-## Usage
-
-### Natural Language Commands
-
-The AI understands conversational commands for map control:
-
-**Navigation**
-- "fly to San Francisco"
-- "go to Miami and zoom in"
-- "take me to New York"
-
-**Zoom Control**
-- "zoom in"
-- "zoom out 3 levels"
-- "zoom out to world view"
-
-**Layer Control**
-- "hide the points"
-- "show the airports layer"
-- "toggle the cities"
-
-**Styling**
-- "color by country, divergent palette"
-- "color by country, grey palette"
-- "update size points by airport type"
-
-**Data Queries**
-- "how many airports are in the US?"
-- "show only international airports"
-- "Give me a comprensive list of airport attributes"
-
-### Programmatic Usage
-
-```javascript
-import {
-  TOOL_NAMES,
-  parseToolResponse,
-  getAllToolDefinitions
-} from '@carto/maps-ai-tools';
-
-// Get tool definitions for OpenAI
-const tools = getAllToolDefinitions();
-
-// Execute tools based on AI responses
-const executors = {
-  [TOOL_NAMES.FLY_TO]: (params) => {
-    deck.setProps({
-      initialViewState: {
-        latitude: params.lat,
-        longitude: params.lng,
-        zoom: params.zoom || 12,
-        transitionDuration: 1000
-      }
-    });
-  },
-  [TOOL_NAMES.ZOOM_MAP]: (params) => {
-    // Handle zoom in/out
-  }
-};
-```
+---
 
 ## Available Tools
 
-| Tool | Description |
-|------|-------------|
-| `fly-to` | Navigate to coordinates with smooth animation |
-| `zoom-map` | Zoom in or out by specified levels |
-| `toggle-layer` | Show or hide map layers by name |
-| `set-point-color` | Set uniform color for all points (RGBA) |
-| `color-features-by-property` | Color features conditionally based on property values |
-| `query-features` | Count or query features matching criteria |
-| `filter-features-by-property` | Display only features matching criteria |
-| `size-features-by-property` | Size features dynamically based on property values |
-| `aggregate-features` | Group and count features by property |
+The library provides 6 consolidated tools that give AI complete control over the map:
 
-## Tech Stack
+| Tool | Type | Description |
+|------|------|-------------|
+| `geocode` | data | Convert place names to coordinates |
+| `set-map-view` | spec | Navigate to coordinates with zoom/pitch/bearing |
+| `set-basemap` | spec | Change basemap style (dark-matter, positron, voyager) |
+| `set-deck-state` | spec | Add/update layers, widgets, and effects |
+| `take-map-screenshot` | data | Capture current map view as image |
+| `carto-query` | data | Execute SQL queries against CARTO DW |
 
-### Core Library
-- **TypeScript** - Type-safe development
-- **Zod** - Schema validation with JSON Schema generation
-- **deck.gl** - WebGL-powered visualization
-- **Rollup** - ESM and CommonJS builds
+### Tool Details
 
-### Backend
-- **Node.js** - Runtime environment
-- **Express** - Web server
-- **ws** - WebSocket library
-- **OpenAI API** - AI with function calling
+#### `geocode`
+```typescript
+{
+  query: string  // "New York City", "123 Main St, Boston"
+}
+// Returns: { lat, lng, display_name }
+```
 
-### Frontend Examples
-- **Vite** - Fast build tool
-- **deck.gl** - Map rendering
-- **MapLibre GL** - Vector tile basemaps
-- **React/Vue/Angular** - Framework options
+#### `set-map-view`
+```typescript
+{
+  latitude: number,      // -90 to 90
+  longitude: number,     // -180 to 180
+  zoom: number,          // 0 to 22
+  pitch?: number,        // 0 to 85 degrees
+  bearing?: number,      // -180 to 180 degrees
+  transitionDuration?: number  // milliseconds
+}
+```
+
+#### `set-basemap`
+```typescript
+{
+  basemap: 'dark-matter' | 'positron' | 'voyager'
+}
+```
+
+#### `set-deck-state`
+The most powerful tool - accepts deck.gl JSON specifications:
+
+```typescript
+{
+  layers?: Array<{
+    '@@type': string,           // Layer type
+    id: string,                 // Unique identifier
+    data: object,               // Data source configuration
+    getFillColor?: any,         // Color accessor
+    // ... other deck.gl properties
+  }>,
+  widgets?: Array<object>,
+  effects?: Array<object>
+}
+```
+
+#### `carto-query`
+```typescript
+{
+  sql: string,                    // SQL query
+  connectionName?: string,        // Default: 'carto_dw'
+  format?: 'geojson' | 'json'     // Default: 'geojson'
+}
+```
+
+---
+
+## Integration Guide
+
+### Vercel AI SDK
+
+The library provides native Vercel AI SDK v4 support:
+
+```typescript
+import { streamText } from 'ai';
+import { getToolsRecordForVercelAI } from '@carto/map-ai-tools';
+
+// Get tools in Vercel AI SDK format
+const tools = getToolsRecordForVercelAI();
+
+// Use with streamText
+const result = await streamText({
+  model: openai('gpt-4o'),
+  tools,
+  messages,
+  system: buildSystemPrompt(toolNames, initialState),
+});
+
+// Handle tool results
+for await (const part of result.fullStream) {
+  if (part.type === 'tool-call') {
+    // Tool calls are marked for frontend execution
+    // Send to frontend via WebSocket
+    ws.send(JSON.stringify({
+      type: 'tool_call',
+      toolName: part.toolName,
+      data: part.args,
+      callId: part.toolCallId,
+    }));
+  }
+}
+```
+
+### OpenAI Agents SDK
+
+```typescript
+import { tool } from '@openai/agents';
+import { getToolsForOpenAIAgents } from '@carto/map-ai-tools';
+
+// Get tool definitions
+const toolDefs = getToolsForOpenAIAgents();
+
+// Convert to OpenAI agent tools
+const agentTools = toolDefs.map(def => tool(def));
+```
+
+### Google ADK
+
+```typescript
+import { FunctionTool } from '@google/adk';
+import { getToolsForGoogleADK } from '@carto/map-ai-tools';
+
+// Get tool definitions
+const toolDefs = getToolsForGoogleADK();
+
+// Convert to ADK tools
+const adkTools = toolDefs.map(def => new FunctionTool(def));
+```
+
+---
+
+## Layer Types
+
+The library supports multiple deck.gl layer types optimized for CARTO data:
+
+### VectorTileLayer
+For point, line, and polygon data from CARTO tables:
+
+```json
+{
+  "@@type": "VectorTileLayer",
+  "id": "airports-layer",
+  "data": {
+    "@@function": "vectorTableSource",
+    "tableName": "carto-demo-data.demo_tables.airports"
+  },
+  "getFillColor": [200, 100, 50, 180],
+  "getPointRadius": 20,
+  "pickable": true
+}
+```
+
+### H3TileLayer
+For hexagonal spatial aggregation (H3 index):
+
+```json
+{
+  "@@type": "H3TileLayer",
+  "id": "population-h3",
+  "data": {
+    "@@function": "h3TableSource",
+    "tableName": "my_h3_table",
+    "aggregationExp": "SUM(population) as value"
+  },
+  "getFillColor": {
+    "@@function": "colorBins",
+    "attr": "value",
+    "domain": [0, 1000, 10000, 100000],
+    "colors": "Sunset"
+  }
+}
+```
+
+### QuadbinTileLayer
+For square cell spatial aggregation (Quadbin index):
+
+```json
+{
+  "@@type": "QuadbinTileLayer",
+  "id": "sales-quadbin",
+  "data": {
+    "@@function": "quadbinTableSource",
+    "tableName": "my_quadbin_table",
+    "aggregationExp": "SUM(sales) as value"
+  },
+  "getFillColor": {
+    "@@function": "colorBins",
+    "attr": "value",
+    "domain": [0, 100, 1000, 10000],
+    "colors": "PurpOr"
+  },
+  "extruded": true,
+  "getElevation": "@@=properties.value"
+}
+```
+
+---
+
+## Data Sources
+
+### Table Sources
+Load data from CARTO tables:
+
+| Source | Use Case |
+|--------|----------|
+| `vectorTableSource` | Vector tiles from table |
+| `h3TableSource` | H3 aggregated data (requires `aggregationExp`) |
+| `quadbinTableSource` | Quadbin aggregated data (requires `aggregationExp`) |
+
+### Query Sources
+Load data from SQL queries:
+
+| Source | Use Case |
+|--------|----------|
+| `vectorQuerySource` | Vector tiles from SQL |
+| `h3QuerySource` | H3 data from SQL |
+| `quadbinQuerySource` | Quadbin data from SQL |
+
+### Aggregation Expressions
+
+For H3 and Quadbin layers, you must specify an aggregation:
+
+```
+"aggregationExp": "SUM(population) as value"
+"aggregationExp": "AVG(temperature) as value"
+"aggregationExp": "COUNT(*) as value"
+"aggregationExp": "MAX(revenue) as value"
+```
+
+---
+
+## Color Styling
+
+### Color Functions
+
+#### colorBins (threshold-based)
+Discrete color breaks for numeric data:
+
+```json
+{
+  "@@function": "colorBins",
+  "attr": "value",
+  "domain": [0, 100, 500, 1000, 5000],
+  "colors": "Sunset"
+}
+```
+
+#### colorCategories (categorical)
+Map categories to colors:
+
+```json
+{
+  "@@function": "colorCategories",
+  "attr": "category",
+  "domain": ["A", "B", "C", "D"],
+  "colors": "Bold"
+}
+```
+
+#### colorContinuous (interpolation)
+Smooth color gradient:
+
+```json
+{
+  "@@function": "colorContinuous",
+  "attr": "value",
+  "domain": [0, 100],
+  "colors": "Temps"
+}
+```
+
+### Available Palettes
+
+| Palette | Description |
+|---------|-------------|
+| `Sunset` | Orange to purple gradient |
+| `Teal` | Cyan to dark teal |
+| `PurpOr` | Purple to orange diverging |
+| `Temps` | Blue to red temperature scale |
+| `BluYl` | Blue to yellow |
+| `Burg` | Burgundy shades |
+| `PinkYl` | Pink to yellow |
+| `RedOr` | Red to orange |
+| `Bold` | Distinct categorical colors |
+
+### Expressions (@@=)
+
+For VectorTileLayer, use expressions for dynamic styling:
+
+```json
+{
+  "getFillColor": "@@=properties.type === 'airport' ? [255, 0, 0, 200] : [128, 128, 128, 180]"
+}
+```
+
+**Important**: When using `@@=` expressions, include the column in `data.columns`:
+
+```json
+{
+  "data": {
+    "@@function": "vectorTableSource",
+    "tableName": "my_table",
+    "columns": ["type"]
+  }
+}
+```
+
+---
 
 ## Architecture
 
 ### Communication Flow
 
 ```
-User Message → Frontend WebSocket → Backend
-                                      ↓
-                         OpenAI API (streaming + function calling)
-                                      ↓
-Backend streams back: text chunks + tool_call messages
-                                      ↓
-Frontend: Display text + Execute tool_calls via Executors
-                                      ↓
-                         deck.gl updates map view
+┌─────────────┐     WebSocket      ┌─────────────┐
+│   Frontend  │◄──────────────────►│   Backend   │
+│  (deck.gl)  │                    │  (Node.js)  │
+└──────┬──────┘                    └──────┬──────┘
+       │                                  │
+       │ Tool Execution                   │ LLM API
+       │                                  │
+       ▼                                  ▼
+┌─────────────┐                    ┌─────────────┐
+│  DeckState  │                    │   OpenAI    │
+│   Manager   │                    │   GPT-4o    │
+└─────────────┘                    └─────────────┘
 ```
 
-### Library Design
+### State Management
 
-The library follows a modular architecture:
+The frontend uses a centralized `DeckState` class:
 
-- **Tool Definitions**: Zod schemas define tool parameters and generate OpenAI function schemas
-- **Executors**: Pure functions that receive validated params and execution context (deck, map)
-- **Registry**: Central registration for built-in and custom tools
-- **Prompts**: System prompt generation for LLM integration
+```typescript
+class DeckState {
+  // View state (lat, lng, zoom, pitch, bearing)
+  setViewState(partial: Partial<MapViewState>): void;
+
+  // Deck configuration (layers, widgets, effects)
+  setDeckConfig(config: DeckConfig): void;
+
+  // Active layer tracking
+  setActiveLayerId(layerId: string): void;
+
+  // Subscribe to changes
+  subscribe(listener: ChangeListener): () => void;
+}
+```
+
+### Layer Merging
+
+When updating layers, the library uses deep merge:
+
+```typescript
+// Incoming update
+{ "id": "my-layer", "getFillColor": { "colors": "Teal" } }
+
+// Merged result (preserves existing properties)
+{
+  "id": "my-layer",
+  "data": { ... },  // Preserved
+  "getFillColor": {
+    "@@function": "colorBins",  // Preserved
+    "attr": "value",            // Preserved
+    "domain": [0, 100, 1000],   // Preserved
+    "colors": "Teal"            // Updated
+  }
+}
+```
+
+---
+
+## API Reference
+
+### Core Exports
+
+```typescript
+import {
+  // Tool definitions
+  tools,
+  getToolNames,
+  getAllToolDefinitions,
+  getConsolidatedToolDefinitions,
+
+  // Validation
+  validateToolParams,
+  validateWithZod,
+
+  // Tool type checking
+  isSpecTool,
+  isDataTool,
+
+  // AI SDK converters
+  getToolsForVercelAI,
+  getToolsRecordForVercelAI,
+  getToolsForOpenAIAgents,
+  getToolsForGoogleADK,
+
+  // Frontend tool detection
+  isFrontendToolResult,
+  parseFrontendToolResult,
+
+  // Layer schemas
+  supportedLayerTypes,
+  getLayerSpecSchema,
+} from '@carto/map-ai-tools';
+```
+
+### Type Definitions
+
+```typescript
+type ToolName =
+  | 'geocode'
+  | 'set-map-view'
+  | 'set-basemap'
+  | 'set-deck-state'
+  | 'take-map-screenshot'
+  | 'carto-query';
+
+interface FrontendToolResult {
+  __frontend_tool__: true;
+  toolName: string;
+  data: unknown;
+}
+
+type SupportedLayerType =
+  | 'VectorTileLayer'
+  | 'H3TileLayer'
+  | 'QuadbinTileLayer'
+  | 'GeoJsonLayer'
+  | 'ScatterplotLayer'
+  | 'PathLayer'
+  | 'ArcLayer';
+```
+
+---
+
+## Examples
+
+### Natural Language Commands
+
+**Navigation:**
+```
+"Fly to San Francisco"
+"Go to Madrid and zoom in"
+"Show me Paris at zoom level 14"
+```
+
+**Layer Creation:**
+```
+"Add a layer showing airports from carto-demo-data.demo_tables.airports"
+"Create a population heatmap using H3 aggregation"
+"Show sales by region using a quadbin layer"
+```
+
+**Styling:**
+```
+"Color the layer by population using the Sunset palette"
+"Use colorBins with domain [0, 100, 1000, 10000]"
+"Make it 3D with height based on value"
+"Change the palette to Teal"
+```
+
+**Data Queries:**
+```
+"How many points are in the layer?"
+"What's the average population by state?"
+"Show me the top 10 cities by population"
+```
+
+### Programmatic Usage
+
+```typescript
+import { createConsolidatedExecutors } from './executors';
+
+// Create executors with context
+const executors = createConsolidatedExecutors({
+  deckState,
+  zoomControls,
+  layerToggle,
+  toolStatus,
+  chatContainer,
+});
+
+// Execute a tool
+const result = await executors['set-deck-state']({
+  layers: [{
+    '@@type': 'VectorTileLayer',
+    id: 'my-layer',
+    data: {
+      '@@function': 'vectorTableSource',
+      tableName: 'my_table'
+    },
+    getFillColor: [255, 0, 0, 200]
+  }]
+});
+```
+
+---
 
 ## Troubleshooting
 
-### Backend Issues
-- **Port in use**: Check if port 3000 is available
-- **API errors**: Verify `OPENAI_API_KEY` in `.env`
-- **TypeScript errors**: Run `npx tsc --noEmit`
+### Layer Not Visible
+- Check that `visible: true` is set (or not explicitly false)
+- Verify the data source table name is correct
+- For spatial index layers (H3/Quadbin), ensure `aggregationExp` is provided
 
-### Frontend Issues
-- **WebSocket errors**: Ensure backend is running on port 3000
-- **Map not rendering**: Check WebGL2 support in browser
-- **Points not visible**: Wait for MapLibre `load` event, check console for errors
+### Colors Not Updating
+- Include `updateTriggers` when using color functions:
+  ```json
+  "updateTriggers": {
+    "getFillColor": { "colors": "Teal" }
+  }
+  ```
 
-### Common Gotchas
-- Coordinates use GeoJSON order: `[longitude, latitude]`
-- deck.gl requires explicit `redraw(true)` calls for visibility
-- Use `initialViewState` with `transitionDuration` for animations
+### Layer Duplication
+- When updating a layer, use the **same ID** as the original
+- The AI is instructed to use the "active layer" when no layer is specified
+
+### WebSocket Connection Issues
+- Ensure backend is running on the expected port
+- Check CORS settings if frontend/backend are on different origins
+
+---
 
 ## Contributing
 
-We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
-- Development setup
-- Code style guidelines
-- Pull request process
-- Adding new tools
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 
