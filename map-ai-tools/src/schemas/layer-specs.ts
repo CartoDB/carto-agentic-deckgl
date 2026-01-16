@@ -324,6 +324,98 @@ export const vectorTileLayerSpecSchema = layerSpecBaseSchema.extend({
 export type VectorTileLayerSpec = z.infer<typeof vectorTileLayerSpecSchema>;
 
 // ============================================================================
+// H3TileLayer Schema (CARTO Spatial Index)
+// ============================================================================
+
+/**
+ * CARTO h3TableSource configuration
+ * Used for H3 spatial index aggregation from a table
+ */
+export const h3TableSourceConfigSchema = z.object({
+  type: z.literal('h3TableSource').optional(),
+  connectionName: z.string().optional(),
+  tableName: z.string().describe('The CARTO table name containing H3 indexed data'),
+  aggregationExp: z.string().describe('SQL aggregation expression (e.g., "SUM(population) as value")'),
+  aggregationResLevel: z.number().min(0).max(15).optional().describe('H3 resolution level (0-15, auto if not specified)'),
+  columns: z.array(z.string()).optional(),
+  spatialDataColumn: z.string().optional(),
+  apiBaseUrl: z.string().optional(),
+  accessToken: z.string().optional(),
+});
+
+export type H3TableSourceConfig = z.infer<typeof h3TableSourceConfigSchema>;
+
+/**
+ * CARTO h3QuerySource configuration
+ * Used for H3 spatial index aggregation from a SQL query
+ */
+export const h3QuerySourceConfigSchema = z.object({
+  type: z.literal('h3QuerySource').optional(),
+  connectionName: z.string().optional(),
+  sqlQuery: z.string().describe('SQL query returning H3 indexed data'),
+  aggregationExp: z.string().describe('SQL aggregation expression (e.g., "AVG(temperature) as value")'),
+  aggregationResLevel: z.number().min(0).max(15).optional().describe('H3 resolution level (0-15, auto if not specified)'),
+  spatialDataColumn: z.string().optional(),
+  apiBaseUrl: z.string().optional(),
+  accessToken: z.string().optional(),
+});
+
+export type H3QuerySourceConfig = z.infer<typeof h3QuerySourceConfigSchema>;
+
+/**
+ * H3TileLayer specification schema (for CARTO H3 spatial index data)
+ *
+ * H3TileLayer renders data aggregated into H3 hexagonal cells.
+ * Requires aggregationExp to define how data is aggregated within each cell.
+ *
+ * @see https://deck.gl/docs/api-reference/carto/h3-tile-layer
+ */
+export const h3TileLayerSpecSchema = layerSpecBaseSchema.extend({
+  '@@type': z.literal('H3TileLayer'),
+  data: z.union([
+    functionRefSchema, // @@function/h3TableSource({...}) or h3QuerySource({...})
+    h3TableSourceConfigSchema,
+    h3QuerySourceConfigSchema,
+  ]),
+
+  // Rendering
+  getFillColor: accessorValueSchema.optional(),
+  getLineColor: accessorValueSchema.optional(),
+  getLineWidth: accessorValueSchema.optional(),
+  getElevation: accessorValueSchema.optional(),
+
+  // Extrusion (3D)
+  extruded: z.boolean().default(false).optional(),
+  elevationScale: z.number().min(0).default(1).optional(),
+
+  // Line styling
+  stroked: z.boolean().default(true).optional(),
+  lineWidthMinPixels: z.number().min(0).default(1).optional(),
+  lineWidthMaxPixels: z.number().min(0).optional(),
+
+  // Coverage
+  coverage: z.number().min(0).max(1).default(1).optional(),
+
+  // Interaction
+  pickable: z.boolean().default(true).optional(),
+  autoHighlight: z.boolean().default(false).optional(),
+  highlightColor: colorArraySchema.optional(),
+
+  // Update triggers
+  updateTriggers: z
+    .object({
+      getFillColor: z.unknown().optional(),
+      getLineColor: z.unknown().optional(),
+      getLineWidth: z.unknown().optional(),
+      getElevation: z.unknown().optional(),
+    })
+    .passthrough()
+    .optional(),
+});
+
+export type H3TileLayerSpec = z.infer<typeof h3TileLayerSpecSchema>;
+
+// ============================================================================
 // Supported Layer Types
 // ============================================================================
 
@@ -337,6 +429,7 @@ export const supportedLayerTypes = [
   'ArcLayer',
   'HexagonLayer',
   'VectorTileLayer',
+  'H3TileLayer',
 ] as const;
 
 export type SupportedLayerType = (typeof supportedLayerTypes)[number];
@@ -363,6 +456,8 @@ export function getLayerSpecSchema(layerType: SupportedLayerType) {
       return hexagonLayerSpecSchema;
     case 'VectorTileLayer':
       return vectorTileLayerSpecSchema;
+    case 'H3TileLayer':
+      return h3TileLayerSpecSchema;
     default:
       throw new Error(`Unsupported layer type: ${layerType}`);
   }
@@ -378,6 +473,7 @@ export const anyLayerSpecSchema = z.discriminatedUnion('@@type', [
   arcLayerSpecSchema,
   hexagonLayerSpecSchema,
   vectorTileLayerSpecSchema,
+  h3TileLayerSpecSchema,
 ]);
 
 export type AnyLayerSpec = z.infer<typeof anyLayerSpecSchema>;
