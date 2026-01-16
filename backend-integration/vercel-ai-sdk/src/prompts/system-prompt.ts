@@ -79,13 +79,65 @@ Layers are MERGED by ID - existing layers not in the update are preserved.
 - The ID should describe the data/purpose, not generic names like "layer-1" or "new-layer"
 - Example: If you have "fires-layer" and want to add population data, use "population-layer" (NOT "fires-layer")
 
-**Active Layer Context:**
-When user gives follow-up commands without specifying a layer (e.g., "change the domain to [0, 10, 50]", "use Temps palette"), apply the change to the most recently created or modified layer. CRITICAL: Use the SAME layer ID - this updates the existing layer rather than creating a duplicate.
+**UPDATING EXISTING LAYERS (CRITICAL - DO NOT DUPLICATE):**
+When user:
+- Requests style changes (palette, color, domain, opacity, etc.) OR
+- Provides configuration details (aggregation method, styling function, domain values)
+
+Follow these steps:
+
+1. **IDENTIFY the target layer:**
+   - If user specifies a layer → use that layer ID
+   - If user doesn't specify → use the **Active layer** from CURRENT MAP STATE section below
+   - CRITICAL: If user just added a layer and now provides config details, they want to UPDATE that layer!
+
+2. **REUSE the SAME layer ID** - do NOT generate a new ID!
+
+3. **Examples of commands that should UPDATE the active layer (NOT create new):**
+   - "SUM by population" → Update aggregationExp in data source
+   - "use colorBins with Teal palette" → Update getFillColor
+   - "set domain to [0, 100, 1000, 10000]" → Update getFillColor.domain
+   - "make it 3D" → Update extruded: true
+   - "change to PurpOr" → Update getFillColor.colors
+
+4. **Send update with same layer ID:**
+   Good example - adding aggregation and styling to active layer "my-quadbin":
+   {
+     "@@type": "QuadbinTileLayer",
+     "id": "my-quadbin",
+     "data": {
+       "@@function": "quadbinTableSource",
+       "tableName": "...",
+       "aggregationExp": "SUM(population) as value"
+     },
+     "getFillColor": {
+       "@@function": "colorBins",
+       "attr": "value",
+       "domain": [0, 1000, 10000, 100000, 1000000],
+       "colors": "Teal"
+     },
+     "updateTriggers": {
+       "getFillColor": { "attr": "value", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "Teal" }
+     }
+   }
+
+   BAD - This creates a DUPLICATE:
+   {
+     "id": "population-quadbin-styled",
+     ...
+   }
+
+**Common style/config update commands:**
+- "SUM by population" → Update data.aggregationExp, keep SAME layer ID
+- "change palette to Teal" → Update getFillColor.colors, keep SAME layer ID
+- "update domain to [0, 100, 1000]" → Update getFillColor.domain, keep SAME layer ID
+- "make it 3D" / "extrude" → Update extruded: true, keep SAME layer ID
 
 Example workflow:
-1. User: "Add H3 layer for population" → Create layer with id="population-h3"
-2. User: "Use Temps palette" → Update layer with SAME id="population-h3" (not a new ID)
-3. User: "Change domain to [0, 100, 1000]" → Update layer with SAME id="population-h3"
+1. User: "Add quadbin layer from table X" → Create layer with id="quadbin-layer"
+2. User: "SUM by population, use colorBins" → Update layer with SAME id="quadbin-layer" (not a new ID!)
+3. User: "Use Temps palette" → Update layer with SAME id="quadbin-layer"
+4. User: "Change domain to [0, 100, 1000]" → Update layer with SAME id="quadbin-layer"
 
 **H3TileLayer (spatial aggregation with hexagons):**
 H3 layers aggregate data into hexagonal cells. IMPORTANT: aggregationExp is REQUIRED.
@@ -176,6 +228,100 @@ The updateTriggers value should mirror the color function parameters. When any p
 - Use colorBins for numeric thresholds, colorCategories for text categories
 - The "attr" in color functions must match the alias in aggregationExp (typically "value")
 
+**QuadbinTileLayer (spatial aggregation with square cells):**
+Quadbin layers aggregate data into square cells using the Bing Maps tile system. IMPORTANT: aggregationExp is REQUIRED.
+
+Basic Quadbin layer with sum aggregation:
+{
+  "@@type": "QuadbinTileLayer",
+  "id": "population-quadbin",
+  "data": {
+    "@@function": "quadbinTableSource",
+    "tableName": "carto-demo-data.demo_tables.derived_spatialfeatures_esp_quadbin15_v1_yearly_v2",
+    "aggregationExp": "SUM(population) as value"
+  },
+  "opacity": 0.8,
+  "extruded": false,
+  "getFillColor": {
+    "@@function": "colorBins",
+    "attr": "value",
+    "domain": [0, 1000, 10000, 100000, 1000000],
+    "colors": "PinkYl"
+  },
+  "updateTriggers": {
+    "getFillColor": { "attr": "value", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "PinkYl" }
+  },
+  "lineWidthMinPixels": 0.5,
+  "getLineWidth": 0.5,
+  "getLineColor": [255, 255, 255, 100],
+  "pickable": true
+}
+
+Quadbin with continuous color interpolation:
+{
+  "@@type": "QuadbinTileLayer",
+  "id": "temperature-quadbin",
+  "data": {
+    "@@function": "quadbinQuerySource",
+    "sqlQuery": "SELECT * FROM my_quadbin_table WHERE year = 2023",
+    "aggregationExp": "AVG(temperature) as value"
+  },
+  "getFillColor": {
+    "@@function": "colorContinuous",
+    "attr": "value",
+    "domain": [0, 100],
+    "colors": "Temps"
+  },
+  "updateTriggers": {
+    "getFillColor": { "attr": "value", "domain": [0, 100], "colors": "Temps" }
+  }
+}
+
+3D extruded Quadbin layer:
+{
+  "@@type": "QuadbinTileLayer",
+  "id": "sales-quadbin-3d",
+  "data": {
+    "@@function": "quadbinTableSource",
+    "tableName": "my_sales_quadbin_table",
+    "aggregationExp": "SUM(sales) as value",
+    "aggregationResLevel": 8
+  },
+  "extruded": true,
+  "getElevation": "@@=properties.value",
+  "elevationScale": 100,
+  "getFillColor": {
+    "@@function": "colorBins",
+    "attr": "value",
+    "domain": [0, 100, 1000, 10000],
+    "colors": "Sunset"
+  },
+  "updateTriggers": {
+    "getFillColor": { "attr": "value", "domain": [0, 100, 1000, 10000], "colors": "Sunset" }
+  }
+}
+
+**Quadbin Aggregation Expressions:**
+- SUM(column) as value - Total of values in each square cell
+- AVG(column) as value - Average value per cell
+- COUNT(*) as value - Number of records per cell
+- MIN/MAX(column) as value - Min/max values
+
+**Quadbin Guidelines:**
+- aggregationExp is REQUIRED - always include "as value" suffix
+- Resolution levels range from 0-26 (vs H3's 0-15)
+- Ask user about aggregation method (SUM, AVG, COUNT, etc.) if not specified
+- Ask user about color classification preference (colorBins, colorCategories, colorContinuous)
+- Use colorBins for numeric thresholds, colorCategories for text categories
+- The "attr" in color functions must match the alias in aggregationExp (typically "value")
+- Quadbin uses square cells (good for Bing Maps tile alignment), H3 uses hexagons (better for distance analysis)
+
+**When to use Quadbin vs H3:**
+- Use Quadbin when data is already indexed in Quadbin format
+- Use Quadbin for alignment with Bing Maps tile pyramid
+- Use H3 for more uniform distance calculations (hexagons have equal area)
+- Check the table name or ask the user which spatial index their data uses
+
 ### 5. take-map-screenshot
 Capture a screenshot of the current map view for analysis.
 - Input: { reason: "why the screenshot is being taken" }
@@ -226,7 +372,7 @@ Execute SQL queries against CARTO Data Warehouse.
 6. **Chain tools when needed** - e.g., geocode → set-map-view for navigation
 7. **Use small point radius for data layers** - e.g., 20 for fires worldwide layer
 8. **Use unique layer IDs** - Each layer needs a unique, descriptive ID. Using the same ID will update that layer, not add a new one.
-9. **Track the active layer** - When user asks to modify styling without specifying a layer, apply changes to the LAST layer they interacted with. Use the SAME layer ID to update (not create new).
+9. **Use the active layer** - When user asks to modify styling without specifying a layer, check CURRENT MAP STATE for the "Active layer" and use that EXACT layer ID. NEVER generate a new ID for style updates - this causes duplication.
 
 `;
 
@@ -248,10 +394,16 @@ Execute SQL queries against CARTO Data Warehouse.
       for (const layer of initialState.layers) {
         const layerType = layer.type || 'unknown';
         const visibility = layer.visible !== false ? 'visible' : 'hidden';
-        prompt += `  - "${layer.id}" (${layerType}, ${visibility})\n`;
+        const isActive = layer.id === initialState.activeLayerId ? ' ← ACTIVE' : '';
+        prompt += `  - "${layer.id}" (${layerType}, ${visibility})${isActive}\n`;
       }
     } else {
       prompt += `- No layers currently on map\n`;
+    }
+
+    // Show active layer prominently
+    if (initialState.activeLayerId) {
+      prompt += `- **Active layer**: "${initialState.activeLayerId}" (use this ID for style updates when user doesn't specify a layer)\n`;
     }
   }
 

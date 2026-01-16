@@ -416,6 +416,95 @@ export const h3TileLayerSpecSchema = layerSpecBaseSchema.extend({
 export type H3TileLayerSpec = z.infer<typeof h3TileLayerSpecSchema>;
 
 // ============================================================================
+// QuadbinTileLayer Schema (CARTO Spatial Index)
+// ============================================================================
+
+/**
+ * CARTO quadbinTableSource configuration
+ * Used for Quadbin spatial index aggregation from a table
+ */
+export const quadbinTableSourceConfigSchema = z.object({
+  type: z.literal('quadbinTableSource').optional(),
+  connectionName: z.string().optional(),
+  tableName: z.string().describe('The CARTO table name containing Quadbin indexed data'),
+  aggregationExp: z.string().describe('SQL aggregation expression (e.g., "SUM(population) as value")'),
+  aggregationResLevel: z.number().min(0).max(26).optional().describe('Quadbin resolution level (0-26, auto if not specified)'),
+  columns: z.array(z.string()).optional(),
+  spatialDataColumn: z.string().optional(),
+  apiBaseUrl: z.string().optional(),
+  accessToken: z.string().optional(),
+});
+
+export type QuadbinTableSourceConfig = z.infer<typeof quadbinTableSourceConfigSchema>;
+
+/**
+ * CARTO quadbinQuerySource configuration
+ * Used for Quadbin spatial index aggregation from a SQL query
+ */
+export const quadbinQuerySourceConfigSchema = z.object({
+  type: z.literal('quadbinQuerySource').optional(),
+  connectionName: z.string().optional(),
+  sqlQuery: z.string().describe('SQL query returning Quadbin indexed data'),
+  aggregationExp: z.string().describe('SQL aggregation expression (e.g., "AVG(temperature) as value")'),
+  aggregationResLevel: z.number().min(0).max(26).optional().describe('Quadbin resolution level (0-26, auto if not specified)'),
+  spatialDataColumn: z.string().optional(),
+  apiBaseUrl: z.string().optional(),
+  accessToken: z.string().optional(),
+});
+
+export type QuadbinQuerySourceConfig = z.infer<typeof quadbinQuerySourceConfigSchema>;
+
+/**
+ * QuadbinTileLayer specification schema (for CARTO Quadbin spatial index data)
+ *
+ * QuadbinTileLayer renders data aggregated into Quadbin square cells (Bing Maps tile system).
+ * Requires aggregationExp to define how data is aggregated within each cell.
+ *
+ * @see https://deck.gl/docs/api-reference/carto/quadbin-tile-layer
+ */
+export const quadbinTileLayerSpecSchema = layerSpecBaseSchema.extend({
+  '@@type': z.literal('QuadbinTileLayer'),
+  data: z.union([
+    functionRefSchema, // @@function/quadbinTableSource({...}) or quadbinQuerySource({...})
+    quadbinTableSourceConfigSchema,
+    quadbinQuerySourceConfigSchema,
+  ]),
+
+  // Rendering
+  getFillColor: accessorValueSchema.optional(),
+  getLineColor: accessorValueSchema.optional(),
+  getLineWidth: accessorValueSchema.optional(),
+  getElevation: accessorValueSchema.optional(),
+
+  // Extrusion (3D)
+  extruded: z.boolean().default(false).optional(),
+  elevationScale: z.number().min(0).default(1).optional(),
+
+  // Line styling
+  stroked: z.boolean().default(true).optional(),
+  lineWidthMinPixels: z.number().min(0).default(1).optional(),
+  lineWidthMaxPixels: z.number().min(0).optional(),
+
+  // Interaction
+  pickable: z.boolean().default(true).optional(),
+  autoHighlight: z.boolean().default(false).optional(),
+  highlightColor: colorArraySchema.optional(),
+
+  // Update triggers
+  updateTriggers: z
+    .object({
+      getFillColor: z.unknown().optional(),
+      getLineColor: z.unknown().optional(),
+      getLineWidth: z.unknown().optional(),
+      getElevation: z.unknown().optional(),
+    })
+    .passthrough()
+    .optional(),
+});
+
+export type QuadbinTileLayerSpec = z.infer<typeof quadbinTileLayerSpecSchema>;
+
+// ============================================================================
 // Supported Layer Types
 // ============================================================================
 
@@ -430,6 +519,7 @@ export const supportedLayerTypes = [
   'HexagonLayer',
   'VectorTileLayer',
   'H3TileLayer',
+  'QuadbinTileLayer',
 ] as const;
 
 export type SupportedLayerType = (typeof supportedLayerTypes)[number];
@@ -458,6 +548,8 @@ export function getLayerSpecSchema(layerType: SupportedLayerType) {
       return vectorTileLayerSpecSchema;
     case 'H3TileLayer':
       return h3TileLayerSpecSchema;
+    case 'QuadbinTileLayer':
+      return quadbinTileLayerSpecSchema;
     default:
       throw new Error(`Unsupported layer type: ${layerType}`);
   }
@@ -474,6 +566,7 @@ export const anyLayerSpecSchema = z.discriminatedUnion('@@type', [
   hexagonLayerSpecSchema,
   vectorTileLayerSpecSchema,
   h3TileLayerSpecSchema,
+  quadbinTileLayerSpecSchema,
 ]);
 
 export type AnyLayerSpec = z.infer<typeof anyLayerSpecSchema>;

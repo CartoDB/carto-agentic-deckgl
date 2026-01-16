@@ -29,6 +29,10 @@ export interface InitialState {
     visible?: boolean;
     [key: string]: unknown;
   }>;
+
+  // Active layer ID - the last created/modified layer
+  // Used to track which layer to update when user doesn't specify
+  activeLayerId?: string;
 }
 
 /**

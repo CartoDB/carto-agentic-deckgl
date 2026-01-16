@@ -121,16 +121,15 @@ const executors = createConsolidatedExecutors(executorContext);
 // ==================== MESSAGE HANDLING ====================
 
 function handleMessage(message: ServerMessage): void {
-  console.log('[Frontend] Message received:', message.type, message);
+  // Only log non-stream messages to reduce console noise
+  if (message.type !== 'stream_chunk') {
+    console.log('[Frontend] Message received:', message.type, message);
+  }
 
   switch (message.type) {
     case 'stream_chunk': {
       const chunk = message as StreamChunkMessage;
-      console.log('[Frontend] Stream chunk:', {
-        messageId: chunk.messageId,
-        contentLength: chunk.content?.length,
-        isComplete: chunk.isComplete
-      });
+      // Removed verbose stream logging
 
       // Remove thinking message when we start receiving content
       if (chatContainer.hasThinkingMessage() && chunk.content) {
@@ -379,6 +378,7 @@ function createInitialState() {
   return {
     viewState: initialViewState,
     layers,
+    activeLayerId: deckState.getActiveLayerId(),
     cartoConfig: {
       connectionName: CARTO_CONFIG.connectionName,
       hasCredentials: !!CARTO_CONFIG.accessToken
