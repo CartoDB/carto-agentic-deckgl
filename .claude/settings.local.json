@@ -56,7 +56,9 @@
       "Bash(yarn build)",
       "WebFetch(domain:carto.com)",
       "Bash(git -C /Users/danielarlandispons/Documents/GitHub/ps-frontend-tools-poc diff integration-examples/frontend-react/src/services/toolExecutors/index.js)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [],
     "ask": []

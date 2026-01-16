@@ -66,6 +66,18 @@ Example VectorTileLayer:
   "pickable": true
 }
 
+Example H3TileLayer (with aggregation):
+{
+  "@@type": "H3TileLayer",
+  "id": "population-hex",
+  "data": {
+    "@@function": "h3TableSource",
+    "tableName": "my_h3_table",
+    "aggregationExp": "SUM(population) as value"
+  },
+  "getFillColor": { "@@function": "colorBins", "attr": "value", "domain": [0, 1000, 10000], "colors": "Sunset" }
+}
+
 Example with @@= expression styling (RECOMMENDED for VectorTileLayer):
 {
   "@@type": "VectorTileLayer",
@@ -75,7 +87,7 @@ Example with @@= expression styling (RECOMMENDED for VectorTileLayer):
 }
 
 Available layer types: VectorTileLayer, H3TileLayer, QuadbinTileLayer, GeoJsonLayer, ScatterplotLayer, PathLayer, ArcLayer, etc.
-Available data sources: vectorTableSource, vectorQuerySource, h3TableSource, quadbinTableSource`,
+Available data sources: vectorTableSource, vectorQuerySource, h3TableSource (requires aggregationExp), h3QuerySource, quadbinTableSource`,
     outputType: 'spec' as ToolOutputType,
     schema: z.object({
       layers: z.array(z.record(z.string(), z.unknown())).optional().describe(
