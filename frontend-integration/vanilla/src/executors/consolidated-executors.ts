@@ -80,6 +80,40 @@ interface CartoQueryParams {
 // ==================== HELPER FUNCTIONS ====================
 
 /**
+ * Merge layer specs: update existing by ID, add new ones, preserve others
+ * This ensures that when updating one layer, other layers keep their styling
+ */
+function mergeLayerSpecs(
+  existing: Record<string, unknown>[],
+  incoming: Record<string, unknown>[]
+): Record<string, unknown>[] {
+  // Create a map of existing layers by ID
+  const layerMap = new Map<string, Record<string, unknown>>();
+  for (const layer of existing) {
+    const id = layer.id as string;
+    if (id) {
+      layerMap.set(id, layer);
+    }
+  }
+
+  // Update/add incoming layers
+  for (const layer of incoming) {
+    const id = layer.id as string;
+    if (id) {
+      // Merge with existing layer if present, otherwise add new
+      const existingLayer = layerMap.get(id);
+      if (existingLayer) {
+        layerMap.set(id, { ...existingLayer, ...layer });
+      } else {
+        layerMap.set(id, layer);
+      }
+    }
+  }
+
+  return Array.from(layerMap.values());
+}
+
+/**
  * Validate that styling columns are included in data.columns
  * Logs a warning if columns used in @@= accessors are missing from data.columns
  */
@@ -240,15 +274,27 @@ export function createConsolidatedExecutors(
      * This is the most powerful tool - accepts full Deck.gl JSON specs.
      * The agent generates JSON with @@type, @@function prefixes.
      * JSONConverter handles conversion to actual deck.gl layers.
+     *
+     * Uses merge logic: incoming layers are merged with existing ones by ID.
+     * This preserves styling of layers not included in the update.
      */
     'set-deck-state': (params: unknown): ToolResult => {
       const { layers, widgets, effects } = params as SetDeckStateParams;
 
       try {
+        // Get current config to merge with
+        const currentConfig = deckState.getDeckConfig();
+
+        // Merge layers: update existing by ID, add new ones, preserve others
+        const mergedLayers = mergeLayerSpecs(
+          currentConfig.layers ?? [],
+          layers ?? []
+        );
+
         const config = {
-          layers: layers ?? [],
-          widgets: widgets ?? [],
-          effects: effects ?? [],
+          layers: mergedLayers,
+          widgets: widgets ?? currentConfig.widgets ?? [],
+          effects: effects ?? currentConfig.effects ?? [],
         };
 
         // Validate that styling columns are included in data.columns
