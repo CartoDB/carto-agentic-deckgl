@@ -1,15 +1,22 @@
+/**
+ * App Component
+ *
+ * Main application component using JSONConverter-based architecture.
+ * Initializes map with CARTO POI layer via DeckState.
+ */
+
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
 import { MapView } from './components/map-view/map-view';
 import { ChatUi } from './components/chat-ui/chat-ui';
 import { ZoomControls } from './components/zoom-controls/zoom-controls';
 import { LayerToggle } from './components/layer-toggle/layer-toggle';
 import { SnackbarComponent } from './components/snackbar/snackbar';
 import { MapAIToolsService } from './services/map-ai-tools.service';
-import { MapToolsService } from './services/map-tools.service';
-import { MapToolsStateService } from './services/map-tools-state.service';
-import { ViewState } from './services/deck-map.service';
+import { DeckMapService, ViewState } from './services/deck-map.service';
+import { DeckStateService } from './state/deck-state.service';
+import { ConsolidatedExecutorsService } from './services/consolidated-executors.service';
+import { environment } from '../environments/environment';
 import {
   Message,
   MapInstances,
@@ -17,8 +24,6 @@ import {
   LayerConfig,
   SnackbarConfig,
 } from './models/message.model';
-
-const WS_URL = 'ws://localhost:3000/ws';
 
 @Component({
   selector: 'app-root',
@@ -32,7 +37,8 @@ export class App implements OnInit, OnDestroy {
   messages: Message[] = [];
   isConnected: boolean = false;
   loaderState: LoaderState = null;
-  zoomLevel: number = 4;
+  loaderMessage: string = '';
+  zoomLevel: number = 3;
   layers: LayerConfig[] = [];
   snackbar: SnackbarConfig = { message: null, type: 'error' };
 
@@ -41,39 +47,77 @@ export class App implements OnInit, OnDestroy {
 
   constructor(
     private aiToolsService: MapAIToolsService,
-    private mapToolsService: MapToolsService,
-    private stateService: MapToolsStateService
+    private deckMapService: DeckMapService,
+    private deckState: DeckStateService,
+    private executorsService: ConsolidatedExecutorsService
   ) {}
 
   ngOnInit(): void {
-    // Connect to WebSocket via MapAIToolsService
-    this.aiToolsService.connect(WS_URL);
+    // Connect to WebSocket
+    this.aiToolsService.connect();
 
     // Subscribe to state observables
     this.subscriptions.push(
       this.aiToolsService.isConnected$.subscribe((c) => (this.isConnected = c)),
       this.aiToolsService.messages$.subscribe((m) => (this.messages = m)),
       this.aiToolsService.loaderState$.subscribe((s) => (this.loaderState = s)),
+      this.aiToolsService.loaderMessage$.subscribe((m) => (this.loaderMessage = m)),
       this.aiToolsService.error$.subscribe((err) => this.showSnackbar(err)),
-      this.stateService.layers$.subscribe((l) => (this.layers = l))
+      this.aiToolsService.layers$.subscribe((l) => (this.layers = l))
     );
+
+    // Initialize POI layer if CARTO credentials are configured
+    this.initializePoiLayer();
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach((s) => s.unsubscribe());
+    this.deckMapService.destroy();
+  }
+
+  /**
+   * Initialize POI layer via DeckState
+   */
+  private initializePoiLayer(): void {
+    if (!environment.accessToken) {
+      console.warn('[App] No CARTO access token configured. Skipping POI layer.');
+      return;
+    }
+
+    const poiLayerSpec = {
+      '@@type': 'VectorTileLayer',
+      id: 'pois',
+      data: {
+        '@@function': 'vectorTableSource',
+        tableName: 'carto-demo-data.demo_tables.osm_pois_usa'
+      },
+      pickable: true,
+      opacity: 1,
+      getFillColor: [3, 111, 226],
+      getLineColor: [255, 255, 255],
+      getPointRadius: 50,
+      getLineWidth: 10,
+      pointRadiusMinPixels: 1,
+      lineWidthMinPixels: 0.3,
+      visible: true
+    };
+
+    // Set initial deck config with POI layer
+    this.deckState.setDeckConfig({
+      layers: [poiLayerSpec],
+      widgets: [],
+      effects: []
+    });
+
+    console.log('[App] POI layer initialized');
   }
 
   handleMapInit(instances: MapInstances): void {
     this.mapInstances = instances;
-    this.mapToolsService.initialize(instances.deck, instances.map);
+    console.log('[App] Map initialized');
 
-    // Register layer in state service
-    this.stateService.registerLayer({
-      id: 'points-layer',
-      name: 'Airports',
-      color: '#c80050',
-      visible: true,
-    });
+    // Force redraw after init
+    this.deckMapService.redraw();
   }
 
   handleViewStateChange(viewState: ViewState): void {
@@ -85,32 +129,46 @@ export class App implements OnInit, OnDestroy {
   }
 
   async handleZoomIn(): Promise<void> {
-    if (this.mapToolsService.isInitialized()) {
-      await this.mapToolsService.execute(TOOL_NAMES.ZOOM_MAP, { direction: 'in', levels: 1 });
-    }
+    const currentView = this.deckState.getViewState();
+    const newZoom = Math.min(22, (currentView.zoom ?? 3) + 1);
+
+    await this.executorsService.execute('set-map-view', {
+      latitude: currentView.latitude,
+      longitude: currentView.longitude,
+      zoom: newZoom,
+      pitch: currentView.pitch ?? 0,
+      bearing: currentView.bearing ?? 0
+    });
   }
 
   async handleZoomOut(): Promise<void> {
-    if (this.mapToolsService.isInitialized()) {
-      await this.mapToolsService.execute(TOOL_NAMES.ZOOM_MAP, { direction: 'out', levels: 1 });
-    }
+    const currentView = this.deckState.getViewState();
+    const newZoom = Math.max(0, (currentView.zoom ?? 3) - 1);
+
+    await this.executorsService.execute('set-map-view', {
+      latitude: currentView.latitude,
+      longitude: currentView.longitude,
+      zoom: newZoom,
+      pitch: currentView.pitch ?? 0,
+      bearing: currentView.bearing ?? 0
+    });
   }
 
   async handleLayerToggle(event: { layerId: string; visible: boolean }): Promise<void> {
-    if (this.mapToolsService.isInitialized()) {
-      const result = await this.mapToolsService.execute(TOOL_NAMES.TOGGLE_LAYER, {
-        layerName: event.layerId,
-        visible: event.visible,
-      });
-
-      // Update state service on success
-      if (result.success) {
-        this.stateService.setLayerVisibility(event.layerId, event.visible);
+    // Update layer visibility in DeckState
+    const currentLayers = this.deckState.getLayers();
+    const updatedLayers = currentLayers.map(layer => {
+      if (layer['id'] === event.layerId) {
+        return { ...layer, visible: event.visible };
       }
-    }
+      return layer;
+    });
+
+    this.deckState.setLayers(updatedLayers);
+    console.log(`[App] Layer "${event.layerId}" visibility set to ${event.visible}`);
   }
 
-  showSnackbar(message: string, type: 'error' | 'info' = 'error'): void {
+  showSnackbar(message: string, type: 'error' | 'info' | 'success' = 'error'): void {
     this.snackbar = { message, type };
   }
 

@@ -59,7 +59,10 @@
       "mcp__ide__getDiagnostics",
       "Bash(git push:*)",
       "Bash(gh pr create:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Add QuadbinTileLayer support and improve layer update handling\n\n## New Features\n- Add QuadbinTileLayer support for square cell spatial aggregation\n- Add activeLayerId tracking to help AI identify which layer to update\n- Implement deep merge for layer specs to preserve nested properties\n\n## Improvements\n- Update system prompt with detailed layer update instructions\n- Fix tool description to show correct `layers` array structure\n- Add prominent active layer indicator in map state context\n- Reduce console logging noise for stream chunks\n\n## Files Changed\n- map-ai-tools: Add QuadbinTileLayer schema and update tool descriptions\n- backend: Enhanced system prompt with Quadbin docs and update rules\n- frontend: Deep merge, active layer tracking, cleaner logging\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Add QuadbinTileLayer support and improve layer update handling\n\n## New Features\n- Add QuadbinTileLayer support for square cell spatial aggregation\n- Add activeLayerId tracking to help AI identify which layer to update\n- Implement deep merge for layer specs to preserve nested properties\n\n## Improvements\n- Update system prompt with detailed layer update instructions\n- Fix tool description to show correct `layers` array structure\n- Add prominent active layer indicator in map state context\n- Reduce console logging noise for stream chunks\n\n## Files Changed\n- map-ai-tools: Add QuadbinTileLayer schema and update tool descriptions\n- backend: Enhanced system prompt with Quadbin docs and update rules\n- frontend: Deep merge, active layer tracking, cleaner logging\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(timeout 30 npm run start)",
+      "Bash(npm ls:*)",
+      "WebFetch(domain:angular.dev)"
     ],
     "deny": [],
     "ask": []
