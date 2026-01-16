@@ -54,40 +54,51 @@ export const tools = {
   'set-deck-state': {
     name: 'set-deck-state',
     description: `Set Deck.gl visualization state including layers, widgets, and effects.
-Pass configurations in Deck.gl JSON format with @@type, @@function prefixes.
-This REPLACES all existing layers - include all layers you want to keep.
 
-Example VectorTileLayer:
+IMPORTANT: You MUST pass a "layers" array containing layer objects. Each layer needs @@type.
+
+Example - Adding a VectorTileLayer:
 {
-  "@@type": "VectorTileLayer",
-  "id": "my-layer",
-  "data": { "@@function": "vectorTableSource", "tableName": "cartobq.public.airports" },
-  "getFillColor": [200, 200, 200, 180],
-  "pickable": true
+  "layers": [
+    {
+      "@@type": "VectorTileLayer",
+      "id": "my-layer",
+      "data": { "@@function": "vectorTableSource", "tableName": "cartobq.public.airports" },
+      "getFillColor": [200, 200, 200, 180],
+      "pickable": true
+    }
+  ]
 }
 
-Example H3TileLayer (with aggregation):
+Example - Adding a QuadbinTileLayer with colorBins:
 {
-  "@@type": "H3TileLayer",
-  "id": "population-hex",
-  "data": {
-    "@@function": "h3TableSource",
-    "tableName": "my_h3_table",
-    "aggregationExp": "SUM(population) as value"
-  },
-  "getFillColor": { "@@function": "colorBins", "attr": "value", "domain": [0, 1000, 10000], "colors": "Sunset" }
+  "layers": [
+    {
+      "@@type": "QuadbinTileLayer",
+      "id": "population-quadbin",
+      "data": {
+        "@@function": "quadbinTableSource",
+        "tableName": "my_quadbin_table",
+        "aggregationExp": "SUM(population) as value"
+      },
+      "getFillColor": { "@@function": "colorBins", "attr": "value", "domain": [0, 1000, 10000], "colors": "Sunset" }
+    }
+  ]
 }
 
-Example with @@= expression styling (RECOMMENDED for VectorTileLayer):
+Example - Updating layer style (keep same id, include properties to change):
 {
-  "@@type": "VectorTileLayer",
-  "id": "styled-layer",
-  "data": { "@@function": "vectorTableSource", "tableName": "my_table", "columns": ["type"] },
-  "getFillColor": "@@=properties.type === 'A' ? [255, 0, 0, 200] : [128, 128, 128, 180]"
+  "layers": [
+    {
+      "id": "population-quadbin",
+      "getFillColor": { "@@function": "colorBins", "attr": "value", "domain": [0, 1000, 10000], "colors": "PurpOr" }
+    }
+  ]
 }
 
-Available layer types: VectorTileLayer, H3TileLayer, QuadbinTileLayer, GeoJsonLayer, ScatterplotLayer, PathLayer, ArcLayer, etc.
-Available data sources: vectorTableSource, vectorQuerySource, h3TableSource (requires aggregationExp), h3QuerySource, quadbinTableSource`,
+Available layer types: VectorTileLayer, H3TileLayer, QuadbinTileLayer, GeoJsonLayer, ScatterplotLayer, PathLayer, ArcLayer.
+Available data sources: vectorTableSource, vectorQuerySource, h3TableSource (requires aggregationExp), h3QuerySource, quadbinTableSource (requires aggregationExp), quadbinQuerySource.
+Available color palettes: Sunset, PurpOr, Teal, Temps, BluYl, Burg, PinkYl, RedOr, etc.`,
     outputType: 'spec' as ToolOutputType,
     schema: z.object({
       layers: z.array(z.record(z.string(), z.unknown())).optional().describe(
