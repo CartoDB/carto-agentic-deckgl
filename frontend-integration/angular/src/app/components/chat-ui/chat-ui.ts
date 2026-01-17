@@ -3,7 +3,9 @@ import {
   Input,
   Output,
   EventEmitter,
-  AfterViewChecked,
+  OnChanges,
+  SimpleChanges,
+  AfterViewInit,
   ElementRef,
   ViewChild,
 } from '@angular/core';
@@ -19,23 +21,80 @@ import { Message, LoaderState } from '../../models/message.model';
   templateUrl: './chat-ui.html',
   styleUrl: './chat-ui.css',
 })
-export class ChatUi implements AfterViewChecked {
+export class ChatUi implements OnChanges, AfterViewInit {
   @Input() isConnected: boolean = false;
   @Input() messages: Message[] = [];
   @Input() loaderState: LoaderState = null;
   @Output() sendMessage = new EventEmitter<string>();
 
   @ViewChild('messagesEnd') private messagesEnd!: ElementRef;
+  @ViewChild('messagesContainer') private messagesContainer!: ElementRef<HTMLDivElement>;
 
   input: string = '';
+  private shouldAutoScroll: boolean = true;
+  private previousMessageCount: number = 0;
 
-  ngAfterViewChecked(): void {
-    this.scrollToBottom();
+  ngAfterViewInit(): void {
+    // Initialize previous message count
+    this.previousMessageCount = this.messages.length;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Only auto-scroll if messages changed
+    if (changes['messages'] && !changes['messages'].firstChange) {
+      const hasNewMessages = this.messages.length !== this.previousMessageCount;
+      
+      if (hasNewMessages) {
+        this.previousMessageCount = this.messages.length;
+        
+        // Check current scroll position before auto-scrolling
+        this.checkScrollPosition();
+        
+        // Small delay to ensure DOM is updated
+        setTimeout(() => {
+          if (this.shouldAutoScroll) {
+            this.scrollToBottom();
+          }
+        }, 0);
+      }
+    }
+  }
+
+  private checkScrollPosition(): void {
+    const container = this.messagesContainer?.nativeElement;
+    if (!container) return;
+
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    
+    // Consider user at bottom if within 100px of bottom
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    this.shouldAutoScroll = isNearBottom;
+  }
+
+  handleScroll(event: Event): void {
+    const container = event.target as HTMLDivElement;
+    if (!container) return;
+
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    
+    // Consider user at bottom if within 100px of bottom
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    this.shouldAutoScroll = isNearBottom;
   }
 
   scrollToBottom(): void {
     try {
-      this.messagesEnd?.nativeElement.scrollIntoView({ behavior: 'smooth' });
+      const container = this.messagesContainer?.nativeElement;
+      if (container) {
+        // Use instant scroll to avoid interfering with user scrolling
+        container.scrollTop = container.scrollHeight;
+      } else {
+        this.messagesEnd?.nativeElement.scrollIntoView({ behavior: 'auto' });
+      }
     } catch (err) {
       // Ignore scroll errors
     }
@@ -45,6 +104,8 @@ export class ChatUi implements AfterViewChecked {
     if (this.input.trim() && this.isConnected) {
       this.sendMessage.emit(this.input.trim());
       this.input = '';
+      // Enable auto-scroll when user sends a message
+      this.shouldAutoScroll = true;
     }
   }
 

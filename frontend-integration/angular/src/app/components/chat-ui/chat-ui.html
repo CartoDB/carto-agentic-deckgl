@@ -4,7 +4,7 @@
     <span class="connection-status" [class.connected]="isConnected">●</span>
   </div>
 
-  <div class="chat-messages">
+  <div class="chat-messages" #messagesContainer (scroll)="handleScroll($event)">
     @for (msg of messages; track trackByMessage($index, msg)) {
       <div [class]="getMessageClasses(msg)" [ngStyle]="getMessageStyle(msg)">
         @if (msg.type === 'assistant') {
