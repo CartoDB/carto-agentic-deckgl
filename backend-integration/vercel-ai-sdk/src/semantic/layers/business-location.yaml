@@ -1,307 +1,14 @@
-# Business Location Finder Semantic Layer
 # Provides context for AI to understand available data for location analysis
-
-name: Business Location Finder
-
-# POI Categories (replaces old business types)
-business_types:
-  - id: civic_amenities
-    name: Civic Amenities
-    icon: account_balance
-    description: Government buildings, public services, community centers
-
-  - id: commercial
-    name: Commercial
-    icon: store
-    description: Shops, offices, business establishments
-
-  - id: education
-    name: Education
-    icon: school
-    description: Schools, universities, training centers
-
-  - id: entertainment_arts_culture
-    name: Entertainment, Arts & Culture
-    icon: theater_comedy
-    description: Theaters, museums, galleries, venues
-
-  - id: financial
-    name: Financial
-    icon: payments
-    description: Banks, ATMs, financial services
-
-  - id: healthcare
-    name: Healthcare
-    icon: local_hospital
-    description: Hospitals, clinics, pharmacies
-
-  - id: others
-    name: Others
-    icon: more_horiz
-    description: Miscellaneous points of interest
-
-  - id: sustenance
-    name: Sustenance
-    icon: restaurant
-    description: Restaurants, cafes, food establishments
-
-  - id: tourism
-    name: Tourism
-    icon: tour
-    description: Hotels, attractions, tourist services
-
-  - id: transportation
-    name: Transportation
-    icon: directions_transit
-    description: Transit stations, parking, transportation hubs
-
-# Radius options for POI search (replaces proximity_priorities)
-radius_options:
-  - id: radius_3
-    value: 3
-    unit: miles
-    label: 3 miles
-
-  - id: radius_5
-    value: 5
-    unit: miles
-    label: 5 miles
-
-  - id: radius_10
-    value: 10
-    unit: miles
-    label: 10 miles
-
-drivetime_options:
-  - id: drivetime_5
-    value: 5
-    unit: minutes
-    label: 5 minutes
-
-  - id: drivetime_10
-    value: 10
-    unit: minutes
-    label: 10 minutes
-
-  - id: drivetime_15
-    value: 15
-    unit: minutes
-    label: 15 minutes
-
-  - id: drivetime_20
-    value: 20
-    unit: minutes
-    label: 20 minutes
-    
-  - id: drivetime_30
-    value: 30
-    unit: minutes
-    label: 30 minutes
-
 # Data cubes available for analysis
 cubes:
-  - name: us_demographics_h3
-    sql_table: ps-catalog-default.ps-demo-tables.derived_spatialfeatures_usa_h3res8_v1_yearly_v2
-    title: US Demographics (H3)
-    description: US demographic data aggregated to H3 resolution 8 hexagons
-
-    geo:
-      geometry_column: h3
-      geometry_type: h3
-      initial_view:
-        longitude: -98.5795
-        latitude: 39.8283
-        zoom: 4
-        pitch: 0
-        bearing: 0
-
-    dimensions:
-      - name: h3
-        sql: h3
-        type: geometry
-        description: H3 hexagon index at resolution 8
-
-      - name: do_date
-        sql: do_date
-        type: date
-        title: Date
-        description: Data observation date
-
-      - name: population
-        sql: population
-        type: number
-        title: Total Population
-        description: Total population count
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [100, 500, 1000, 5000, 10000]
-          recommended: true
-
-      - name: female
-        sql: female
-        type: number
-        title: Female Population
-        description: Number of female population
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [100, 500, 1000, 5000, 10000]
-          recommended: true
-
-      - name: male
-        sql: male
-        type: number
-        title: Male Population
-        description: Number of male population
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [100, 500, 1000, 5000, 10000]
-          recommended: true
-
-      - name: urbanity
-        sql: urbanity
-        type: string
-        title: Urbanity
-        description: Urban, suburban, or rural classification
-        geo_viz:
-          style: colorCategories
-          categories: [urban, suburban, rural]
-
-      - name: elevation
-        sql: elevation
-        type: number
-        title: Elevation
-        description: Average elevation in meters
-        geo_viz:
-          style: colorContinuous
-          palette: Earth
-          domain: [0, 3000]
-
-      - name: retail_count
-        sql: retail
-        type: number
-        title: Retail POI Count
-        description: Number of retail points of interest
-
-      - name: food_drink_count
-        sql: food_drink
-        type: number
-        title: Food & Drink POI Count
-        description: Number of food and drink points of interest
-
-      - name: healthcare_count
-        sql: healthcare
-        type: number
-        title: Healthcare POI Count
-        description: Number of healthcare points of interest
-
-    measures:
-      - name: count
-        sql: "*"
-        type: count
-        title: Cell Count
-
-      - name: sum_female
-        sql: female
-        type: sum
-        title: Total Female Population
-
-      - name: sum_male
-        sql: male
-        type: sum
-        title: Total Male Population
-
-      - name: sum_population
-        sql: population
-        type: sum
-        title: Total Population
-
-  - name: osm_pois
-    sql_table: ps-catalog-default.ps-demo-tables.osm_pois_usa
-    title: Points of Interest (OSM)
-    description: OpenStreetMap points of interest for the United States
+  - name: higher_edu_by_county
+    sql_table: cartobq.public_account.higher_edu_by_county
+    title: Higher Education by County
+    description: Higher education data by county
 
     geo:
       geometry_column: geom
-      geometry_type: point
-      initial_view:
-        longitude: -98.5795
-        latitude: 39.8283
-        zoom: 4
-
-    dimensions:
-      - name: geom
-        sql: geom
-        type: geometry
-        description: Point location
-
-      - name: osm_id
-        sql: osm_id
-        type: number
-        title: OSM ID
-        description: OpenStreetMap unique identifier
-
-      - name: name
-        sql: name
-        type: string
-        title: POI Name
-        description: Name of the point of interest
-
-      - name: address
-        sql: address
-        type: string
-        title: Address
-        description: POI street address
-
-      - name: group_name
-        sql: group_name
-        type: string
-        title: Category
-        description: POI category group
-        geo_viz:
-          style: colorCategories
-          categories: [Transportation, Sustenance, Entertainment, Education, Healthcare, Tourism, Financial, Commercial, Civic amenities, Others]
-
-      - name: subgroup_name
-        sql: subgroup_name
-        type: string
-        title: Subcategory
-        description: More specific POI classification
-
-      - name: map_marker
-        sql: map_marker
-        type: string
-        title: Map Marker
-        description: Map marker type
-
-      - name: all_tags
-        sql: all_tags
-        type: string
-        title: All Tags
-        description: All OpenStreetMap tags
-
-      - name: geohash
-        sql: geohash
-        type: string
-        title: Geohash
-        description: Geohash location code
-
-    measures:
-      - name: count
-        sql: "*"
-        type: count
-        title: POI Count
-
-  - name: us_demographics_blockgroup
-    sql_table: ps-catalog-default.ps-demo-tables.demographics
-    title: US Demographics (Block Group)
-    description: US demographic data at Census block group level with detailed population, income, age, education, and housing statistics
-
-    geo:
-      geometry_column: geom
-      geometry_type: polygon
+      geometry_type: geometry
       initial_view:
         longitude: -98.5795
         latitude: 39.8283
@@ -313,560 +20,81 @@ cubes:
       - name: geom
         sql: geom
         type: geometry
-        description: Block group polygon geometry
+        description: County geometry
 
-      - name: geoid
-        sql: geoid
+      - name: pct_gop
+        sql: pct_gop
+        type: number
+        description: Percentage GOP votes
+
+      - name: fid
+        sql: fid
+        type: number
+        description: Feature ID
+
+      - name: trump
+        sql: trump
+        type: number
+        description: Trump vote count
+
+      - name: clinton
+        sql: clinton
+        type: number
+        description: Clinton vote count
+
+      - name: pct_dem
+        sql: pct_dem
+        type: number
+        description: Percentage Democratic votes
+
+      - name: county_winner
+        sql: county_winner
         type: string
-        title: GEOID
-        description: Block group identifier
-
-      - name: blockgroup
-        sql: BLOCKGROUP
-        type: string
-        title: Block Group
-        description: Block group code
-
-      - name: total_pop
-        sql: POPCY
-        type: number
-        title: Total Population
-        description: Total population count
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [100, 500, 1000, 5000, 10000]
-          recommended: true
-
-      - name: median_age
-        sql: AGECYMED
-        type: number
-        title: Median Age
-        description: Median age of the population
-        geo_viz:
-          style: colorContinuous
-          palette: Teal
-          domain: [20, 60]
-
-      - name: median_hh_income
-        sql: INCCYMEDHH
-        type: number
-        title: Median Household Income
-        description: Median household income in USD
-        geo_viz:
-          style: colorContinuous
-          palette: Sunset
-          domain: [20000, 150000]
-
-      - name: unemployment_rate
-        sql: UNECYRATE
-        type: number
-        title: Unemployment Rate
-        description: Percentage of unemployed working-age population
-        geo_viz:
-          style: colorContinuous
-          palette: OrYel
-          domain: [0, 20]
-
-      - name: bachelor_degree
-        sql: EDUCYBACH
-        type: number
-        title: Bachelor's Degree
-        description: Population with bachelor's degree
-        geo_viz:
-          style: colorContinuous
-          palette: BluYl
-          domain: [0, 5000]
-
-      - name: owner_occupied
-        sql: DWLCYOWNED
-        type: number
-        title: Owner Occupied Dwellings
-        description: Number of owner-occupied housing units
-        geo_viz:
-          style: colorContinuous
-          palette: Mint
-          domain: [0, 2000]
-
-      - name: total_households
-        sql: HHDCY
-        type: number
-        title: Total Households
-        description: Total number of households
-
-    measures:
-      - name: count
-        sql: "*"
-        type: count
-        title: Block Group Count
-
-      - name: avg_income
-        sql: INCCYMEDHH
-        type: avg
-        title: Average Median Income
-
-      - name: sum_population
-        sql: POPCY
-        type: sum
-        title: Total Population
-
-  - name: us_demographics_quadbin
-    sql_table: ps-catalog-default.ps-demo-tables.derived_spatialfeatures_usa_quadbin15_v1_yearly_v2
-    title: US Demographics (Quadbin)
-    description: US demographic and spatial features data aggregated to Quadbin resolution 15 cells
-
-    geo:
-      geometry_column: quadbin
-      geometry_type: quadbin
-      initial_view:
-        longitude: -98.5795
-        latitude: 39.8283
-        zoom: 4
-        pitch: 0
-        bearing: 0
-
-    dimensions:
-      - name: quadbin
-        sql: quadbin
-        type: geometry
-        description: Quadbin cell index at resolution 15
-
-      - name: do_date
-        sql: do_date
-        type: date
-        title: Date
-        description: Data observation date
-
-      - name: population
-        sql: population
-        type: number
-        title: Total Population
-        description: Total population count
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [100, 500, 1000, 5000, 10000]
-          recommended: true
-
-      - name: female
-        sql: female
-        type: number
-        title: Female Population
-        description: Number of female population
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [100, 500, 1000, 5000, 10000]
-
-      - name: male
-        sql: male
-        type: number
-        title: Male Population
-        description: Number of male population
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [100, 500, 1000, 5000, 10000]
-
-      - name: urbanity
-        sql: urbanity
-        type: string
-        title: Urbanity
-        description: Urban, suburban, or rural classification
-        geo_viz:
-          style: colorCategories
-          categories: [urban, suburban, rural]
-
-      - name: elevation
-        sql: elevation
-        type: number
-        title: Elevation
-        description: Average elevation in meters
-        geo_viz:
-          style: colorContinuous
-          palette: Earth
-          domain: [0, 3000]
-
-      - name: retail_count
-        sql: retail
-        type: number
-        title: Retail POI Count
-        description: Number of retail points of interest
-
-      - name: education_count
-        sql: education
-        type: number
-        title: Education POI Count
-        description: Number of education points of interest
-
-      - name: financial_count
-        sql: financial
-        type: number
-        title: Financial POI Count
-        description: Number of financial points of interest
-
-      - name: food_drink_count
-        sql: food_drink
-        type: number
-        title: Food & Drink POI Count
-        description: Number of food and drink points of interest
-
-      - name: healthcare_count
-        sql: healthcare
-        type: number
-        title: Healthcare POI Count
-        description: Number of healthcare points of interest
-
-      - name: leisure_count
-        sql: leisure
-        type: number
-        title: Leisure POI Count
-        description: Number of leisure points of interest
-
-      - name: tourism_count
-        sql: tourism
-        type: number
-        title: Tourism POI Count
-        description: Number of tourism points of interest
-
-      - name: transportation_count
-        sql: transportation
-        type: number
-        title: Transportation POI Count
-        description: Number of transportation points of interest
-
-    measures:
-      - name: count
-        sql: "*"
-        type: count
-        title: Cell Count
-
-      - name: sum_population
-        sql: population
-        type: sum
-        title: Total Population
-
-  - name: populated_places
-    sql_table: ps-catalog-default.ps-demo-tables.populated_places
-    title: Populated Places
-    description: Major cities and populated places worldwide with population data
-
-    geo:
-      geometry_column: geom
-      geometry_type: point
-      initial_view:
-        longitude: -98.5795
-        latitude: 39.8283
-        zoom: 3
-        pitch: 0
-        bearing: 0
-
-    dimensions:
-      - name: geom
-        sql: geom
-        type: geometry
-        description: Point location
-
-      - name: name
-        sql: name
-        type: string
-        title: City Name
-        description: Name of the populated place
-
-      - name: country_name
-        sql: adm0name
-        type: string
-        title: Country
-        description: Country where the place is located
-        geo_viz:
-          style: colorCategories
-
-      - name: adm1name
-        sql: adm1name
-        type: string
-        title: State/Province
-        description: First-level administrative division (state, province)
-
-      - name: pop_max
-        sql: pop_max
-        type: number
-        title: Maximum Population
-        description: Maximum population estimate
-        geo_viz:
-          style: colorBins
-          palette: Sunset
-          domain: [10000, 100000, 500000, 1000000, 5000000]
-          recommended: true
-
-      - name: pop_min
-        sql: pop_min
-        type: number
-        title: Minimum Population
-        description: Minimum population estimate
-
-      - name: scalerank
-        sql: scalerank
-        type: number
-        title: Scale Rank
-        description: Importance rank for map display (0 = most important)
-
-      - name: worldcity
-        sql: worldcity
-        type: string
-        title: World City
-        description: World city flag indicator
-
-      - name: megacity
-        sql: megacity
-        type: string
-        title: Megacity
-        description: Megacity flag indicator (10M+ population)
-
-      - name: latitude
-        sql: latitude
-        type: number
-        title: Latitude
-        description: Latitude coordinate
-
-      - name: longitude
-        sql: longitude
-        type: number
-        title: Longitude
-        description: Longitude coordinate
-
-      - name: timezone
-        sql: timezone
-        type: string
-        title: Timezone
-        description: Timezone of the location
-
-    measures:
-      - name: count
-        sql: "*"
-        type: count
-        title: Place Count
-
-      - name: sum_population
-        sql: pop_max
-        type: sum
-        title: Total Population
-
-  - name: usa_counties
-    sql_table: ps-catalog-default.ps-demo-tables.usa_counties
-    title: US Counties
-    description: US county boundaries with demographic and economic data
-
-    geo:
-      geometry_column: geom
-      geometry_type: polygon
-      initial_view:
-        longitude: -98.5795
-        latitude: 39.8283
-        zoom: 4
-        pitch: 0
-        bearing: 0
-
-    dimensions:
-      - name: geom
-        sql: geom
-        type: geometry
-        description: County polygon geometry
-
-      - name: name
-        sql: name
-        type: string
-        title: County Name
-        description: Name of the county
-
-      - name: state_name
-        sql: state_name
-        type: string
-        title: State Name
-        description: Name of the state
-        geo_viz:
-          style: colorCategories
+        description: County election winner (dem/gop)
 
       - name: fips
         sql: fips
         type: string
-        title: FIPS Code
-        description: Federal Information Processing Standard code
+        description: FIPS county code
 
-      - name: total_pop
-        sql: total_pop
+      - name: pct_higher_ed
+        sql: pct_higher_ed
         type: number
-        title: Total Population
-        description: Total county population
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [10000, 50000, 100000, 500000, 1000000]
-          recommended: true
+        description: Percentage with higher education
 
-      - name: sq_mi
-        sql: sq_mi
+      - name: income_100000_or_more
+        sql: income_100000_or_more
         type: number
-        title: Area (sq mi)
-        description: County area in square miles
-
-      - name: pers_sq_mi
-        sql: pers_sq_mi
-        type: number
-        title: Population Density
-        description: Persons per square mile
-        geo_viz:
-          style: colorContinuous
-          palette: Magenta
-          domain: [0, 5000]
-
-      - name: hh_med_inc
-        sql: hh_med_inc
-        type: number
-        title: Median Household Income
-        description: Median household income in USD
-        geo_viz:
-          style: colorContinuous
-          palette: Sunset
-          domain: [30000, 120000]
-
-      - name: unemp_rate
-        sql: unemp_rate
-        type: number
-        title: Unemployment Rate
-        description: Unemployment rate percentage
-        geo_viz:
-          style: colorContinuous
-          palette: OrYel
-          domain: [0, 15]
-
-      - name: employed
-        sql: employed
-        type: number
-        title: Employed
-        description: Number of employed persons
-
-    measures:
-      - name: count
-        sql: "*"
-        type: count
-        title: County Count
-
-      - name: sum_population
-        sql: total_pop
-        type: sum
-        title: Total Population
-
-      - name: avg_income
-        sql: hh_med_inc
-        type: avg
-        title: Average Median Income
-
-  - name: usa_states
-    sql_table: ps-catalog-default.ps-demo-tables.usa_states_boundaries
-    title: US States
-    description: US state boundaries with demographic and economic data
-
-    geo:
-      geometry_column: geom
-      geometry_type: polygon
-      initial_view:
-        longitude: -98.5795
-        latitude: 39.8283
-        zoom: 4
-        pitch: 0
-        bearing: 0
-
-    dimensions:
-      - name: geom
-        sql: geom
-        type: geometry
-        description: State polygon geometry
+        description: Count of households with income $100k+
 
       - name: name
         sql: name
         type: string
-        title: State Name
-        description: Name of the state
-        geo_viz:
-          style: colorCategories
+        description: County name
 
-      - name: code_hasc
-        sql: code_hasc
-        type: string
-        title: HASC Code
-        description: Hierarchical Administrative Subdivision Code
-
-      - name: statefp
-        sql: statefp
+      - name: pct_clinton
+        sql: pct_clinton
         type: number
-        title: State FIPS
-        description: State FIPS code
+        description: Percentage Clinton votes
 
-      - name: total_pop
-        sql: total_pop
+      - name: pct_trump
+        sql: pct_trump
         type: number
-        title: Total Population
-        description: Total state population
-        geo_viz:
-          style: colorBins
-          palette: PurpOr
-          domain: [1000000, 5000000, 10000000, 20000000, 40000000]
-          recommended: true
+        description: Percentage Trump votes
 
-      - name: sq_mi
-        sql: sq_mi
+      - name: pct_higher_edu
+        sql: pct_higher_edu
         type: number
-        title: Area (sq mi)
-        description: State area in square miles
+        description: Percentage with higher education (alternate)
 
-      - name: pers_sq_mi
-        sql: pers_sq_mi
+      - name: pct_dem_r
+        sql: pct_dem_r
         type: number
-        title: Population Density
-        description: Persons per square mile
-        geo_viz:
-          style: colorContinuous
-          palette: Magenta
-          domain: [0, 1000]
+        description: Percentage Democratic (rounded)
 
-      - name: hh_med_inc
-        sql: hh_med_inc
+      - name: pct_income_100k
+        sql: pct_income_100k
         type: number
-        title: Median Household Income
-        description: Median household income in USD
-        geo_viz:
-          style: colorContinuous
-          palette: Sunset
-          domain: [40000, 100000]
-
-      - name: unemp_rate
-        sql: unemp_rate
-        type: number
-        title: Unemployment Rate
-        description: Unemployment rate percentage
-        geo_viz:
-          style: colorContinuous
-          palette: OrYel
-          domain: [0, 10]
-
-      - name: employed
-        sql: employed
-        type: number
-        title: Employed
-        description: Number of employed persons
+        description: Percentage of households with income $100k+
 
     measures:
-      - name: count
-        sql: "*"
-        type: count
-        title: State Count
-
-      - name: sum_population
-        sql: total_pop
-        type: sum
-        title: Total Population
-
-      - name: avg_income
-        sql: hh_med_inc
-        type: avg
-        title: Average Median Income
