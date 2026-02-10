@@ -24,7 +24,6 @@ import {
   LoaderState,
   LayerConfig,
   SnackbarConfig,
-  UserContext,
 } from './models/message.model';
 
 @Component({
@@ -105,12 +104,6 @@ export class App implements OnInit, OnDestroy {
     if (clearLayers) {
       this.deckState.clearChatGeneratedLayers();
     }
-  }
-
-  handleContextSubmit(context: UserContext): void {
-    // Store the user context in the AI tools service
-    this.aiToolsService.setUserContext(context);
-    console.log('[App] User context submitted:', context);
   }
 
   async handleZoomIn(): Promise<void> {

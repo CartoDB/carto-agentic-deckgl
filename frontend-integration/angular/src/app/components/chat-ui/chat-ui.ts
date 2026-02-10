@@ -14,10 +14,8 @@ import {
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MarkdownModule } from 'ngx-markdown';
-import { Message, LoaderState, UserContext } from '../../models/message.model';
+import { Message, LoaderState } from '../../models/message.model';
 import { ConfirmationDialogComponent } from '../confirmation-dialog/confirmation-dialog';
-import { ContextSelectorComponent } from '../context-selector/context-selector';
-import { ContextChipsComponent, ChipAction } from '../context-chips/context-chips';
 import { SEMANTIC_CONFIG } from '../../config/semantic-config';
 
 @Component({
@@ -28,8 +26,6 @@ import { SEMANTIC_CONFIG } from '../../config/semantic-config';
     CommonModule,
     MarkdownModule,
     ConfirmationDialogComponent,
-    ContextSelectorComponent,
-    ContextChipsComponent,
   ],
   templateUrl: './chat-ui.html',
   styleUrl: './chat-ui.css',
@@ -45,7 +41,6 @@ export class ChatUi implements OnChanges, AfterViewInit, OnDestroy {
   @Output() sidebarStateChange = new EventEmitter<'collapsed' | 'half' | 'full'>();
   @Output() closeSidebar = new EventEmitter<void>();
   @Output() clearChat = new EventEmitter<boolean>();
-  @Output() contextSubmit = new EventEmitter<UserContext>();
 
   @ViewChild('messagesEnd') private messagesEnd!: ElementRef;
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef<HTMLDivElement>;
@@ -56,11 +51,6 @@ export class ChatUi implements OnChanges, AfterViewInit, OnDestroy {
   private lastMessageContentLength: number = 0;
   showClearDialog: boolean = false;
   clearLayersOnClear: boolean = false;
-
-  // Context selector state
-  contextSelectorCollapsed: boolean = true;
-  currentUserContext: UserContext | null = null;
-  showContextEditor: boolean = false;
 
   // Welcome chips
   welcomeChips = SEMANTIC_CONFIG.welcomeChips;
@@ -428,125 +418,6 @@ export class ChatUi implements OnChanges, AfterViewInit, OnDestroy {
     this.clearLayersOnClear = false;
   }
 
-  toggleContextSelector(): void {
-    // If we have messages, toggle the context editor instead
-    if (this.messages.length > 0) {
-      this.showContextEditor = !this.showContextEditor;
-      // Scroll to top when opening editor so form is visible
-      if (this.showContextEditor) {
-        this.scrollToTop();
-      }
-    } else {
-      this.contextSelectorCollapsed = !this.contextSelectorCollapsed;
-    }
-  }
-
-  private scrollToTop(): void {
-    const container = this.messagesContainer?.nativeElement;
-    if (container) {
-      container.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }
-
-  closeContextEditor(): void {
-    this.showContextEditor = false;
-  }
-
-  handleContextEdit(context: UserContext): void {
-    // Update context and send a new analysis message
-    const userContext: UserContext = {
-      analysisType: context.analysisType,
-      analysisTypeName: context.analysisTypeName,
-      country: context.country,
-      businessType: context.businessType,
-      businessTypeName: context.businessTypeName,
-      businessTypes: context.businessTypes,
-      businessTypeNames: context.businessTypeNames,
-      selectedRadius: context.selectedRadius,
-      radiusUnit: context.radiusUnit,
-      selectedDrivetime: context.selectedDrivetime,
-      drivetimeUnit: context.drivetimeUnit,
-      selectedLocation: context.selectedLocation,
-      selectedLocationName: context.selectedLocationName,
-      customLocation: context.customLocation,
-      locationCoordinates: context.locationCoordinates,
-    };
-
-    this.currentUserContext = userContext;
-    this.showContextEditor = false;
-    this.contextSubmit.emit(userContext);
-
-    // Send analysis message with updated context - respect analysis type
-    const locationText = context.selectedLocationName || context.customLocation || '';
-    let message = '';
-
-    // Format category text - check for arrays first, then fallback to single values
-    let categoryText = '';
-    if (context.businessTypeNames && context.businessTypeNames.length > 0) {
-      // Check if all categories are selected
-      const allCategoriesSelected = context.businessTypes &&
-        context.businessTypes.length === SEMANTIC_CONFIG.businessTypes.length;
-
-      if (allCategoriesSelected) {
-        categoryText = 'all';
-      } else {
-        categoryText = context.businessTypeNames.join(', ');
-      }
-    } else if (context.businessTypeName) {
-      categoryText = context.businessTypeName;
-    } else {
-      categoryText = 'selected';
-    }
-
-    switch (context.analysisType) {
-      case 'business_location':
-        // Enfatizar que es un análisis de scoring/ranking de ubicaciones
-        message = `Run a business location analysis to find the TOP 10 best locations for ${categoryText} categories within a ${context.selectedRadius} mile radius${locationText ? ` around ${locationText}` : ''}. I need location scoring and ranking an visualize the results on the map.`;
-        break;
-      case 'poi_analysis':
-        // Enfatizar que es solo filtrado de POIs, sin scoring
-        message = `Filter and show POIs with ${categoryText} categories within a ${context.selectedRadius} mile radius${locationText ? ` around ${locationText}` : ''}. Just filter the POIs, do not run business location analysis and visualize the results on the map.`;
-        break;
-      case 'demographic_analysis':
-        // Drivetime demographics analysis
-        if (locationText) {
-          message = `Run a drivetime demographics analysis to show population within ${context.selectedDrivetime} minutes driving from ${locationText}. Visualize the results on the map.`;
-        } else {
-          message = `Run a drivetime demographics analysis to compute population within ${context.selectedDrivetime} minutes drivetime of that location. Visualize the results on the map.`;
-        }
-        break;
-      default:
-        if (context.selectedDrivetime) {
-          if (locationText) {
-            message = `Run a drivetime demographics analysis to show population within ${context.selectedDrivetime} minutes driving from ${locationText}. Visualize the results on the map.`;
-          } else {
-            message = `Run a drivetime demographics analysis to compute population within ${context.selectedDrivetime} minutes drivetime of that location. Visualize the results on the map.`;
-          }
-        } else {
-          message = `Filter and show POIs with ${categoryText} categories within a ${context.selectedRadius} mile radius${locationText ? ` around ${locationText}` : ''}. Visualize the results on the map.`;
-        }
-    }
-
-    // Enable auto-scroll when user submits analysis from form
-    this.shouldAutoScroll = true;
-    this.lastMessageContentLength = 0;
-
-    this.sendMessage.emit(message);
-
-    // Scroll to bottom after sending message
-    setTimeout(() => this.scrollToBottom(), 0);
-  }
-
-  handleChipClick(chip: ChipAction): void {
-    if (chip.prompt && this.isConnected) {
-      // Enable auto-scroll when user clicks a chip
-      this.shouldAutoScroll = true;
-      this.lastMessageContentLength = 0;
-      this.sendMessage.emit(chip.prompt);
-      setTimeout(() => this.scrollToBottom(), 0);
-    }
-  }
-
   handleWelcomeChipClick(chip: { id: string; label: string; prompt: string }): void {
     if (chip.prompt && this.isConnected) {
       // Enable auto-scroll when user clicks a welcome chip
@@ -557,36 +428,4 @@ export class ChatUi implements OnChanges, AfterViewInit, OnDestroy {
     }
   }
 
-  hasUserContext(): boolean {
-    return this.currentUserContext !== null;
-  }
-
-  getUserContextSummary(): string {
-    if (!this.currentUserContext) return '';
-
-    // Check for array format first (new)
-    if (this.currentUserContext.businessTypeNames && this.currentUserContext.businessTypeNames.length > 0) {
-      const allCategoriesSelected = this.currentUserContext.businessTypes &&
-        this.currentUserContext.businessTypes.length === SEMANTIC_CONFIG.businessTypes.length;
-
-      if (allCategoriesSelected) {
-        return 'All categories';
-      } else if (this.currentUserContext.businessTypeNames.length <= 2) {
-        // Show all if 2 or fewer
-        return this.currentUserContext.businessTypeNames.join(', ');
-      } else {
-        // Show first 2, then "+X more"
-        const remaining = this.currentUserContext.businessTypeNames.length - 2;
-        return `${this.currentUserContext.businessTypeNames.slice(0, 2).join(', ')} +${remaining} more`;
-      }
-    }
-
-    // Fallback to single value (backward compat)
-    return `${this.currentUserContext.businessTypeName || this.currentUserContext.businessType || 'Business Analysis'}`;
-  }
-
-  getContextAnalysisTypeLabel(): string {
-    if (!this.currentUserContext?.analysisTypeName) return 'Business Location Analysis';
-    return this.currentUserContext.analysisTypeName;
-  }
 }
