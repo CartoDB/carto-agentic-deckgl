@@ -11,7 +11,7 @@ import { LayerSpec } from '../state/deck-state.service';
  * Deep merge two objects
  * Recursively merges source into target, preserving nested object structure
  */
-export const deepMerge = (
+const deepMerge = (
   target: Record<string, unknown>,
   source: Record<string, unknown>
 ): Record<string, unknown> => {

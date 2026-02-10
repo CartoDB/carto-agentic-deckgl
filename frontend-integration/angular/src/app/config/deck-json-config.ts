@@ -616,7 +616,7 @@ const CUSTOM_FUNCTIONS: Record<string, (config: any) => any> = {
 /**
  * @deck.gl/json configuration object
  */
-export const deckJsonConfiguration = {
+const deckJsonConfiguration = {
   // Layer classes for @@type references
   classes: {
     // Core layers
@@ -676,24 +676,9 @@ export function getJsonConverter(): JSONConverter {
 }
 
 /**
- * Create a new JSONConverter instance (non-singleton)
- */
-export function createJsonConverter(): JSONConverter {
-  return new JSONConverter({ configuration: deckJsonConfiguration });
-}
-
-/**
- * Convert a JSON spec to deck.gl props using JSONConverter
- */
-export function convertJson(jsonSpec: any): any {
-  const converter = getJsonConverter();
-  return converter.convert(jsonSpec);
-}
-
-/**
  * Recursively resolve @@ references in any value
  */
-export function resolveValue(value: any): any {
+function resolveValue(value: any): any {
   if (value === null || value === undefined) {
     return value;
   }
@@ -782,11 +767,3 @@ export function resolveValue(value: any): any {
   return value;
 }
 
-/**
- * Get CARTO credentials for external use
- */
-export function getCredentials() {
-  return getCartoCredentials();
-}
-
-export default deckJsonConfiguration;

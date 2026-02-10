@@ -16,7 +16,7 @@ export const LOCATION_PIN_LAYER_ID = 'location-pin';
  * Location pin SVG as a data URL
  * Classic map marker pin design with a drop shadow effect
  */
-export const LOCATION_PIN_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(`
+const LOCATION_PIN_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(`
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
