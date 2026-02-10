@@ -21,7 +21,6 @@ import {
   LoaderStage,
   InitialState,
   LayerConfig,
-  UserContext
 } from '../models/message.model';
 import { ConsolidatedExecutorsService } from './consolidated-executors.service';
 import { WebSocketService } from './websocket.service';
@@ -56,7 +55,6 @@ export class MapAIToolsService implements OnDestroy {
   private streamingMessageIds = new Set<string>();
   private messageIdCounter = 0;
   private subscriptions: Subscription[] = [];
-  private currentUserContext: UserContext | null = null;
 
   // Tool message queueing state
   private pendingToolMessages: Message[] = [];
@@ -181,41 +179,6 @@ export class MapAIToolsService implements OnDestroy {
     this.setLoaderState(null);
   }
 
-  /**
-   * Get current loader state value
-   */
-  getLoaderState(): LoaderState {
-    return this.loaderStateSubject.getValue();
-  }
-
-  /**
-   * Get current messages array
-   */
-  getMessages(): Message[] {
-    return this.messagesSubject.getValue();
-  }
-
-  /**
-   * Set user context for business location analysis
-   */
-  setUserContext(context: UserContext | null): void {
-    this.currentUserContext = context;
-  }
-
-  /**
-   * Get current user context
-   */
-  getUserContext(): UserContext | null {
-    return this.currentUserContext;
-  }
-
-  /**
-   * Clear user context
-   */
-  clearUserContext(): void {
-    this.currentUserContext = null;
-  }
-
   // ============================================================================
   // Private Methods
   // ============================================================================
@@ -272,8 +235,7 @@ export class MapAIToolsService implements OnDestroy {
       cartoConfig: {
         connectionName: environment.connectionName,
         hasCredentials: !!environment.accessToken
-      },
-      userContext: this.currentUserContext ?? undefined
+      }
     };
   }
 

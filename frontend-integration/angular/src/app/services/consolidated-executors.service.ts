@@ -28,7 +28,7 @@ export interface ToolResult {
   error?: Error;
 }
 
-export type ToolExecutor = (params: unknown) => ToolResult | Promise<ToolResult>;
+type ToolExecutor = (params: unknown) => ToolResult | Promise<ToolResult>;
 
 // ==================== PARAMETER TYPES ====================
 
@@ -84,20 +84,6 @@ export class ConsolidatedExecutorsService {
         error: error instanceof Error ? error : new Error(String(error))
       };
     }
-  }
-
-  /**
-   * Get all tool names
-   */
-  getToolNames(): string[] {
-    return Object.keys(this.executors);
-  }
-
-  /**
-   * Check if a tool exists
-   */
-  hasExecutor(toolName: string): boolean {
-    return toolName in this.executors;
   }
 
   private createExecutors(): Record<string, ToolExecutor> {

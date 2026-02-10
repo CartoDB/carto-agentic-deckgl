@@ -43,5 +43,3 @@ export const SEMANTIC_CONFIG = {
     },
   ],
 };
-
-export type SemanticConfig = typeof SEMANTIC_CONFIG;

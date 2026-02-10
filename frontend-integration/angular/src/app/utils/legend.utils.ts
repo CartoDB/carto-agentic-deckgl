@@ -35,36 +35,6 @@ export interface LegendData {
 // ==================== UTILITY FUNCTIONS ====================
 
 /**
- * Convert hex color string to RGB array
- */
-const hexToRgb = (hex: string): number[] => {
-  if (!hex || typeof hex !== 'string') {
-    return [0, 0, 0];
-  }
-
-  // Remove # if present
-  const cleanHex = hex.replace('#', '');
-
-  // Handle 3-digit hex
-  if (cleanHex.length === 3) {
-    const r = parseInt(cleanHex[0] + cleanHex[0], 16);
-    const g = parseInt(cleanHex[1] + cleanHex[1], 16);
-    const b = parseInt(cleanHex[2] + cleanHex[2], 16);
-    return [r, g, b];
-  }
-
-  // Handle 6-digit hex
-  if (cleanHex.length === 6) {
-    const r = parseInt(cleanHex.substring(0, 2), 16);
-    const g = parseInt(cleanHex.substring(2, 4), 16);
-    const b = parseInt(cleanHex.substring(4, 6), 16);
-    return [r, g, b];
-  }
-
-  return [0, 0, 0];
-};
-
-/**
  * Convert RGBA array to hex color string
  */
 export const rgbaToHex = (rgba: number[]): string => {
@@ -192,7 +162,7 @@ const getPaletteColorsFallback = (paletteName: string, count: number): string[] 
 /**
  * Result type for extractDiscreteColors
  */
-export interface DiscreteColorsResult {
+interface DiscreteColorsResult {
   entries: DiscreteColorEntry[];
   attribute?: string;
 }

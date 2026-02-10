@@ -17,7 +17,7 @@ import { LOCATION_PIN_LAYER_ID } from '../config/location-pin.config';
 /**
  * Location pin coordinates
  */
-export interface PinLocation {
+interface PinLocation {
   longitude: number;
   latitude: number;
 }
@@ -54,7 +54,7 @@ export interface DeckStateData {
 /**
  * State change event with changed keys
  */
-export interface StateChange {
+interface StateChange {
   state: DeckStateData;
   changedKeys: string[];
 }
@@ -315,77 +315,7 @@ export class DeckStateService {
     this.notifyChange(['pinLocations']);
   }
 
-  /**
-   * Batch update multiple state properties at once
-   */
-  batchUpdate(updates: {
-    viewState?: Partial<MapViewState>;
-    deckConfig?: DeckConfig;
-    basemap?: Basemap;
-  }): void {
-    const changedKeys: string[] = [];
-
-    if (updates.viewState) {
-      const current = this.viewStateSubject.value;
-      this.viewStateSubject.next({ ...current, ...updates.viewState });
-      changedKeys.push('viewState');
-    }
-
-    if (updates.deckConfig) {
-      this.deckConfigSubject.next({
-        layers: updates.deckConfig.layers ?? [],
-        widgets: updates.deckConfig.widgets ?? [],
-        effects: updates.deckConfig.effects ?? []
-      });
-      changedKeys.push('deckConfig');
-    }
-
-    if (updates.basemap !== undefined) {
-      this.basemapSubject.next(updates.basemap);
-      changedKeys.push('basemap');
-    }
-
-    if (changedKeys.length > 0) {
-      this.notifyChange(changedKeys);
-    }
-  }
-
   // ==================== UTILITIES ====================
-
-  /**
-   * Get a layer by ID from the current config
-   */
-  getLayerById(layerId: string): LayerSpec | undefined {
-    return this.deckConfigSubject.value.layers.find(layer => layer['id'] === layerId);
-  }
-
-  /**
-   * Check if a layer exists
-   */
-  hasLayer(layerId: string): boolean {
-    return this.deckConfigSubject.value.layers.some(layer => layer['id'] === layerId);
-  }
-
-  /**
-   * Get all layer IDs
-   */
-  getLayerIds(): string[] {
-    return this.deckConfigSubject.value.layers
-      .map(layer => layer['id'] as string)
-      .filter(Boolean);
-  }
-
-  /**
-   * Reset to initial state
-   */
-  reset(initialState?: Partial<DeckStateData>): void {
-    this.viewStateSubject.next(initialState?.viewState ?? { ...DEFAULT_VIEW_STATE });
-    this.deckConfigSubject.next(initialState?.deckConfig ?? { ...DEFAULT_DECK_CONFIG });
-    this.basemapSubject.next(initialState?.basemap ?? 'positron');
-    this.activeLayerIdSubject.next(initialState?.activeLayerId);
-    this.layerCenters.clear();
-    this.notifyChange(['viewState', 'deckConfig', 'basemap', 'activeLayerId']);
-  }
 
   /**
    * Set initial layer IDs to track which layers are not chat-generated

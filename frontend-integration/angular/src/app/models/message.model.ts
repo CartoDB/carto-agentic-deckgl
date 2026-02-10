@@ -2,31 +2,6 @@ import { Deck } from '@deck.gl/core';
 import maplibregl from 'maplibre-gl';
 import { LegendData } from '../utils/legend.utils';
 
-/**
- * User context for business location analysis
- */
-export interface UserContext {
-  analysisType?: string;
-  analysisTypeName?: string;
-  country?: string;
-  businessType?: string;       // Single value (backward compat)
-  businessTypeName?: string;  // Single value (backward compat)
-  businessTypes?: string[];   // Array of category IDs (new)
-  businessTypeNames?: string[]; // Array of category names (new)
-  selectedRadius?: number;     // Radius in miles (optional, not used for demographic)
-  radiusUnit?: 'miles';
-  selectedDrivetime?: number;  // Drivetime in minutes (for demographic analysis)
-  drivetimeUnit?: 'minutes';
-  targetArea?: {
-    name?: string;
-    bbox?: [number, number, number, number];
-  };
-  selectedLocation?: string;       // Location ID or 'custom'
-  selectedLocationName?: string;   // Human-readable location name
-  customLocation?: string;         // Custom location text (if id='custom')
-  locationCoordinates?: { longitude: number; latitude: number };  // Preset coordinates
-}
-
 export interface Message {
   type: 'user' | 'assistant' | 'action' | 'error' | 'system' | 'tool';
   content: string;
@@ -92,13 +67,6 @@ export interface LayerConfig {
   legend?: LegendData; // new field for detailed legend
 }
 
-// Active filter for data filtering
-export interface ActiveFilter {
-  property: string;
-  operator: string;
-  value: string;
-}
-
 // Snackbar configuration for notifications
 export interface SnackbarConfig {
   message: string | null;
@@ -129,5 +97,4 @@ export interface InitialState {
     connectionName: string;
     hasCredentials: boolean;
   };
-  userContext?: UserContext;
 }

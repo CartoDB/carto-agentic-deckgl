@@ -72,10 +72,6 @@ export class App implements OnInit, OnDestroy {
       this.aiToolsService.error$.subscribe((err) => this.showSnackbar(err)),
       this.aiToolsService.layers$.subscribe((l) => (this.layers = l))
     );
-
-    // Initialize POI layer if CARTO credentials are configured
-    // NOTE: uncomment this to initialize the POI layer at the start of the app
-    // this.initializePoiLayer();
   }
 
   ngOnDestroy(): void {
