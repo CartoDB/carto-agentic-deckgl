@@ -1,0 +1,70 @@
+/**
+ * System prompt builder for the backend
+ *
+ * Delegates to @carto/maps-ai-tools for core prompt generation,
+ * while handling app-specific semantic layer loading.
+ */
+
+import type { InitialState } from '../types/messages.js';
+import type { UserContext } from '../types/user-context.js';
+import {
+  buildSystemPrompt as libBuildSystemPrompt,
+  type BuildSystemPromptOptions,
+  type MapState,
+} from '@carto/maps-ai-tools';
+import { loadSemanticLayer, renderSemanticLayerAsMarkdown } from '../semantic/index.js';
+import { customPrompt } from './custom-prompt.js';
+
+/**
+ * Build the system prompt for the map control agent
+ *
+ * This is a thin wrapper around the library's buildSystemPrompt function,
+ * adding app-specific semantic layer context.
+ *
+ * @param toolNames - List of available tool names
+ * @param initialState - Current map state (viewState, layers, etc.)
+ * @param userContext - User analysis context (business type, location, etc.)
+ * @param additionalPrompt - Custom prompt sections to append (app-specific instructions)
+ */
+export function buildSystemPrompt(
+  toolNames: string[],
+  initialState?: InitialState,
+  userContext?: UserContext,
+  additionalPrompt?: string
+): string {
+  // Load semantic layer context (app-specific)
+  const semanticLayer = loadSemanticLayer();
+  const semanticContext = semanticLayer
+    ? renderSemanticLayerAsMarkdown(semanticLayer)
+    : undefined;
+
+  // Check for MCP tools (tools with underscores in their names)
+  const mcpToolNames = toolNames.filter((name) => name.includes('_'));
+
+  // Map InitialState to MapState (compatible types)
+  const mapState: MapState | undefined = initialState
+    ? {
+        viewState: initialState.viewState,
+        initialViewState: initialState.initialViewState,
+        layers: initialState.layers,
+        activeLayerId: initialState.activeLayerId,
+      }
+    : undefined;
+
+  // Combine custom prompt with any additional prompt passed in
+  const finalAdditionalPrompt = [customPrompt, additionalPrompt]
+    .filter(Boolean)
+    .join('\n\n') || undefined;
+
+  // Build options for the library function
+  const options: BuildSystemPromptOptions = {
+    toolNames,
+    initialState: mapState,
+    userContext,
+    semanticContext,
+    mcpToolNames: mcpToolNames.length > 0 ? mcpToolNames : undefined,
+    additionalPrompt: finalAdditionalPrompt,
+  };
+
+  return libBuildSystemPrompt(options);
+}

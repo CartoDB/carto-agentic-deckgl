@@ -1,0 +1,16 @@
+@if (visible) {
+  <div class="context-chips" [class.disabled]="disabled">
+    <span class="chips-label">Quick actions:</span>
+    <div class="chips-container">
+      @for (chip of chips; track chip.id) {
+        <button
+          class="chip"
+          [disabled]="disabled"
+          (click)="handleChipClick(chip)"
+          [title]="chip.prompt">
+          {{ chip.label }}
+        </button>
+      }
+    </div>
+  </div>
+}
