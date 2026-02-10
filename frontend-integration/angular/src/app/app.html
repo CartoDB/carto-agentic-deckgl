@@ -3,23 +3,27 @@
     <!-- Primera columna: Header + Mapa -->
     <div class="map-column">
       <header class="app-header">
-        <h1 class="app-title">DIYAR AI Tools Demo</h1>
+        <h1 class="app-title">CARTO AI tools Demo</h1>
       </header>
 
-      <div class="map-container"
-           [class.sidebar-full]="isMobile() && sidebarState === 'full'">
+      <div class="map-container" [class.sidebar-full]="isMobile() && sidebarState === 'full'">
         <app-map-view
           (mapInit)="handleMapInit($event)"
-          (viewStateChange)="handleViewStateChange($event)">
+          (viewStateChange)="handleViewStateChange($event)"
+        >
         </app-map-view>
 
         <!-- Layer Toggle - top left -->
-        <div class="layer-toggle-wrapper" [class.below-sidebar]="isMobile() && sidebarState === 'full'">
+        <div
+          class="layer-toggle-wrapper"
+          [class.below-sidebar]="isMobile() && sidebarState === 'full'"
+        >
           <app-layer-toggle
             [disabled]="controlsDisabled"
             [layers]="layers"
             (toggle)="handleLayerToggle($event)"
-            (flyTo)="handleLayerFlyTo($event)">
+            (flyTo)="handleLayerFlyTo($event)"
+          >
           </app-layer-toggle>
         </div>
 
@@ -29,7 +33,8 @@
             [disabled]="controlsDisabled"
             [zoomLevel]="zoomLevel"
             (zoomIn)="handleZoomIn()"
-            (zoomOut)="handleZoomOut()">
+            (zoomOut)="handleZoomOut()"
+          >
           </app-zoom-controls>
         </div>
       </div>
@@ -48,26 +53,27 @@
         (sidebarStateChange)="handleSidebarStateChange($event)"
         (closeSidebar)="toggleSidebar()"
         (clearChat)="handleClearChat($event)"
-        (contextSubmit)="handleContextSubmit($event)">
+      >
       </app-chat-ui>
     </div>
   </div>
 
   <!-- Floating Action Button - Desktop only, hidden when sidebar is open -->
   @if (!isMobile() && !isSidebarOpen) {
-    <button
-      class="fab-button"
-      (click)="toggleSidebar()"
-      aria-label="Toggle chat sidebar">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <button class="fab-button" (click)="toggleSidebar()" aria-label="Toggle chat sidebar">
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       </svg>
     </button>
   }
 
-  <app-snackbar
-    [message]="snackbar.message"
-    [type]="snackbar.type"
-    (close)="hideSnackbar()">
+  <app-snackbar [message]="snackbar.message" [type]="snackbar.type" (close)="hideSnackbar()">
   </app-snackbar>
 </div>
