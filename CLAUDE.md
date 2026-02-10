@@ -4,162 +4,162 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Interactive map application with AI-powered natural language control. Users interact with a deck.gl map through chat messages that are processed by OpenAI to generate map manipulation commands executed client-side.
+AI-powered map control framework using `@carto/maps-ai-tools`. Users interact with a deck.gl map through natural language chat. Messages are processed by an LLM (via Vercel AI SDK) that generates tool calls executed client-side to manipulate the map.
 
 **Tech Stack:**
-- Frontend: Vite + Vanilla JS, deck.gl, MapLibre GL
-- Backend: Node.js + TypeScript, Express, WebSocket (ws), OpenAI API
+- Core Library: `@carto/maps-ai-tools` (TypeScript, Zod, framework-agnostic)
+- Backend: Node.js + TypeScript, Express, WebSocket, Vercel AI SDK v6
+- Frontend: Angular 20, deck.gl, MapLibre GL, CARTO
+
+## Project Structure
+
+```
+ps-frontend-tools-poc/
+├── map-ai-tools/                    # Core library (@carto/maps-ai-tools)
+├── backend-integration/
+│   └── vercel-ai-sdk/               # Backend server (Express + WebSocket)
+└── frontend-integration/
+    └── angular/                     # Angular 20 frontend
+```
 
 ## Development Commands
 
-### Backend (Node.js + TypeScript)
+### Backend (Vercel AI SDK)
 ```bash
-cd backend
-npm run dev          # Start development server with hot reload (tsx watch)
+cd backend-integration/vercel-ai-sdk
+npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
 npm run build        # Compile TypeScript to dist/
-npm start            # Run production build from dist/
-npx tsc --noEmit     # Type check without emitting files
+npm start            # Run production build
+npm run typecheck    # Type check without emitting
 ```
 
-### Frontend (Vite)
+### Frontend (Angular)
 ```bash
-cd frontend
-npm run dev          # Start Vite dev server (typically http://localhost:5173)
-npm run build        # Build for production
-npm run preview      # Preview production build
+cd frontend-integration/angular
+pnpm install         # Install dependencies
+pnpm start           # Start dev server (http://localhost:4200)
+pnpm build           # Build for production
+npx ng build         # Alternative build command
+```
+
+### Core Library
+```bash
+cd map-ai-tools
+npm install
+npm run build        # Build ESM + CJS outputs to dist/
 ```
 
 ### Running the Application
-1. Start backend: `cd backend && npm run dev` (runs on http://localhost:3000)
-2. Start frontend: `cd frontend && npm run dev` (runs on http://localhost:5173)
-3. Backend requires `.env` file with `OPENAI_API_KEY` (see backend/.env.example)
+1. Build core library: `cd map-ai-tools && npm run build`
+2. Start backend: `cd backend-integration/vercel-ai-sdk && npm run dev` (runs on http://localhost:3003)
+3. Start frontend: `cd frontend-integration/angular && pnpm start` (runs on http://localhost:4200)
 
 ## Architecture
 
 ### Communication Flow
 ```
-User Message → Frontend WebSocket → Backend
-                                      ↓
-                         OpenAI API (streaming + function calling)
-                                      ↓
+User Message → Angular WebSocket → Backend (Express)
+                                       ↓
+                          Vercel AI SDK (streaming + tool calling)
+                                       ↓
 Backend streams back: text chunks + tool_call messages
-                                      ↓
-Frontend: Display text + Execute tool_calls via ToolExecutor
-                                      ↓
-                         MapController updates deck.gl
+                                       ↓
+Angular: Display text + Execute tool_calls via ConsolidatedExecutorsService
+                                       ↓
+                          DeckStateService updates deck.gl
 ```
 
-### Critical Design Patterns
+### Consolidated Tools (3 frontend-executed tools)
 
-**1. OpenAI Function Calling Integration**
-- Backend: `openai-service.ts` streams responses and accumulates tool calls
-- Backend: `tool-definitions.ts` defines OpenAI function schemas (zoom_map, fly_to_location, toggle_layer)
-- Frontend: `tool-executor.js` executes the function calls client-side
-- **Important**: Assistant responses stored in conversation history do NOT include `tool_calls` property because OpenAI requires tool response messages to follow, which we don't send back
+| Tool | Purpose |
+|------|---------|
+| `set-map-view` | Navigate to coordinates with zoom/pitch/bearing |
+| `set-basemap` | Change basemap style (dark-matter, positron, voyager) |
+| `set-deck-state` | Add/update/remove layers, widgets, and effects |
 
-**2. Conversation Context Management**
-- `ConversationManager` maintains per-session conversation history (max 10 messages)
-- Each WebSocket connection gets a unique session ID
-- Both user messages AND assistant responses must be added to history for context continuity
-- System prompt is injected at the beginning of every OpenAI request
+### Key Files — Backend (`backend-integration/vercel-ai-sdk/src/`)
 
-**3. deck.gl + MapLibre Synchronization**
-- deck.gl handles WebGL rendering of data layers
-- MapLibre GL renders the base map tiles
-- `onViewStateChange` in deck.gl syncs view state to MapLibre using `map.jumpTo()`
-- **Critical rendering issue**: Both layers and view state updates require explicit `deck.redraw(true)` calls with scheduled timeouts to ensure visibility
+- `server.ts` — Express + WebSocket server, session management
+- `services/agent-runner.ts` — ToolLoopAgent orchestration, streaming handler
+- `services/conversation-manager.ts` — Per-session conversation history (max 20 messages)
+- `agent/providers.ts` — CARTO AI provider configuration
+- `agent/tools.ts` — Tool aggregation (local + custom + MCP tools)
+- `agent/custom-tools.ts` — Backend-only tools (e.g., LDS geocode)
+- `agent/mcp-tools.ts` — MCP server integration
+- `prompts/system-prompt.ts` — System prompt builder
+- `prompts/custom-prompt.ts` — App-specific AI instructions
 
-**4. Map Rendering Gotchas**
-- Points layer must wait for MapLibre `load` event before being added
-- View state updates use `initialViewState` with `transitionDuration` (not `viewState` prop)
-- Multiple scheduled redraws are needed: `requestAnimationFrame()`, `setTimeout(50)`, `setTimeout(1100)`
-- GeoJSON layer needs explicit `visible: true` and `opacity: 1` properties
+### Key Files — Angular Frontend (`frontend-integration/angular/src/app/`)
 
-### Key Files and Responsibilities
+**Components:**
+- `components/map-view/` — deck.gl + MapLibre map container
+- `components/chat-ui/` — Chat interface with markdown rendering
+- `components/layer-toggle/` — Layer visibility controls with legend
+- `components/zoom-controls/` — Zoom in/out buttons
+- `components/snackbar/` — Notification component
+- `components/confirmation-dialog/` — Confirmation modal
 
-**Backend:**
-- `services/openai-service.ts`: Streams OpenAI chat completions, accumulates tool calls
-- `services/message-handler.ts`: Orchestrates OpenAI calls and conversation history
-- `services/conversation-manager.ts`: Per-session message history with pruning
-- `services/tool-definitions.ts`: OpenAI function schemas for map control
-- `websocket/websocket-server.ts`: WebSocket connection handling with session IDs
+**Services:**
+- `services/map-ai-tools.service.ts` — Orchestrates WebSocket messages, tool execution, loader state
+- `services/deck-map.service.ts` — Creates and manages deck.gl + MapLibre instances
+- `services/websocket.service.ts` — WebSocket connection with auto-reconnect
+- `services/consolidated-executors.service.ts` — Executes tool calls against DeckStateService
 
-**Frontend:**
-- `main.js`: Application entry point, creates map, defines tool executors, wires up WebSocket
-- `map/deckgl-map.js`: Creates deck.gl + MapLibre instances, defines GeoJSON layer
-- `chat/websocket-client.js`: WebSocket client with auto-reconnect and message routing
-- `chat/chat-ui.js`: Manages chat interface and message display
+**State & Config:**
+- `state/deck-state.service.ts` — Centralized reactive state (viewState, layers, basemap)
+- `config/deck-json-config.ts` — JSONConverter setup for deck.gl JSON specs (@@type, @@function, @@=)
+- `config/location-pin.config.ts` — Location pin layer spec generator
+- `config/semantic-config.ts` — Welcome chips configuration
+
+**Utils:**
+- `utils/layer-merge.utils.ts` — Deep merge for layer spec updates
+- `utils/legend.utils.ts` — Extract legend data from layer color styling
+- `utils/tooltip.utils.ts` — Tooltip content formatting
 
 ### WebSocket Message Types
 
 **Client → Server:**
-```javascript
-{ type: 'chat_message', content: string, timestamp: number }
+```typescript
+{ type: 'chat_message', content: string, timestamp: number, initialState?: InitialState }
+{ type: 'tool_result', toolName: string, callId: string, success: boolean, message: string }
 ```
 
 **Server → Client:**
-```javascript
-// Streaming text chunks
+```typescript
 { type: 'stream_chunk', content: string, messageId: string, isComplete: boolean }
-
-// Tool execution command
-{ type: 'tool_call', tool: string, parameters: object, callId: string }
-
-// Error
+{ type: 'tool_call_start', toolName: string, callId: string }
+{ type: 'tool_call', toolName: string, data: object, callId: string }
+{ type: 'mcp_tool_result', toolName: string, result: unknown, callId: string }
 { type: 'error', content: string, code?: string }
 ```
 
-### City Coordinates (hardcoded in backend SYSTEM_PROMPT and frontend main.js)
-- New York: [-74.0060, 40.7128]
-- Los Angeles: [-118.2437, 34.0522]
-- Chicago: [-87.6298, 41.8781]
-- San Francisco: [-122.4194, 37.7749]
-- Seattle: [-122.3321, 47.6062]
-- Miami: [-80.1918, 25.7617]
-- Boston: [-71.0589, 42.3601]
-- Denver: [-104.9903, 39.7392]
+### deck.gl JSON Spec Pattern
 
-**Note**: Coordinates are in GeoJSON format [longitude, latitude] order (not lat, lon)
-
-### GeoJSON Data
-- Located at `frontend/public/data/airports.geojson`
-- Contains airport data with coordinates and metadata
-- Rendered as pink circles with radius based on zoom level
-
-## Common Issues and Solutions
-
-### Issue: Points not visible on initial load
-**Cause**: deck.gl doesn't automatically render layers added after initialization
-**Solution**: Wait for MapLibre `load` event, add layer, then call `deck.redraw(true)` multiple times with delays
-
-### Issue: Map doesn't update visually when AI executes tools
-**Cause**: Setting `viewState` prop overrides controller; no forced redraws
-**Solution**: Use `initialViewState` with `transitionDuration`, schedule multiple `deck.redraw(true)` calls
-
-### Issue: Conversation loses context after first message
-**Cause**: Assistant responses not being added to conversation history
-**Solution**: `openai-service.ts` must return assistant message, `message-handler.ts` must add it to ConversationManager
-
-### Issue: OpenAI API error "tool_calls must be followed by tool response"
-**Cause**: When assistant message includes `tool_calls`, OpenAI expects tool response messages
-**Solution**: Don't include `tool_calls` in conversation history; only store text content
-
-### Issue: Backend TypeScript error "function must return a value"
-**Cause**: Catch blocks not explicitly returning values
-**Solution**: Add `return null` or appropriate return value in catch blocks
+The AI generates JSON specs using special prefixes resolved by JSONConverter:
+- `@@type` — Layer class (e.g., `VectorTileLayer`, `H3TileLayer`)
+- `@@function` — Data source or styling function (e.g., `vectorTableSource`, `colorBins`)
+- `@@=` — Accessor expression (e.g., `@@=properties.population`)
+- `@@#` — Constant reference (e.g., `@@#Red`, `@@#FlyToInterpolator`)
 
 ## Environment Variables
 
-Backend requires `.env` file (see `backend/.env.example`):
+### Backend (`backend-integration/vercel-ai-sdk/.env`)
 ```
-OPENAI_API_KEY=sk-proj-...     # Required: OpenAI API key
-OPENAI_MODEL=gpt-4o            # Optional: Defaults to gpt-4o
-PORT=3000                      # Optional: Defaults to 3000
+CARTO_AI_API_BASE_URL=https://...    # Required: LLM API endpoint
+CARTO_AI_API_KEY=your-key            # Required: LLM API key
+CARTO_AI_API_MODEL=gpt-4o            # Optional: defaults to gpt-4o
+PORT=3003                            # Optional: defaults to 3003
 ```
 
-## Adding New Map Controls
-
-1. Add function definition to `backend/src/services/tool-definitions.ts`
-2. Add execution handler to `frontend/src/commands/tool-executor.js`
-3. Add corresponding method to `frontend/src/map/map-controller.js`
-4. Update city coordinates in both backend SYSTEM_PROMPT and frontend main.js if needed
+### Frontend (`frontend-integration/angular/src/environments/environment.ts`)
+```typescript
+export const environment = {
+  production: false,
+  apiBaseUrl: 'https://gcp-us-east1.api.carto.com',
+  accessToken: 'YOUR_CARTO_TOKEN',
+  connectionName: 'carto_dw',
+  wsUrl: 'ws://localhost:3003/ws',
+  httpApiUrl: 'http://localhost:3003/api/chat',
+  useHttp: false,
+};
+```
