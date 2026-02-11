@@ -149,6 +149,7 @@ export class DeckMapService implements OnDestroy {
     // Update view state
     if (changedKeys.includes('viewState')) {
       const { longitude, latitude, zoom, pitch, bearing } = state.viewState;
+      const transitionDuration = state.transitionDuration ?? 1000;
 
       // Force update the view state by setting initialViewState
       // This works even after user interaction
@@ -159,7 +160,7 @@ export class DeckMapService implements OnDestroy {
           zoom,
           pitch: pitch ?? 0,
           bearing: bearing ?? 0,
-          transitionDuration: 1000,
+          transitionDuration,
           transitionInterpolator: new FlyToInterpolator(),
         },
       });
@@ -174,7 +175,7 @@ export class DeckMapService implements OnDestroy {
             zoom,
             pitch: pitch ?? 0,
             bearing: bearing ?? 0,
-            transitionDuration: 1000,
+            transitionDuration,
             transitionInterpolator: new FlyToInterpolator(),
           },
         });

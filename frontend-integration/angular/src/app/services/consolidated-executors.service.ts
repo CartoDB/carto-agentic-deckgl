@@ -95,6 +95,7 @@ export class ConsolidatedExecutorsService {
               zoom: vs.zoom,
               pitch: vs.pitch ?? 0,
               bearing: vs.bearing ?? 0,
+              transitionDuration: vs.transitionDuration,
             });
             updatedParts.push('viewState');
           }
