@@ -221,6 +221,9 @@ export class DeckMapService implements OnDestroy {
           // Inject CARTO credentials into data sources
           const layerWithCredentials = this.injectCartoCredentials(layerWithId);
 
+          // Log JSON spec before JSONConverter processing
+          console.log('[DeckMapService] JSON spec before JSONConverter:', JSON.stringify(layerWithCredentials, null, 2));
+
           // Convert JSON to deck.gl layer instance
           const converted = jsonConverter.convert(layerWithCredentials);
 
