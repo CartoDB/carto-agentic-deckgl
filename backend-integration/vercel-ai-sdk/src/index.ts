@@ -6,28 +6,70 @@ import 'dotenv/config';
 import { startServer } from './server.js';
 import { initializeMCPClients } from './agent/mcp-tools.js';
 
-// Check for at least one provider API key
-const hasOpenAI = !!process.env.OPENAI_API_KEY;
-const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-const hasGoogle = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+// Check for CARTO API credentials
 const hasCarto = !!process.env.CARTO_AI_API_KEY && !!process.env.CARTO_AI_API_BASE_URL;
 
-if (!hasOpenAI && !hasAnthropic && !hasGoogle && !hasCarto) {
-  console.error('Error: At least one API key is required');
-  console.error('Please set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or CARTO_AI_API_KEY + CARTO_AI_API_BASE_URL');
+if (!hasCarto) {
+  console.error('Error: CARTO API credentials are required');
+  console.error('Please set CARTO_AI_API_KEY and CARTO_AI_API_BASE_URL');
   process.exit(1);
 }
 
 const PORT = parseInt(process.env.PORT || '3003', 10);
 
+/**
+ * Fetch available models from LiteLLM endpoint
+ */
+async function fetchAvailableModels(): Promise<string[]> {
+  const baseUrl = process.env.CARTO_AI_API_BASE_URL;
+  const apiKey = process.env.CARTO_AI_API_KEY;
+
+  if (!baseUrl || !apiKey) {
+    return [];
+  }
+
+  try {
+    const modelsUrl = `${baseUrl}/models`;
+    const response = await fetch(modelsUrl, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'x-litellm-api-key': apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`[Models] Failed to fetch models: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json() as { data?: Array<{ id?: string }> };
+
+    // Extract model IDs from the response
+    if (data.data && Array.isArray(data.data)) {
+      return data.data
+        .map((model) => model.id)
+        .filter((id): id is string => typeof id === 'string')
+        .sort();
+    }
+
+    return [];
+  } catch (error) {
+    console.warn(`[Models] Error fetching models: ${(error as Error).message}`);
+    return [];
+  }
+}
+
 async function main() {
   console.log('Starting Vercel AI SDK backend...');
-  console.log('Available providers:');
-  if (hasOpenAI) console.log(`  - OpenAI (${process.env.OPENAI_MODEL || 'gpt-4o'})`);
-  if (hasAnthropic) console.log(`  - Anthropic (${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'})`);
-  if (hasGoogle) console.log(`  - Google (${process.env.GOOGLE_MODEL || 'gemini-2.5-flash'})`);
-  if (hasCarto) console.log(`  - CARTO (${process.env.CARTO_AI_API_MODEL || 'gpt-4o'})`);
-  console.log(`Default provider: ${process.env.DEFAULT_PROVIDER || 'openai'}`);
+  console.log(`Current model: ${process.env.CARTO_AI_API_MODEL || 'gpt-4o'}`);
+
+  // Fetch and display available models
+  const models = await fetchAvailableModels();
+  if (models.length > 0) {
+    console.log('[Models] Available models at CARTO:');
+    models.forEach((model) => console.log(`  - ${model}`));
+  }
 
   // Initialize MCP clients (if configured)
   try {

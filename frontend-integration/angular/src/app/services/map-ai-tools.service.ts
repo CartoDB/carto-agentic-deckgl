@@ -1,20 +1,34 @@
-import { Injectable, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Subject, Subscription } from 'rxjs';
-import { Message, WebSocketMessage, LoaderState } from '../models/message.model';
-import { MapToolsService } from './map-tools.service';
-import { WebSocketService } from './websocket.service';
-
 /**
- * Consolidated service for AI-powered map tools integration
- * Angular equivalent of React's useMapAITools hook
+ * Map AI Tools Service
+ *
+ * Consolidated service for AI-powered map tools integration.
+ * Angular equivalent of Vanilla's index.ts message handling.
  *
  * Handles:
  * - WebSocket connection management via WebSocketService
  * - Chat message state and streaming
- * - Tool execution via MapToolsService
- * - Loader state management ('thinking' | 'executing' | null)
+ * - Tool execution via ConsolidatedExecutorsService
+ * - Loader state management
  * - Error handling
  */
+
+import { Injectable, OnDestroy } from '@angular/core';
+import { BehaviorSubject, Subject, Subscription } from 'rxjs';
+import {
+  Message,
+  WebSocketMessage,
+  LoaderState,
+  LoaderStage,
+  InitialState,
+  LayerConfig,
+} from '../models/message.model';
+import { ConsolidatedExecutorsService } from './consolidated-executors.service';
+import { WebSocketService } from './websocket.service';
+import { DeckStateService } from '../state/deck-state.service';
+import { environment } from '../../environments/environment';
+import { LOCATION_PIN_LAYER_ID } from '../config/location-pin.config';
+import { extractLegendFromLayer } from '../utils/legend.utils';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -22,11 +36,15 @@ export class MapAIToolsService implements OnDestroy {
   // State observables
   private messagesSubject = new BehaviorSubject<Message[]>([]);
   private loaderStateSubject = new BehaviorSubject<LoaderState>(null);
+  private loaderMessageSubject = new BehaviorSubject<string>('');
   private errorSubject = new Subject<string>();
+  private layersSubject = new BehaviorSubject<LayerConfig[]>([]);
 
   public messages$ = this.messagesSubject.asObservable();
   public loaderState$ = this.loaderStateSubject.asObservable();
+  public loaderMessage$ = this.loaderMessageSubject.asObservable();
   public error$ = this.errorSubject.asObservable();
+  public layers$ = this.layersSubject.asObservable();
 
   // Proxy WebSocket connection status
   public get isConnected$() {
@@ -38,15 +56,69 @@ export class MapAIToolsService implements OnDestroy {
   private messageIdCounter = 0;
   private subscriptions: Subscription[] = [];
 
+  // Tool message queueing state
+  private pendingToolMessages: Message[] = [];
+  private currentStreamingMessageId: string | null = null;
+  private streamingTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly STREAMING_TIMEOUT_MS = 30000;
+
   constructor(
     private wsService: WebSocketService,
-    private mapToolsService: MapToolsService
-  ) {}
+    private executorsService: ConsolidatedExecutorsService,
+    private deckState: DeckStateService
+  ) {
+    // Subscribe to deck state layers for UI
+    this.subscriptions.push(
+      this.deckState.layers$.subscribe(layers => {
+        const layerConfigs = layers.map(layer => {
+          const id = (layer['id'] as string) || 'unknown';
+          let name = id;
+          let color = '#036fe2';
+
+          // Provide friendly names for special layers
+          if (id === LOCATION_PIN_LAYER_ID) {
+            name = 'Location Pin';
+            color = '#333333'; // Match the pin SVG color
+          }
+
+          // Extract legend data from layer spec
+          const legend = extractLegendFromLayer(layer);
+
+          // Determine color from legend if available
+          if (legend) {
+            if (legend.type === 'discrete' && legend.entries && legend.entries.length > 0) {
+              // Use first entry color for discrete legend
+              color = legend.entries[0].color;
+            } else if (legend.type === 'single' && legend.singleColor) {
+              // Use single color
+              color = legend.singleColor;
+            } else if (legend.functionConfig && legend.functionConfig.colors && legend.functionConfig.colors.length > 0) {
+              // Use first color from function config
+              color = legend.functionConfig.colors[0];
+            }
+          }
+
+          // Get center coordinates from metadata
+          const center = this.deckState.getLayerCenter(id);
+
+          return {
+            id,
+            name,
+            color,
+            visible: layer['visible'] !== false,
+            center,
+            legend
+          };
+        });
+        this.layersSubject.next(layerConfigs);
+      })
+    );
+  }
 
   /**
    * Connect to WebSocket server and start listening for messages
    */
-  connect(wsUrl: string): void {
+  connect(wsUrl?: string): void {
     this.wsService.connect(wsUrl);
 
     // Subscribe to WebSocket messages
@@ -61,32 +133,32 @@ export class MapAIToolsService implements OnDestroy {
 
   /**
    * Send a chat message through WebSocket
-   * Handles adding user message, resetting streaming state, and setting loader
-   *
-   * @param content - Message content
-   * @returns Whether the message was sent
    */
   sendMessage(content: string): boolean {
     if (!this.wsService.isConnected$.getValue()) {
-      console.warn('WebSocket not connected');
       return false;
     }
 
-    // Add user message
-    this.addMessage({ type: 'user', content });
+    // Add user message with timestamp
+    this.addMessage({ type: 'user', content, timestamp: Date.now() });
 
     // Reset streaming state
     this.streamingMessageIds.clear();
+    this.pendingToolMessages = [];
+    this.currentStreamingMessageId = null;
+    if (this.streamingTimeout) {
+      clearTimeout(this.streamingTimeout);
+      this.streamingTimeout = null;
+    }
 
     // Set loader to thinking
-    this.loaderStateSubject.next('thinking');
+    this.setLoaderState('thinking', 'Thinking...');
+
+    // Build initial state to provide context to AI
+    const initialState = this.createInitialState();
 
     // Send through WebSocket
-    this.wsService.send({
-      type: 'chat_message',
-      content,
-      timestamp: Date.now(),
-    });
+    this.wsService.sendChatMessage(content, initialState);
 
     return true;
   }
@@ -98,41 +170,102 @@ export class MapAIToolsService implements OnDestroy {
     this.messagesSubject.next([]);
     this.streamingMessageIds.clear();
     this.messageIdCounter = 0;
-    this.loaderStateSubject.next(null);
-  }
-
-  /**
-   * Get current loader state value
-   */
-  getLoaderState(): LoaderState {
-    return this.loaderStateSubject.getValue();
-  }
-
-  /**
-   * Get current messages array
-   */
-  getMessages(): Message[] {
-    return this.messagesSubject.getValue();
+    this.pendingToolMessages = [];
+    this.currentStreamingMessageId = null;
+    if (this.streamingTimeout) {
+      clearTimeout(this.streamingTimeout);
+      this.streamingTimeout = null;
+    }
+    this.setLoaderState(null);
   }
 
   // ============================================================================
   // Private Methods
   // ============================================================================
 
+  private createInitialState(): InitialState {
+    const state = this.deckState.getState();
+
+    return {
+      viewState: {
+        longitude: state.viewState.longitude ?? 0,
+        latitude: state.viewState.latitude ?? 0,
+        zoom: state.viewState.zoom ?? 3,
+        pitch: state.viewState.pitch ?? 0,
+        bearing: state.viewState.bearing ?? 0
+      },
+      layers: state.deckConfig.layers.map(layer => {
+        const baseInfo = {
+          id: (layer['id'] as string) || 'unknown',
+          type: (layer['@@type'] as string) || 'Unknown',
+          visible: layer['visible'] !== false
+        };
+
+        // Extract styling context for AI
+        const styleContext: Record<string, unknown> = {};
+
+        // Include getFillColor if it's a colorCategories/colorBins expression
+        const fillColor = layer['getFillColor'];
+        if (fillColor && typeof fillColor === 'object') {
+          styleContext.getFillColor = fillColor;
+        }
+
+        // Include getLineColor if present
+        const lineColor = layer['getLineColor'];
+        if (lineColor && typeof lineColor === 'object') {
+          styleContext.getLineColor = lineColor;
+        }
+
+        // Include filters if present in data
+        const data = layer['data'] as Record<string, unknown> | undefined;
+        if (data?.['filters']) {
+          styleContext.filters = data['filters'];
+        }
+
+        // Include updateTriggers if present (contains style configuration)
+        if (layer['updateTriggers']) {
+          styleContext.updateTriggers = layer['updateTriggers'];
+        }
+
+        return Object.keys(styleContext).length > 0
+          ? { ...baseInfo, styleContext }
+          : baseInfo;
+      }),
+      activeLayerId: state.activeLayerId,
+      cartoConfig: {
+        connectionName: environment.connectionName,
+        hasCredentials: !!environment.accessToken
+      }
+    };
+  }
+
   private handleMessage(data: WebSocketMessage): void {
     switch (data.type) {
       case 'stream_chunk':
         this.handleStreamChunk(data);
         break;
+      case 'tool_call_start':
+        this.handleToolCallStart(data);
+        break;
+      case 'mcp_tool_result':
+        this.handleMcpToolResult(data);
+        break;
       case 'tool_call':
         this.handleToolCall(data);
         break;
-      case 'error':
-        this.errorSubject.next(data.content || 'Unknown error');
-        this.loaderStateSubject.next(null);
+      case 'tool_result':
+        this.handleToolResult(data);
         break;
-      case 'welcome':
-        console.log('Server welcome:', data.content);
+      case 'error':
+        this.messagesSubject.next([
+          ...this.messagesSubject.value,
+          {
+            type: 'error',
+            content: data.content || 'Unknown error',
+            timestamp: Date.now(),
+          },
+        ]);
+        this.setLoaderState(null);
         break;
     }
   }
@@ -144,17 +277,36 @@ export class MapAIToolsService implements OnDestroy {
 
     // First chunk - hide "thinking" loader
     if (isNewMessage) {
-      this.loaderStateSubject.next(null);
+      this.setLoaderState(null);
     }
 
     // Skip empty completion chunks
     if (data.isComplete && !data.content) {
       this.updateMessage(data.messageId, { streaming: false });
-      this.loaderStateSubject.next('executing');
+      // Clear streaming state and flush pending tool messages
+      this.currentStreamingMessageId = null;
+      if (this.streamingTimeout) {
+        clearTimeout(this.streamingTimeout);
+        this.streamingTimeout = null;
+      }
+      this.flushPendingToolMessages();
       return;
     }
 
     if (isNewMessage) {
+      // Track this as the current streaming message
+      this.currentStreamingMessageId = data.messageId;
+
+      // Set safety timeout
+      if (this.streamingTimeout) {
+        clearTimeout(this.streamingTimeout);
+      }
+      this.streamingTimeout = setTimeout(() => {
+        this.currentStreamingMessageId = null;
+        this.streamingTimeout = null;
+        this.flushPendingToolMessages();
+      }, this.STREAMING_TIMEOUT_MS);
+
       // New message - add to messages array
       this.streamingMessageIds.add(data.messageId);
       this.addMessage({
@@ -162,9 +314,10 @@ export class MapAIToolsService implements OnDestroy {
         content: data.content || '',
         streaming: true,
         messageId: data.messageId,
+        timestamp: data.timestamp || Date.now(),
       });
     } else {
-      // Update existing message (WebSocketService already accumulated content)
+      // Update existing message
       this.updateMessage(data.messageId, {
         content: data.content || '',
         streaming: !data.isComplete,
@@ -173,38 +326,123 @@ export class MapAIToolsService implements OnDestroy {
 
     if (data.isComplete) {
       this.streamingMessageIds.delete(data.messageId);
-      this.loaderStateSubject.next('executing');
+      // Clear streaming state and flush pending tool messages
+      this.currentStreamingMessageId = null;
+      if (this.streamingTimeout) {
+        clearTimeout(this.streamingTimeout);
+        this.streamingTimeout = null;
+      }
+      this.flushPendingToolMessages();
     }
   }
 
+  private flushPendingToolMessages(): void {
+    if (this.pendingToolMessages.length === 0) return;
+    const messages = this.messagesSubject.getValue();
+    this.messagesSubject.next([...messages, ...this.pendingToolMessages]);
+    this.pendingToolMessages = [];
+  }
+
+  private handleToolCallStart(data: WebSocketMessage): void {
+    const toolName = data.toolName || data.tool || 'tool';
+    this.setLoaderState('mcp_request', `Working with ${toolName}...`);
+  }
+
+  private handleMcpToolResult(data: WebSocketMessage): void {
+    const toolName = data.toolName || data.tool || 'tool';
+
+    if (data.error) {
+      console.error('[MapAIToolsService] MCP tool error:', data.error);
+    }
+
+    this.setLoaderState('mcp_processing', `Processing ${toolName} result...`);
+  }
+
   private async handleToolCall(data: WebSocketMessage): Promise<void> {
-    if (!this.mapToolsService.isInitialized()) {
-      this.errorSubject.next('Map not ready');
-      this.loaderStateSubject.next(null);
+    const toolName = data.tool || data.toolName;
+    const parameters = data.parameters || data.data || {};
+    const callId = data.callId || '';
+
+    if (!toolName) {
+      this.errorSubject.next('No tool name provided');
+      this.setLoaderState(null);
       return;
     }
 
-    const { toolName, data: toolData, error } = this.mapToolsService.parseResponse(data);
-
-    if (error) {
-      this.errorSubject.next(`Error: ${error.message}`);
-      this.loaderStateSubject.next(null);
-      return;
+    // Set loader state based on tool
+    let stage: LoaderStage = 'executing';
+    if (toolName === 'set-deck-state') {
+      stage = 'creating';
     }
+    this.setLoaderState(stage, `Executing ${toolName}...`);
 
-    console.log(`Executing tool: ${toolName}`, toolData);
+    try {
+      const result = await this.executorsService.execute(toolName, parameters);
 
-    if (toolName && toolData) {
-      const result = await this.mapToolsService.execute(toolName, toolData);
-      this.addMessage({
-        type: 'action',
-        content: result.success ? `✓ ${result.message}` : `✗ ${result.message}`,
+      // Create the tool result message
+      const toolMessage: Message = {
+        id: this.generateMessageId(),
+        type: 'tool',
+        content: result.success ? `${result.message}` : `${result.message}`,
+        toolName,
+        status: result.success ? 'success' : 'error',
+        timestamp: Date.now()
+      };
+
+      // Queue or add immediately based on streaming state
+      if (this.currentStreamingMessageId) {
+        // Still streaming - queue the tool message
+        this.pendingToolMessages.push(toolMessage);
+      } else {
+        // Not streaming - add immediately
+        this.addMessage(toolMessage);
+      }
+
+      // Get current layer state to preserve context across conversation turns
+      const currentLayers = this.deckState.getLayers().map(layer => ({
+        id: (layer['id'] as string) || 'unknown',
+        type: (layer['@@type'] as string) || 'Unknown',
+        visible: layer['visible'] !== false
+      }));
+
+      // Send result back to server with layer state
+      this.wsService.sendToolResult({
+        toolName,
+        callId,
+        success: result.success,
+        message: result.message,
+        error: result.error?.message,
+        layerState: currentLayers
       });
-    } else {
-      this.errorSubject.next(`Unknown tool: ${toolName}`);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.errorSubject.next(`Tool execution error: ${errorMessage}`);
+
+      this.wsService.sendToolResult({
+        toolName,
+        callId,
+        success: false,
+        message: `Execution error: ${errorMessage}`,
+        error: errorMessage
+      });
     }
 
-    this.loaderStateSubject.next(null);
+    this.setLoaderState(null);
+  }
+
+  private handleToolResult(data: WebSocketMessage): void {
+    // Tool completed on backend - just log for now
+    if (data.success === false) {
+      this.errorSubject.next(data.error || data.message || 'Tool execution failed');
+    }
+
+    this.setLoaderState(null);
+  }
+
+  private setLoaderState(state: LoaderState, message?: string): void {
+    this.loaderStateSubject.next(state);
+    this.loaderMessageSubject.next(message || '');
   }
 
   private generateMessageId(): string {
@@ -219,6 +457,9 @@ export class MapAIToolsService implements OnDestroy {
       content: msg.content || '',
       streaming: msg.streaming,
       messageId: msg.messageId,
+      toolName: msg.toolName,
+      status: msg.status,
+      timestamp: msg.timestamp || Date.now(),
     };
     this.messagesSubject.next([...messages, newMessage]);
   }

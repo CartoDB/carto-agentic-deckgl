@@ -98,27 +98,46 @@ export class MCPClient {
       throw new Error('MCP client not initialized');
     }
 
+    console.log(`[MCP:${this.serverName}] Fetching tools from server...`);
     const response = await this.client.listTools();
+
+    console.log(`[MCP:${this.serverName}] ===============================================`);
+    console.log(`[MCP:${this.serverName}] TOTAL TOOLS AVAILABLE: ${response.tools.length}`);
+    console.log(`[MCP:${this.serverName}] ===============================================`);
 
     this.tools.clear();
     for (const tool of response.tools) {
+      console.log(`[MCP:${this.serverName}] - Tool found: ${tool.name}`);
       this.tools.set(tool.name, tool);
     }
+
+    console.log(`[MCP:${this.serverName}] Stored ${this.tools.size} tools in cache`);
   }
 
   /**
    * Get tool definitions with optional whitelist filtering
    */
   getToolDefinitions(whitelist?: string[]): MCPToolDefinition[] {
+    console.log(`[MCP:${this.serverName}] ===============================================`);
+    console.log(`[MCP:${this.serverName}] getToolDefinitions() called`);
+    console.log(`[MCP:${this.serverName}] Total tools in cache: ${this.tools.size}`);
+    console.log(`[MCP:${this.serverName}] Whitelist provided: ${whitelist ? JSON.stringify(whitelist) : 'NONE (all tools allowed)'}`);
+    console.log(`[MCP:${this.serverName}] ===============================================`);
+
     const definitions: MCPToolDefinition[] = [];
     let skippedCount = 0;
 
     for (const [name, tool] of this.tools.entries()) {
+      console.log(`[MCP:${this.serverName}] Processing tool: ${name}`);
+
       // Skip if not in whitelist
       if (whitelist && whitelist.length > 0 && !whitelist.includes(name)) {
+        console.log(`[MCP:${this.serverName}]   ❌ SKIPPED (not in whitelist)`);
         skippedCount++;
         continue;
       }
+
+      console.log(`[MCP:${this.serverName}]   ✅ INCLUDED`);
 
       try {
         // Sanitize tool name (OpenAI requires ^[a-zA-Z0-9_-]+$)
@@ -140,9 +159,13 @@ export class MCPClient {
       }
     }
 
-    if (skippedCount > 0) {
-      console.log(`[MCP:${this.serverName}] Skipped ${skippedCount} tools (not in whitelist)`);
-    }
+    console.log(`[MCP:${this.serverName}] ===============================================`);
+    console.log(`[MCP:${this.serverName}] SUMMARY:`);
+    console.log(`[MCP:${this.serverName}]   Total available: ${this.tools.size}`);
+    console.log(`[MCP:${this.serverName}]   Included: ${definitions.length}`);
+    console.log(`[MCP:${this.serverName}]   Skipped: ${skippedCount}`);
+    console.log(`[MCP:${this.serverName}]   Tool names: ${definitions.map(d => d.name).join(', ') || 'NONE'}`);
+    console.log(`[MCP:${this.serverName}] ===============================================`);
 
     return definitions;
   }
@@ -225,7 +248,7 @@ export class MCPClient {
       throw new Error(`Tool not found: ${toolName}`);
     }
 
-    console.log(`[MCP:${this.serverName}] Executing: ${toolName}`);
+    console.log(`[MCP:${this.serverName}] Executing: ${toolName}`, JSON.stringify(args).substring(0, 200));
 
     try {
       const response = await this.client.callTool({
@@ -234,24 +257,122 @@ export class MCPClient {
       });
 
       console.log(`[MCP:${this.serverName}] Response received for: ${toolName}`);
+      console.log(`[MCP:${this.serverName}] Response structure:`, {
+        hasContent: !!response.content,
+        contentType: Array.isArray(response.content) ? 'array' : typeof response.content,
+        contentLength: Array.isArray(response.content) ? response.content.length : 'N/A',
+        isError: !!response.isError,
+      });
+
+      // Handle error responses - return error object instead of throwing
+      // This allows the agent to see the actual error message
+      if (response.isError) {
+        const content = response.content as Array<{ type: string; text?: string }> | undefined;
+        let errorMessage = 'Unknown error';
+        let errorDetails: unknown = null;
+
+        if (Array.isArray(content) && content.length > 0) {
+          const firstItem = content[0];
+          if (firstItem.type === 'text' && firstItem.text) {
+            // Try to parse error as JSON to get structured error info
+            try {
+              const parsed = JSON.parse(firstItem.text);
+              
+              // Handle different error response structures
+              // Structure 1: { error: { msg: "...", code: "..." } }
+              if (parsed.error && typeof parsed.error === 'object') {
+                errorMessage = parsed.error.msg || parsed.error.message || JSON.stringify(parsed.error);
+                errorDetails = parsed;
+              }
+              // Structure 2: { message: "...", error: "..." }
+              else if (parsed.message || parsed.error) {
+                errorMessage = parsed.message || parsed.error || firstItem.text;
+                errorDetails = parsed;
+              }
+              // Structure 3: Direct error object
+              else {
+                errorMessage = firstItem.text;
+                errorDetails = parsed;
+              }
+            } catch {
+              errorMessage = firstItem.text;
+            }
+          } else {
+            errorMessage = JSON.stringify(firstItem);
+          }
+        }
+
+        console.error(`[MCP:${this.serverName}] Tool error:`, errorMessage);
+        console.error(`[MCP:${this.serverName}] Error details:`, JSON.stringify(errorDetails, null, 2));
+
+        // Return error object instead of throwing - agent can see this
+        return {
+          error: true,
+          message: errorMessage,
+          details: errorDetails,
+          toolName,
+        };
+      }
 
       // Extract content from response
       const content = response.content as Array<{ type: string; text?: string; resource?: unknown }>;
       if (content && Array.isArray(content) && content.length > 0) {
         const first = content[0];
+        console.log(`[MCP:${this.serverName}] First content item:`, {
+          type: first.type,
+          hasText: !!first.text,
+          textLength: first.text?.length || 0,
+        });
+
         if (first.type === 'text' && first.text) {
           // Try to parse as JSON
           try {
             const parsed = JSON.parse(first.text);
-            console.log(`[MCP:${this.serverName}] Parsed result:`, JSON.stringify(parsed).substring(0, 150));
+            
+            // Check if the parsed result contains an error (e.g., async job failure)
+            // Structure: { status: "failure", error: { msg: "...", code: "..." } }
+            if (parsed.status === 'failure' || parsed.status === 'error') {
+              const errorMsg = parsed.error?.msg || parsed.error?.message || parsed.message || 'Job failed';
+              console.error(`[MCP:${this.serverName}] Job failed:`, errorMsg);
+              console.error(`[MCP:${this.serverName}] Full error details:`, JSON.stringify(parsed, null, 2));
+              
+              return {
+                error: true,
+                message: errorMsg,
+                details: parsed,
+                toolName,
+              };
+            }
+            
+            // Check if there's an error field even if status is not failure
+            if (parsed.error && typeof parsed.error === 'object' && parsed.data?.status === 'failure') {
+              const errorMsg = parsed.data.error?.msg || parsed.data.error?.message || parsed.error.msg || parsed.error.message || JSON.stringify(parsed.error);
+              console.error(`[MCP:${this.serverName}] Response contains error:`, errorMsg);
+              
+              return {
+                error: true,
+                message: errorMsg,
+                details: parsed,
+                toolName,
+              };
+            }
+            
+            console.log(`[MCP:${this.serverName}] Successfully parsed JSON result (${JSON.stringify(parsed).length} chars)`);
+            console.log(`[MCP:${this.serverName}] Result preview:`, JSON.stringify(parsed).substring(0, 300));
             return parsed;
-          } catch {
+          } catch (parseError) {
+            console.log(`[MCP:${this.serverName}] Result is not JSON, returning as text`);
             return { text: first.text };
           }
         }
+        
+        // Return the first content item if it's not text
+        console.log(`[MCP:${this.serverName}] Returning non-text content item`);
         return first;
       }
 
+      // Fallback: return the entire response
+      console.log(`[MCP:${this.serverName}] No content array found, returning full response`);
       return response;
     } catch (error) {
       console.error(`[MCP:${this.serverName}] Error executing ${toolName}:`, error);
@@ -332,6 +453,13 @@ export async function closeAllMCPClients(): Promise<void> {
  * - MCP_WHITELIST_CARTO=tool1,tool2,tool3 (optional whitelist)
  */
 export function parseMCPServerConfigs(): MCPServerConfig[] {
+  console.log('[MCP] ===============================================');
+  console.log('[MCP] Parsing MCP server configurations from environment...');
+  console.log('[MCP] CARTO_MCP_URL:', process.env.CARTO_MCP_URL || 'NOT SET');
+  console.log('[MCP] CARTO_MCP_API_KEY:', process.env.CARTO_MCP_API_KEY ? 'SET (hidden)' : 'NOT SET');
+  console.log('[MCP] MCP_WHITELIST_CARTO:', process.env.MCP_WHITELIST_CARTO || 'NOT SET (all tools allowed)');
+  console.log('[MCP] ===============================================');
+
   const configs: MCPServerConfig[] = [];
 
   // Check for CARTO MCP server
@@ -340,13 +468,25 @@ export function parseMCPServerConfigs(): MCPServerConfig[] {
     const whitelistEnv = process.env.MCP_WHITELIST_CARTO;
     const whitelist = whitelistEnv ? whitelistEnv.split(',').map((t) => t.trim()) : undefined;
 
-    configs.push({
+    const config = {
       name: 'carto',
       url: cartoUrl,
       apiKey: process.env.CARTO_MCP_API_KEY,
       whitelist,
+    };
+
+    console.log('[MCP] Added CARTO MCP server configuration:', {
+      name: config.name,
+      url: config.url,
+      hasApiKey: !!config.apiKey,
+      whitelist: config.whitelist || 'NONE (all tools allowed)',
     });
+
+    configs.push(config);
+  } else {
+    console.log('[MCP] No CARTO_MCP_URL found - MCP disabled');
   }
 
+  console.log(`[MCP] Total configurations: ${configs.length}`);
   return configs;
 }

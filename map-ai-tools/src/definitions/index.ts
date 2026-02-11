@@ -13,7 +13,7 @@ export {
   isDataTool,
   getSpecTools,
   getDataTools,
-  // Consolidated tools pattern (6 tools)
+  // Consolidated tools pattern (3 tools)
   consolidatedToolNames,
   getConsolidatedToolDefinitions,
 } from './tools';
@@ -23,6 +23,7 @@ export type { ToolName } from './tools';
 // Export dictionary constants
 export {
   TOOL_NAMES,
+  type ToolNameValue,
 } from './dictionary';
 
 // Import for BUILTIN_TOOLS

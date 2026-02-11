@@ -2,6 +2,10 @@
  * Message types for WebSocket and HTTP communication
  */
 
+import type { UserContext } from './user-context.js';
+
+export type { UserContext } from './user-context.js';
+
 /**
  * Initial map state sent with chat messages
  */
@@ -33,6 +37,9 @@ export interface InitialState {
   // Active layer ID - the last created/modified layer
   // Used to track which layer to update when user doesn't specify
   activeLayerId?: string;
+
+  // User context for business location analysis
+  userContext?: UserContext;
 }
 
 /**
@@ -55,6 +62,12 @@ export interface ToolResultMessage {
   success: boolean;
   message: string;
   error?: string;
+  // Current layer state after tool execution - used to preserve context across turns
+  layerState?: Array<{
+    id: string;
+    type: string;
+    visible: boolean;
+  }>;
 }
 
 /**

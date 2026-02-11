@@ -17,10 +17,20 @@ const createCjsPackageJson = () => ({
   }
 });
 
+// Entry points for main and subpath exports
+const entryPoints = {
+  'index': 'src/index.ts',
+  'definitions/index': 'src/definitions/index.ts',
+  'executors/index': 'src/executors/index.ts',
+  'schemas/index': 'src/schemas/index.ts',
+  'converters/index': 'src/converters/index.ts',
+  'prompts/index': 'src/prompts/index.ts',
+};
+
 export default [
   // ESM build
   {
-    input: 'src/index.ts',
+    input: entryPoints,
     output: {
       dir: 'dist/esm',
       format: 'esm',
@@ -42,7 +52,7 @@ export default [
   },
   // CJS build
   {
-    input: 'src/index.ts',
+    input: entryPoints,
     output: {
       dir: 'dist/cjs',
       format: 'cjs',

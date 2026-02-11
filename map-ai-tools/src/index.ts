@@ -14,7 +14,7 @@ export {
   isDataTool,
   getSpecTools,
   getDataTools,
-  // Consolidated tools pattern (6 tools)
+  // Consolidated tools pattern (3 tools)
   consolidatedToolNames,
   getConsolidatedToolDefinitions,
 } from './definitions';
@@ -24,6 +24,7 @@ export {
   BUILTIN_TOOLS,
   TOOL_NAMES,
   getToolDefinitions,
+  type ToolNameValue,
 } from './definitions';
 
 export type { ToolName } from './definitions';
@@ -37,6 +38,29 @@ export {
   type ToolError,
   type ParsedToolResponse,
 } from './utils';
+
+// Re-export prompts module
+export {
+  // Types
+  type ToolPromptConfig,
+  type MapViewState,
+  type LayerState,
+  type MapState,
+  type ProximityWeight,
+  type UserContext,
+  type BuildSystemPromptOptions,
+  // Tool prompts
+  toolPrompts,
+  getToolPrompt,
+  getToolPrompts,
+  // Shared sections
+  sharedSections,
+  getSharedSection,
+  // Builder functions
+  buildSystemPrompt,
+  buildMapStateSection,
+  buildUserContextSection,
+} from './prompts';
 
 // Re-export executors utilities (response formatting and error codes)
 export {
