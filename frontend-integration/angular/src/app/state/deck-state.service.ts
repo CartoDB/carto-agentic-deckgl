@@ -40,6 +40,7 @@ export interface DeckStateData {
   deckConfig: DeckConfig;
   basemap: Basemap;
   activeLayerId?: string;
+  transitionDuration: number;
 }
 
 /**
@@ -79,6 +80,7 @@ export class DeckStateService {
   private deckConfigSubject = new BehaviorSubject<DeckConfig>({ ...DEFAULT_DECK_CONFIG });
   private basemapSubject = new BehaviorSubject<Basemap>('positron');
   private activeLayerIdSubject = new BehaviorSubject<string | undefined>(undefined);
+  private transitionDurationSubject = new BehaviorSubject<number>(1000);
   private changedKeysSubject = new BehaviorSubject<string[]>([]);
 
   // Track initial layer IDs to distinguish from chat-generated layers
@@ -101,14 +103,16 @@ export class DeckStateService {
     this.deckConfigSubject,
     this.basemapSubject,
     this.activeLayerIdSubject,
+    this.transitionDurationSubject,
     this.changedKeysSubject
   ]).pipe(
-    map(([viewState, deckConfig, basemap, activeLayerId, changedKeys]) => ({
+    map(([viewState, deckConfig, basemap, activeLayerId, transitionDuration, changedKeys]) => ({
       state: {
         viewState,
         deckConfig,
         basemap,
-        activeLayerId
+        activeLayerId,
+        transitionDuration
       },
       changedKeys
     })),
@@ -154,7 +158,8 @@ export class DeckStateService {
       viewState: this.getViewState(),
       deckConfig: this.getDeckConfig(),
       basemap: this.getBasemap(),
-      activeLayerId: this.getActiveLayerId()
+      activeLayerId: this.getActiveLayerId(),
+      transitionDuration: this.transitionDurationSubject.value
     };
   }
 
@@ -174,9 +179,15 @@ export class DeckStateService {
   /**
    * Update view state (partial update supported)
    */
-  setViewState(partial: Partial<MapViewState>): void {
+  setViewState(partial: Partial<MapViewState> & { transitionDuration?: number }): void {
+    const { transitionDuration, ...viewStatePartial } = partial;
+    if (transitionDuration !== undefined) {
+      this.transitionDurationSubject.next(transitionDuration);
+    } else {
+      this.transitionDurationSubject.next(1000);
+    }
     const current = this.viewStateSubject.value;
-    this.viewStateSubject.next({ ...current, ...partial });
+    this.viewStateSubject.next({ ...current, ...viewStatePartial });
     this.notifyChange(['viewState']);
   }
 
