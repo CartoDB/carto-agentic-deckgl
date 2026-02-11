@@ -69,13 +69,11 @@ Angular: Display text + Execute tool_calls via ConsolidatedExecutorsService
                           DeckStateService updates deck.gl
 ```
 
-### Consolidated Tools (3 frontend-executed tools)
+### Consolidated Tool (1 frontend-executed tool)
 
-| Tool | Purpose |
-|------|---------|
-| `set-map-view` | Navigate to coordinates with zoom/pitch/bearing |
-| `set-basemap` | Change basemap style (dark-matter, positron, voyager) |
-| `set-deck-state` | Add/update/remove layers, widgets, and effects |
+| Tool             | Purpose                                                                                               |
+|------------------|-------------------------------------------------------------------------------------------------------|
+| `set-deck-state` | Navigate (initialViewState), change basemap (mapStyle), add/update/remove layers, widgets, and effects |
 
 ### Key Files — Backend (`backend-integration/vercel-ai-sdk/src/`)
 

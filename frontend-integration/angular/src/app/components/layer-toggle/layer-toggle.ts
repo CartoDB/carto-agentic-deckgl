@@ -8,7 +8,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayerConfig } from '../../models/message.model';
-import { LOCATION_PIN_LAYER_ID } from '../../config/location-pin.config';
 import { LegendData, ColorFunctionLegend } from '../../utils/legend.utils';
 
 /**
@@ -56,10 +55,6 @@ export class LayerToggle implements OnChanges {
   onToggle(layer: LayerConfig): void {
     if (this.disabled) return;
     this.toggle.emit({ layerId: layer.id, visible: !layer.visible });
-  }
-
-  isAnalysisLayer(layer: LayerConfig): boolean {
-    return layer.id !== LOCATION_PIN_LAYER_ID;
   }
 
   onFlyTo(layer: LayerConfig): void {

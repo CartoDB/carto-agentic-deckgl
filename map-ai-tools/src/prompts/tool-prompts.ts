@@ -7,25 +7,26 @@ import { TOOL_NAMES } from '../definitions/dictionary.js';
 import type { ToolPromptConfig } from './types.js';
 
 export const toolPrompts: Record<string, ToolPromptConfig> = {
-  [TOOL_NAMES.SET_MAP_VIEW]: {
-    name: TOOL_NAMES.SET_MAP_VIEW,
-    prompt: `### 1. set-map-view
-Navigate the map to specific coordinates with optional pitch/bearing.
-- Input: { latitude, longitude, zoom, pitch?, bearing? }
-- Use to fly to a location`,
-  },
-
-  [TOOL_NAMES.SET_BASEMAP]: {
-    name: TOOL_NAMES.SET_BASEMAP,
-    prompt: `### 2. set-basemap
-Change the map basemap style.
-- Options: "dark-matter", "positron", "voyager"`,
-  },
-
   [TOOL_NAMES.SET_DECK_STATE]: {
     name: TOOL_NAMES.SET_DECK_STATE,
-    prompt: `### 3. set-deck-state ⭐ MOST POWERFUL
-Set Deck.gl visualization state including layers, widgets, and effects.
+    prompt: `### 1. set-deck-state
+Set Deck.gl visualization state including view navigation, basemap style, layers, widgets, and effects.
+
+**Navigate to a location:**
+{ "initialViewState": { "latitude": 48.8566, "longitude": 2.3522, "zoom": 12 } }
+
+**Change basemap:**
+{ "mapStyle": "dark-matter" }
+Options: "dark-matter" (dark theme), "positron" (light theme), "voyager" (colorful roads)
+
+**Both at once:**
+{ "initialViewState": { "latitude": 40.7128, "longitude": -74.006, "zoom": 14 }, "mapStyle": "dark-matter" }
+
+**Navigate + add layer:**
+{ "initialViewState": { "latitude": 40.7128, "longitude": -74.006, "zoom": 12 }, "layers": [{ ... }] }
+
+- pitch (0-85) and bearing (-180 to 180) are optional
+- transitionDuration defaults to 1000ms
 Pass configurations in Deck.gl JSON format with @@type, @@function prefixes.
 Layers are MERGED by ID - existing layers not in the update are preserved.
 

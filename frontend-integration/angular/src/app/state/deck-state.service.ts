@@ -12,15 +12,6 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, combineLatest, Observable } from 'rxjs';
 import { map, distinctUntilChanged } from 'rxjs/operators';
 import type { MapViewState } from '@deck.gl/core';
-import { LOCATION_PIN_LAYER_ID } from '../config/location-pin.config';
-
-/**
- * Location pin coordinates
- */
-interface PinLocation {
-  longitude: number;
-  latitude: number;
-}
 
 /**
  * Basemap style options
@@ -89,7 +80,6 @@ export class DeckStateService {
   private basemapSubject = new BehaviorSubject<Basemap>('positron');
   private activeLayerIdSubject = new BehaviorSubject<string | undefined>(undefined);
   private changedKeysSubject = new BehaviorSubject<string[]>([]);
-  private pinLocationsSubject = new BehaviorSubject<PinLocation[]>([]);
 
   // Track initial layer IDs to distinguish from chat-generated layers
   private initialLayerIds: Set<string> = new Set();
@@ -102,7 +92,6 @@ export class DeckStateService {
   public deckConfig$ = this.deckConfigSubject.asObservable();
   public basemap$ = this.basemapSubject.asObservable();
   public activeLayerId$ = this.activeLayerIdSubject.asObservable();
-  public pinLocations$ = this.pinLocationsSubject.asObservable();
 
   /**
    * Combined state observable - emits whenever any state changes
@@ -160,10 +149,6 @@ export class DeckStateService {
     return this.activeLayerIdSubject.value;
   }
 
-  getPinLocations(): PinLocation[] {
-    return [...this.pinLocationsSubject.value];
-  }
-
   getState(): DeckStateData {
     return {
       viewState: this.getViewState(),
@@ -196,29 +181,6 @@ export class DeckStateService {
   }
 
   /**
-   * Ensure Location Pin layer is always at the end of the layers array
-   * This ensures the location marker is always visible on top of other layers
-   */
-  private ensureLocationPinOnTop(layers: LayerSpec[]): LayerSpec[] {
-    const locationPinIndex = layers.findIndex(layer => (layer['id'] as string) === LOCATION_PIN_LAYER_ID);
-    
-    if (locationPinIndex === -1) {
-      // Location Pin layer not found, return as-is
-      return layers;
-    }
-    
-    if (locationPinIndex === layers.length - 1) {
-      // Already at the end, return as-is
-      return layers;
-    }
-    
-    // Move Location Pin layer to the end
-    const locationPinLayer = layers[locationPinIndex];
-    const otherLayers = layers.filter((_, index) => index !== locationPinIndex);
-    return [...otherLayers, locationPinLayer];
-  }
-
-  /**
    * Set the complete deck configuration
    * Captures current viewState as center for newly added layers
    */
@@ -240,11 +202,8 @@ export class DeckStateService {
       }
     }
 
-    // Ensure Location Pin layer is always at the end
-    const orderedLayers = this.ensureLocationPinOnTop(newLayers);
-
     this.deckConfigSubject.next({
-      layers: orderedLayers,
+      layers: newLayers,
       widgets: config.widgets ?? [],
       effects: config.effects ?? []
     });
@@ -272,12 +231,9 @@ export class DeckStateService {
       }
     }
 
-    // Ensure Location Pin layer is always at the end
-    const orderedLayers = this.ensureLocationPinOnTop(layers);
-
     this.deckConfigSubject.next({
       ...current,
-      layers: orderedLayers
+      layers
     });
     this.notifyChange(['deckConfig']);
   }
@@ -296,23 +252,6 @@ export class DeckStateService {
   setActiveLayerId(layerId: string): void {
     this.activeLayerIdSubject.next(layerId);
     this.notifyChange(['activeLayerId']);
-  }
-
-  /**
-   * Add a pin location to the collection
-   */
-  addPinLocation(location: PinLocation): void {
-    const current = this.pinLocationsSubject.value;
-    this.pinLocationsSubject.next([...current, location]);
-    this.notifyChange(['pinLocations']);
-  }
-
-  /**
-   * Clear all pin locations
-   */
-  clearPinLocations(): void {
-    this.pinLocationsSubject.next([]);
-    this.notifyChange(['pinLocations']);
   }
 
   // ==================== UTILITIES ====================
@@ -347,8 +286,6 @@ export class DeckStateService {
     if (activeLayerId && !this.initialLayerIds.has(activeLayerId)) {
       this.activeLayerIdSubject.next(undefined);
     }
-    // Clear pin locations since they are chat-generated elements
-    this.pinLocationsSubject.next([]);
   }
 
   // ==================== PRIVATE ====================

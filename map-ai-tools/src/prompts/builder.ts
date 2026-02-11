@@ -11,15 +11,13 @@ import type { BuildSystemPromptOptions, MapState, UserContext } from './types.js
  * Ordered list of tools for consistent prompt generation
  */
 const ORDERED_TOOLS = [
-  TOOL_NAMES.SET_MAP_VIEW,
-  TOOL_NAMES.SET_BASEMAP,
   TOOL_NAMES.SET_DECK_STATE,
 ];
 
 /**
  * Build the system prompt for the map control agent
  *
- * Uses CONSOLIDATED tools pattern (3 tools instead of 40+)
+ * Uses CONSOLIDATED tool pattern (1 tool instead of 40+)
  */
 export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
   const {
@@ -35,7 +33,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 
 ## AVAILABLE TOOLS
 
-You have 3 consolidated tools for complete map control:
+You have 1 consolidated tool for complete map control:
 
 `;
 
@@ -213,7 +211,7 @@ The user has selected a target location: "${locationName}".
 ${ctx.locationCoordinates ? `Coordinates: [${ctx.locationCoordinates.longitude}, ${ctx.locationCoordinates.latitude}]` : ''}
 
 Before executing ANY geo-related analysis (POI filtering, buffer analysis, spatial queries, etc.):
-1. **ALWAYS fly to the target location FIRST** using set-map-view (use provided coordinates or ask the user)
+1. **ALWAYS fly to the target location FIRST** using set-deck-state with initialViewState (use provided coordinates or ask the user)
 2. Wait for the fly animation to complete
 3. Then proceed with the analysis tools
 4. This ensures the user sees the location before results are displayed
