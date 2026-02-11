@@ -4,7 +4,7 @@
  * Uses map-ai-tools converters for Vercel AI SDK format
  * Combines local map tools with remote MCP server tools
  *
- * CONSOLIDATED PATTERN: Uses 6 tools instead of 40+
+ * CONSOLIDATED PATTERN: Uses 3 tools instead of 40+
  */
 
 import { tool, type Tool } from 'ai';
@@ -16,20 +16,18 @@ import {
   type ToolName,
 } from '@carto/maps-ai-tools';
 import { getMCPTools, getMCPToolNames } from './mcp-tools.js';
+import { getCustomTools, getCustomToolNames } from './custom-tools.js';
 
 /**
  * Create local map tools for Vercel AI SDK v6
  *
- * Uses CONSOLIDATED tools pattern (6 tools instead of 40+):
- * - geocode
+ * Uses CONSOLIDATED tools pattern (3 tools instead of 40+):
  * - set-map-view
  * - set-basemap
  * - set-deck-state
- * - take-map-screenshot
- * - carto-query
  */
 export function createMapTools(): Record<string, Tool> {
-  // Pass consolidated tool names to filter to only 6 tools
+  // Pass consolidated tool names to filter to only 3 tools
   const toolDefs = getToolsForVercelAI(consolidatedToolNames as ToolName[]);
 
   return Object.fromEntries(
@@ -45,32 +43,37 @@ export function createMapTools(): Record<string, Tool> {
 }
 
 /**
- * Get all tools (local map tools + MCP tools)
+ * Get all tools (local map tools + custom tools + MCP tools)
  *
- * Local tools take precedence over MCP tools on name conflicts.
+ * Precedence order (highest to lowest):
+ * 1. Local map tools
+ * 2. Custom tools
+ * 3. MCP tools
  */
 export function getAllTools(): Record<string, Tool> {
   const mcpTools = getMCPTools();
+  const customTools = getCustomTools();
   const localTools = createMapTools();
 
-  // Local tools override MCP tools on conflict
-  return { ...mcpTools, ...localTools };
+  // Local and custom tools override MCP tools on conflict
+  return { ...mcpTools, ...customTools, ...localTools };
 }
 
 /**
  * Get all tool names for system prompt
- * Returns consolidated tool names + MCP tool names
+ * Returns consolidated tool names + custom tool names + MCP tool names
  */
 export function getAllToolNames(): string[] {
   const localNames = [...consolidatedToolNames];
+  const customNames = getCustomToolNames();
   const mcpNames = getMCPToolNames();
 
   // Deduplicate
-  return [...new Set([...localNames, ...mcpNames])];
+  return [...new Set([...localNames, ...customNames, ...mcpNames])];
 }
 
 /**
- * Get local tool names only (consolidated 6 tools)
+ * Get local tool names only (consolidated 3 tools)
  */
 export function getToolNames(): string[] {
   return [...consolidatedToolNames];

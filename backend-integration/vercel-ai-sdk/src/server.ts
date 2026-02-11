@@ -35,7 +35,7 @@ wss.on('connection', (ws) => {
 
   ws.on('message', async (data) => {
     try {
-      const rawMessage = JSON.parse(data.toString()) as { type: string; provider?: string };
+      const rawMessage = JSON.parse(data.toString()) as { type: string };
       const sid = sessions.get(ws);
 
       if (!sid) {
@@ -44,7 +44,7 @@ wss.on('connection', (ws) => {
       }
 
       if (rawMessage.type === 'chat_message') {
-        const message = rawMessage as ChatMessage & { provider?: string };
+        const message = rawMessage as ChatMessage;
         const history = conversationManager.getHistory(sid);
         conversationManager.addMessage(sid, {
           role: 'user',
@@ -57,7 +57,6 @@ wss.on('connection', (ws) => {
           sid,
           history,
           message.initialState,
-          message.provider // Optional: allow client to specify provider
         );
 
         if (response) {
@@ -70,9 +69,18 @@ wss.on('connection', (ws) => {
 
         if (toolResult.success) {
           // Tool succeeded - add to conversation history so AI knows what exists
+          let historyContent = `[Tool executed successfully: ${toolResult.toolName}] ${toolResult.message}`;
+
+          // Include layer state in history for AI context across turns
+          if (toolResult.layerState && toolResult.layerState.length > 0) {
+            historyContent += `\n[Current layers on map: ${toolResult.layerState.map(l => `"${l.id}" (${l.type})`).join(', ')}]`;
+          } else if (toolResult.layerState) {
+            historyContent += `\n[No layers currently on map]`;
+          }
+
           conversationManager.addMessage(sid, {
             role: 'assistant',
-            content: `[Tool executed successfully: ${toolResult.toolName}] ${toolResult.message}`,
+            content: historyContent,
           });
         } else {
           // Tool failed - send a correction message to inform the user
@@ -131,7 +139,7 @@ wss.on('connection', (ws) => {
 // HTTP/SSE Route
 // ============================================
 app.post('/api/chat', async (req, res) => {
-  const { message, initialState, provider } = req.body;
+  const { message, initialState } = req.body;
 
   if (!message) {
     res.status(400).json({ error: 'Message is required' });
@@ -151,7 +159,7 @@ app.post('/api/chat', async (req, res) => {
       },
     } as WebSocket;
 
-    await runMapAgent(message, sseWriter, 'http-session', [], initialState, provider);
+    await runMapAgent(message, sseWriter, 'http-session', [], initialState);
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error) {
@@ -166,8 +174,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     sdk: 'vercel-ai',
-    providers: ['openai', 'anthropic', 'google', 'carto'],
-    defaultProvider: process.env.DEFAULT_PROVIDER || 'openai',
+    provider: 'carto',
     activeSessions: conversationManager.getActiveSessionCount(),
   });
 });

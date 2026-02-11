@@ -47,8 +47,8 @@ cd ../backend-integration/vercel-ai-sdk
 npm install
 
 # Install frontend integration
-cd ../../frontend-integration/vanilla
-npm install
+cd ../../frontend-integration/angular
+pnpm install
 ```
 
 ### Environment Setup
@@ -73,11 +73,11 @@ cd backend-integration/vercel-ai-sdk
 npm run dev
 
 # Terminal 2: Start frontend
-cd frontend-integration/vanilla
-npm run dev
+cd frontend-integration/angular
+pnpm start
 ```
 
-Open http://localhost:5173 and start chatting with the map.
+Open http://localhost:4200 and start chatting with the map.
 
 ---
 
@@ -106,9 +106,7 @@ ps-frontend-tools-poc/
 │       └── server.ts                # Express + WebSocket server
 │
 └── frontend-integration/
-    ├── vanilla/                     # Vanilla TypeScript
-    ├── react/                       # React 19
-    └── vue/                         # Vue 3
+    └── angular/                     # Angular 20
 ```
 
 ---
@@ -583,34 +581,6 @@ type SupportedLayerType =
 "How many points are in the layer?"
 "What's the average population by state?"
 "Show me the top 10 cities by population"
-```
-
-### Programmatic Usage
-
-```typescript
-import { createConsolidatedExecutors } from './executors';
-
-// Create executors with context
-const executors = createConsolidatedExecutors({
-  deckState,
-  zoomControls,
-  layerToggle,
-  toolStatus,
-  chatContainer,
-});
-
-// Execute a tool
-const result = await executors['set-deck-state']({
-  layers: [{
-    '@@type': 'VectorTileLayer',
-    id: 'my-layer',
-    data: {
-      '@@function': 'vectorTableSource',
-      tableName: 'my_table'
-    },
-    getFillColor: [255, 0, 0, 200]
-  }]
-});
 ```
 
 ---

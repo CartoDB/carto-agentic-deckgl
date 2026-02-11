@@ -31,13 +31,8 @@ export type {
 
 // ============================================================================
 // Zod-inferred parameter types (auto-generated from tool schemas)
-// Consolidated tools only (6 tools)
+// Consolidated tools only (3 tools)
 // ============================================================================
-
-/**
- * Parameters for geocode tool
- */
-export type GeocodeParams = z.infer<typeof tools['geocode']['schema']>;
 
 /**
  * Parameters for set-map-view tool
@@ -55,25 +50,12 @@ export type SetBasemapParams = z.infer<typeof tools['set-basemap']['schema']>;
 export type SetDeckStateParams = z.infer<typeof tools['set-deck-state']['schema']>;
 
 /**
- * Parameters for take-map-screenshot tool
- */
-export type TakeMapScreenshotParams = z.infer<typeof tools['take-map-screenshot']['schema']>;
-
-/**
- * Parameters for carto-query tool
- */
-export type CartoQueryParams = z.infer<typeof tools['carto-query']['schema']>;
-
-/**
  * Union type of all tool parameter types
  */
 export type ToolParams =
-  | GeocodeParams
   | SetMapViewParams
   | SetBasemapParams
   | SetDeckStateParams
-  | TakeMapScreenshotParams
-  | CartoQueryParams;
 
 /**
  * OpenAI function calling tool definition
