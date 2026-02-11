@@ -1,28 +1,25 @@
-# @carto/map-ai-tools
+# @carto/maps-ai-tools
 
 > A framework-agnostic TypeScript library for AI-powered map controls. Enables natural language interaction with deck.gl maps using LLM function calling.
 
 ## Overview
 
-`@carto/map-ai-tools` provides a set of tools that allow AI agents to control interactive maps through natural language. The library uses a "teach the agent deck.gl" pattern where the AI generates deck.gl JSON specifications that are executed on the frontend.
+`@carto/maps-ai-tools` provides a single consolidated tool that gives AI agents complete control over interactive maps through natural language. The library uses a "teach the agent deck.gl" pattern where the AI generates deck.gl JSON specifications that are executed on the frontend via `JSONConverter`.
 
 **Key Features:**
 
-- **6 Consolidated Tools**: Complete map control with minimal complexity
-- **Framework Agnostic**: Works with Vercel AI SDK, OpenAI Agents, Google ADK
-- **Type-Safe**: Full TypeScript support with Zod validation
-- **CARTO Integration**: Native support for CARTO data sources and spatial indexes
+- **1 Consolidated Tool**: Complete map control through a single `set-deck-state` tool
+- **Framework Agnostic**: Works with Vercel AI SDK, OpenAI Agents SDK, Google ADK
+- **Type-Safe**: Full TypeScript support with Zod v4 validation
+- **CARTO Integration**: Native support for CARTO data sources and spatial indexes (H3, Quadbin)
 - **Streaming Support**: Real-time tool execution with WebSocket communication
 
 ## Table of Contents
 
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
-- [Available Tools](#available-tools)
+- [The Tool](#the-tool)
 - [Integration Guide](#integration-guide)
-  - [Vercel AI SDK](#vercel-ai-sdk)
-  - [OpenAI Agents SDK](#openai-agents-sdk)
-  - [Google ADK](#google-adk)
 - [Layer Types](#layer-types)
 - [Data Sources](#data-sources)
 - [Color Styling](#color-styling)
@@ -53,28 +50,40 @@ pnpm install
 
 ### Environment Setup
 
-Create `.env` file in your backend directory:
+**Backend** (`backend-integration/vercel-ai-sdk/.env`):
 
 ```env
-# Required
-OPENAI_API_KEY=sk-proj-your-key-here
-
-# CARTO credentials (for data layers)
-CARTO_ACCESS_TOKEN=your-carto-token
-CARTO_API_BASE_URL=https://gcp-us-east1.api.carto.com
-CARTO_CONNECTION_NAME=carto_dw
+CARTO_AI_API_BASE_URL=https://...    # Required: LLM API endpoint
+CARTO_AI_API_KEY=your-key            # Required: LLM API key
+CARTO_AI_API_MODEL=gpt-4o            # Optional: defaults to gpt-4o
+PORT=3003                            # Optional: defaults to 3003
 ```
 
-### Running the Demo
+**Frontend** (`frontend-integration/angular/src/environments/environment.ts`):
+
+```typescript
+export const environment = {
+  production: false,
+  apiBaseUrl: 'https://gcp-us-east1.api.carto.com',
+  accessToken: 'YOUR_CARTO_TOKEN',
+  connectionName: 'carto_dw',
+  wsUrl: 'ws://localhost:3003/ws',
+  httpApiUrl: 'http://localhost:3003/api/chat',
+  useHttp: false,
+};
+```
+
+### Running the Application
 
 ```bash
-# Terminal 1: Start backend
-cd backend-integration/vercel-ai-sdk
-npm run dev
+# Terminal 1: Build core library
+cd map-ai-tools && npm run build
 
-# Terminal 2: Start frontend
-cd frontend-integration/angular
-pnpm start
+# Terminal 2: Start backend
+cd backend-integration/vercel-ai-sdk && npm run dev    # http://localhost:3003
+
+# Terminal 3: Start frontend
+cd frontend-integration/angular && pnpm start          # http://localhost:4200
 ```
 
 Open http://localhost:4200 and start chatting with the map.
@@ -85,99 +94,86 @@ Open http://localhost:4200 and start chatting with the map.
 
 ```
 ps-frontend-tools-poc/
-├── map-ai-tools/                    # Core library
+├── map-ai-tools/                    # Core library (@carto/maps-ai-tools v2.0.0)
 │   ├── src/
-│   │   ├── definitions/             # Tool definitions with Zod schemas
-│   │   │   └── tools.ts             # 6 consolidated tools
-│   │   ├── converters/              # AI framework adapters
-│   │   │   └── agentic-sdks.ts      # Vercel, OpenAI, Google converters
+│   │   ├── definitions/             # Tool definition with Zod schema
+│   │   ├── converters/              # AI framework adapters (Vercel, OpenAI, Google)
 │   │   ├── schemas/                 # deck.gl JSON schemas
-│   │   │   ├── layer-specs.ts       # Layer type schemas
-│   │   │   └── initial-state.ts     # Map state schema
+│   │   ├── prompts/                 # System prompt builder and tool prompts
+│   │   ├── executors/               # Response formatting utilities
 │   │   └── core/                    # Validation utilities
 │   └── dist/                        # Built ESM + CJS outputs
 │
 ├── backend-integration/
-│   └── vercel-ai-sdk/               # Vercel AI SDK backend
-│       ├── src/
-│       │   ├── prompts/             # System prompts for AI
-│       │   ├── services/            # Agent runner, WebSocket
-│       │   └── agent/               # Tool definitions
-│       └── server.ts                # Express + WebSocket server
+│   └── vercel-ai-sdk/               # Vercel AI SDK v6 backend
+│       └── src/
+│           ├── server.ts            # Express + WebSocket server
+│           ├── services/            # Agent runner, conversation manager
+│           ├── agent/               # Tool aggregation, MCP tools, providers
+│           ├── prompts/             # System prompt, custom prompt
+│           └── semantic/            # Semantic layer (YAML data catalog)
+│               ├── schema.ts        # GeoCube, dimension, measure types
+│               ├── loader.ts        # YAML loading + markdown rendering
+│               └── layers/*.yaml    # Data cube definitions
 │
 └── frontend-integration/
-    └── angular/                     # Angular 20
+    └── angular/                     # Angular 20 frontend
+        └── src/app/
+            ├── components/          # map-view, chat-ui, layer-toggle, zoom-controls
+            ├── services/            # map-ai-tools, deck-map, websocket, executors
+            ├── state/               # deck-state.service.ts (centralized state)
+            ├── config/              # deck-json-config, location-pin, semantic-config
+            └── utils/               # layer-merge, legend, tooltip
 ```
 
 ---
 
-## Available Tools
+## The Tool
 
-The library provides 6 consolidated tools that give AI complete control over the map:
+The library provides a single consolidated tool that gives AI complete control over the map:
 
-| Tool | Type | Description |
-|------|------|-------------|
-| `geocode` | data | Convert place names to coordinates |
-| `set-map-view` | spec | Navigate to coordinates with zoom/pitch/bearing |
-| `set-basemap` | spec | Change basemap style (dark-matter, positron, voyager) |
-| `set-deck-state` | spec | Add/update layers, widgets, and effects |
-| `take-map-screenshot` | data | Capture current map view as image |
-| `carto-query` | data | Execute SQL queries against CARTO DW |
+### `set-deck-state`
 
-### Tool Details
-
-#### `geocode`
-```typescript
-{
-  query: string  // "New York City", "123 Main St, Boston"
-}
-// Returns: { lat, lng, display_name }
-```
-
-#### `set-map-view`
-```typescript
-{
-  latitude: number,      // -90 to 90
-  longitude: number,     // -180 to 180
-  zoom: number,          // 0 to 22
-  pitch?: number,        // 0 to 85 degrees
-  bearing?: number,      // -180 to 180 degrees
-  transitionDuration?: number  // milliseconds
-}
-```
-
-#### `set-basemap`
-```typescript
-{
-  basemap: 'dark-matter' | 'positron' | 'voyager'
-}
-```
-
-#### `set-deck-state`
-The most powerful tool - accepts deck.gl JSON specifications:
+Manages all deck.gl visualization state: navigation, basemap, layers, widgets, and effects.
 
 ```typescript
 {
+  // Navigate the map
+  initialViewState?: {
+    latitude: number,           // -90 to 90
+    longitude: number,          // -180 to 180
+    zoom: number,               // 0 to 22
+    pitch?: number,             // 0 to 85 degrees
+    bearing?: number,           // -180 to 180 degrees
+    transitionDuration?: number // Animation duration in ms (default: 1000)
+  },
+
+  // Change basemap
+  mapStyle?: 'dark-matter' | 'positron' | 'voyager',
+
+  // Add/update layers (merged with existing by ID)
   layers?: Array<{
-    '@@type': string,           // Layer type
+    '@@type': string,           // Layer type (VectorTileLayer, H3TileLayer, etc.)
     id: string,                 // Unique identifier
     data: object,               // Data source configuration
-    getFillColor?: any,         // Color accessor
     // ... other deck.gl properties
   }>,
+
+  // Set widgets
   widgets?: Array<object>,
-  effects?: Array<object>
+
+  // Set effects
+  effects?: Array<object>,
+
+  // Reorder layers (first ID at bottom, last on top)
+  layerOrder?: string[],
+
+  // Remove layers by ID (processed before additions)
+  removeLayerIds?: string[],
 }
 ```
 
-#### `carto-query`
-```typescript
-{
-  sql: string,                    // SQL query
-  connectionName?: string,        // Default: 'carto_dw'
-  format?: 'geojson' | 'json'     // Default: 'geojson'
-}
-```
+The AI generates this JSON structure, which is sent to the frontend and executed by the `ConsolidatedExecutorsService`. Layer updates are deep-merged by ID, so partial updates preserve existing properties.
 
 ---
 
@@ -185,28 +181,21 @@ The most powerful tool - accepts deck.gl JSON specifications:
 
 ### Vercel AI SDK
 
-The library provides native Vercel AI SDK v4 support:
-
 ```typescript
 import { streamText } from 'ai';
-import { getToolsRecordForVercelAI } from '@carto/map-ai-tools';
+import { getToolsRecordForVercelAI, buildSystemPrompt } from '@carto/maps-ai-tools';
 
-// Get tools in Vercel AI SDK format
 const tools = getToolsRecordForVercelAI();
 
-// Use with streamText
 const result = await streamText({
-  model: openai('gpt-4o'),
+  model: yourModel,
   tools,
   messages,
-  system: buildSystemPrompt(toolNames, initialState),
+  system: buildSystemPrompt({ toolNames: ['set-deck-state'], mapState }),
 });
 
-// Handle tool results
 for await (const part of result.fullStream) {
   if (part.type === 'tool-call') {
-    // Tool calls are marked for frontend execution
-    // Send to frontend via WebSocket
     ws.send(JSON.stringify({
       type: 'tool_call',
       toolName: part.toolName,
@@ -220,36 +209,25 @@ for await (const part of result.fullStream) {
 ### OpenAI Agents SDK
 
 ```typescript
-import { tool } from '@openai/agents';
-import { getToolsForOpenAIAgents } from '@carto/map-ai-tools';
+import { getToolsForOpenAIAgents } from '@carto/maps-ai-tools';
 
-// Get tool definitions
 const toolDefs = getToolsForOpenAIAgents();
-
-// Convert to OpenAI agent tools
-const agentTools = toolDefs.map(def => tool(def));
 ```
 
 ### Google ADK
 
 ```typescript
-import { FunctionTool } from '@google/adk';
-import { getToolsForGoogleADK } from '@carto/map-ai-tools';
+import { getToolsForGoogleADK } from '@carto/maps-ai-tools';
 
-// Get tool definitions
 const toolDefs = getToolsForGoogleADK();
-
-// Convert to ADK tools
-const adkTools = toolDefs.map(def => new FunctionTool(def));
 ```
 
 ---
 
 ## Layer Types
 
-The library supports multiple deck.gl layer types optimized for CARTO data:
-
 ### VectorTileLayer
+
 For point, line, and polygon data from CARTO tables:
 
 ```json
@@ -258,7 +236,8 @@ For point, line, and polygon data from CARTO tables:
   "id": "airports-layer",
   "data": {
     "@@function": "vectorTableSource",
-    "tableName": "carto-demo-data.demo_tables.airports"
+    "tableName": "carto-demo-data.demo_tables.airports",
+    "columns": ["type"]
   },
   "getFillColor": [200, 100, 50, 180],
   "getPointRadius": 20,
@@ -267,6 +246,7 @@ For point, line, and polygon data from CARTO tables:
 ```
 
 ### H3TileLayer
+
 For hexagonal spatial aggregation (H3 index):
 
 ```json
@@ -276,11 +256,11 @@ For hexagonal spatial aggregation (H3 index):
   "data": {
     "@@function": "h3TableSource",
     "tableName": "my_h3_table",
-    "aggregationExp": "SUM(population) as value"
+    "aggregationExp": "SUM(population) as population"
   },
   "getFillColor": {
     "@@function": "colorBins",
-    "attr": "value",
+    "attr": "population",
     "domain": [0, 1000, 10000, 100000],
     "colors": "Sunset"
   }
@@ -288,6 +268,7 @@ For hexagonal spatial aggregation (H3 index):
 ```
 
 ### QuadbinTileLayer
+
 For square cell spatial aggregation (Quadbin index):
 
 ```json
@@ -297,16 +278,40 @@ For square cell spatial aggregation (Quadbin index):
   "data": {
     "@@function": "quadbinTableSource",
     "tableName": "my_quadbin_table",
-    "aggregationExp": "SUM(sales) as value"
+    "aggregationExp": "SUM(sales) as sales"
   },
   "getFillColor": {
     "@@function": "colorBins",
-    "attr": "value",
+    "attr": "sales",
     "domain": [0, 100, 1000, 10000],
     "colors": "PurpOr"
   },
   "extruded": true,
-  "getElevation": "@@=properties.value"
+  "getElevation": "@@=properties.sales"
+}
+```
+
+### Multi-Aggregation (3D with different metrics)
+
+Use comma-separated aggregations when different visual channels need different metrics:
+
+```json
+{
+  "@@type": "QuadbinTileLayer",
+  "id": "population-3d",
+  "data": {
+    "@@function": "quadbinTableSource",
+    "tableName": "my_table",
+    "aggregationExp": "SUM(population) as population, SUM(male) as male"
+  },
+  "getFillColor": {
+    "@@function": "colorBins",
+    "attr": "population",
+    "domain": [0, 1000, 10000],
+    "colors": "Sunset"
+  },
+  "extruded": true,
+  "getElevation": "@@=properties.male"
 }
 ```
 
@@ -315,7 +320,6 @@ For square cell spatial aggregation (Quadbin index):
 ## Data Sources
 
 ### Table Sources
-Load data from CARTO tables:
 
 | Source | Use Case |
 |--------|----------|
@@ -324,7 +328,6 @@ Load data from CARTO tables:
 | `quadbinTableSource` | Quadbin aggregated data (requires `aggregationExp`) |
 
 ### Query Sources
-Load data from SQL queries:
 
 | Source | Use Case |
 |--------|----------|
@@ -334,14 +337,36 @@ Load data from SQL queries:
 
 ### Aggregation Expressions
 
-For H3 and Quadbin layers, you must specify an aggregation:
+For H3 and Quadbin layers, the alias must match the column name used in styling:
 
 ```
-"aggregationExp": "SUM(population) as value"
-"aggregationExp": "AVG(temperature) as value"
-"aggregationExp": "COUNT(*) as value"
-"aggregationExp": "MAX(revenue) as value"
+"aggregationExp": "SUM(population) as population"
+"aggregationExp": "AVG(temperature) as temperature"
+"aggregationExp": "COUNT(*) as count"
+"aggregationExp": "MAX(revenue) as revenue"
 ```
+
+For multiple aggregations (e.g., color by one metric, extrude by another):
+
+```
+"aggregationExp": "SUM(population) as population, AVG(income) as income"
+```
+
+### CARTO Column Filters
+
+VectorTileLayer supports server-side column filtering to optimize tile size:
+
+```json
+{
+  "data": {
+    "@@function": "vectorTableSource",
+    "tableName": "my_table",
+    "columns": ["population", "name", "type"]
+  }
+}
+```
+
+Only the listed columns will be included in the vector tiles. Required when using `@@=` expressions or `colorCategories`/`colorBins`/`colorContinuous` with VectorTileLayer.
 
 ---
 
@@ -350,36 +375,33 @@ For H3 and Quadbin layers, you must specify an aggregation:
 ### Color Functions
 
 #### colorBins (threshold-based)
-Discrete color breaks for numeric data:
 
 ```json
 {
   "@@function": "colorBins",
-  "attr": "value",
+  "attr": "population",
   "domain": [0, 100, 500, 1000, 5000],
   "colors": "Sunset"
 }
 ```
 
 #### colorCategories (categorical)
-Map categories to colors:
 
 ```json
 {
   "@@function": "colorCategories",
-  "attr": "category",
-  "domain": ["A", "B", "C", "D"],
+  "attr": "type",
+  "domain": ["residential", "commercial", "industrial"],
   "colors": "Bold"
 }
 ```
 
 #### colorContinuous (interpolation)
-Smooth color gradient:
 
 ```json
 {
   "@@function": "colorContinuous",
-  "attr": "value",
+  "attr": "temperature",
   "domain": [0, 100],
   "colors": "Temps"
 }
@@ -409,17 +431,12 @@ For VectorTileLayer, use expressions for dynamic styling:
 }
 ```
 
-**Important**: When using `@@=` expressions, include the column in `data.columns`:
+### deck.gl JSON Special Prefixes
 
-```json
-{
-  "data": {
-    "@@function": "vectorTableSource",
-    "tableName": "my_table",
-    "columns": ["type"]
-  }
-}
-```
+- `@@type` -- Layer class (e.g., `"@@type": "VectorTileLayer"`)
+- `@@function` -- Data source or styling function (e.g., `"@@function": "colorBins"`)
+- `@@=` -- Accessor expression (e.g., `"@@=properties.population"`)
+- `@@#` -- Constant reference (e.g., `"@@#Red"`)
 
 ---
 
@@ -428,57 +445,115 @@ For VectorTileLayer, use expressions for dynamic styling:
 ### Communication Flow
 
 ```
-┌─────────────┐     WebSocket      ┌─────────────┐
-│   Frontend  │◄──────────────────►│   Backend   │
-│  (deck.gl)  │                    │  (Node.js)  │
-└──────┬──────┘                    └──────┬──────┘
-       │                                  │
-       │ Tool Execution                   │ LLM API
-       │                                  │
-       ▼                                  ▼
-┌─────────────┐                    ┌─────────────┐
-│  DeckState  │                    │   OpenAI    │
-│   Manager   │                    │   GPT-4o    │
-└─────────────┘                    └─────────────┘
+User Message → Angular WebSocket → Backend (Express)
+                                       ↓
+                          Vercel AI SDK (streaming + tool calling)
+                                       ↓
+Backend streams back: text chunks + tool_call messages
+                                       ↓
+Angular: Display text + Execute tool_calls via ConsolidatedExecutorsService
+                                       ↓
+                          DeckStateService updates state
+                                       ↓
+                DeckMapService.renderFromState() → JSONConverter → deck.gl
+```
+
+### Semantic Layer
+
+The backend includes a **semantic layer** that provides the AI with structured knowledge about available data. It acts as a data catalog injected into the system prompt so the AI knows which tables exist, what columns they have, and how to visualize them.
+
+**Configuration** is defined in YAML files (`semantic/layers/*.yaml`). Each file declares:
+
+- **GeoCubes** -- data sources with their SQL table name, geometry type (point/polygon/h3/quadbin), dimensions, measures, and visualization hints
+- **Business types** -- domain-specific context (relevant POIs, demographic factors)
+- **Demographics and proximity priorities** -- available analysis dimensions
+- **Initial view state and welcome message** -- app-level defaults
+
+**How it works:**
+
+```
+YAML config → loadSemanticLayer() → renderSemanticLayerAsMarkdown()
+    ↓
+Injected into AI system prompt as structured markdown
+    ↓
+AI references table names, columns, and viz hints when generating tool calls
+```
+
+**Key types** (defined in `semantic/schema.ts`):
+
+- `GeoCube` -- table definition with dimensions, measures, joins, and viz hints
+- `GeoDimension` -- filterable/groupable column (name, sql, type)
+- `GeoMeasure` -- aggregatable column (name, sql, aggregation type)
+- `GeoVizHint` -- recommended styling (color function, palette, domain)
+- `SemanticLayer` -- root config combining cubes, business context, and metadata
+
+**Loader functions** (from `semantic/loader.ts`):
+
+- `loadSemanticLayer()` -- reads first YAML from `semantic/layers/`
+- `renderSemanticLayerAsMarkdown(layer)` -- converts to prompt-ready markdown
+- `getPrimaryCube(layer)` -- returns the first cube
+- `getInitialViewState(layer)` -- extracts map view from primary cube
+- `getWelcomeMessage(layer)` -- returns welcome message string
+
+### WebSocket Message Types
+
+**Client → Server:**
+```typescript
+{ type: 'chat_message', content: string, timestamp: number, initialState?: InitialState }
+{ type: 'tool_result', toolName: string, callId: string, success: boolean, message: string }
+```
+
+**Server → Client:**
+```typescript
+{ type: 'stream_chunk', content: string, messageId: string, isComplete: boolean }
+{ type: 'tool_call_start', toolName: string, callId: string }
+{ type: 'tool_call', toolName: string, data: object, callId: string }
+{ type: 'mcp_tool_result', toolName: string, result: unknown, callId: string }
+{ type: 'error', content: string, code?: string }
 ```
 
 ### State Management
 
-The frontend uses a centralized `DeckState` class:
+The Angular frontend uses `DeckStateService` (centralized reactive state with RxJS BehaviorSubjects):
 
 ```typescript
-class DeckState {
+class DeckStateService {
   // View state (lat, lng, zoom, pitch, bearing)
-  setViewState(partial: Partial<MapViewState>): void;
+  setViewState(partial: Partial<MapViewState> & { transitionDuration?: number }): void;
 
   // Deck configuration (layers, widgets, effects)
   setDeckConfig(config: DeckConfig): void;
 
+  // Basemap style
+  setBasemap(basemap: Basemap): void;
+
   // Active layer tracking
   setActiveLayerId(layerId: string): void;
 
-  // Subscribe to changes
-  subscribe(listener: ChangeListener): () => void;
+  // Observables for reactive UI
+  state$: Observable<StateChange>;
+  layers$: Observable<LayerSpec[]>;
+  viewState$: Observable<MapViewState>;
 }
 ```
 
 ### Layer Merging
 
-When updating layers, the library uses deep merge:
+When updating layers, the executor deep-merges by ID:
 
 ```typescript
-// Incoming update
+// Incoming update (partial)
 { "id": "my-layer", "getFillColor": { "colors": "Teal" } }
 
 // Merged result (preserves existing properties)
 {
   "id": "my-layer",
-  "data": { ... },  // Preserved
+  "data": { ... },                    // Preserved
   "getFillColor": {
-    "@@function": "colorBins",  // Preserved
-    "attr": "value",            // Preserved
-    "domain": [0, 100, 1000],   // Preserved
-    "colors": "Teal"            // Updated
+    "@@function": "colorBins",        // Preserved
+    "attr": "population",             // Preserved
+    "domain": [0, 100, 1000],         // Preserved
+    "colors": "Teal"                  // Updated
   }
 }
 ```
@@ -494,7 +569,11 @@ import {
   // Tool definitions
   tools,
   getToolNames,
+  getTool,
+  getToolDefinition,
   getAllToolDefinitions,
+  getToolDefinitionsByNames,
+  consolidatedToolNames,
   getConsolidatedToolDefinitions,
 
   // Validation
@@ -504,48 +583,63 @@ import {
   // Tool type checking
   isSpecTool,
   isDataTool,
+  getSpecTools,
+  getDataTools,
 
   // AI SDK converters
   getToolsForVercelAI,
   getToolsRecordForVercelAI,
   getToolsForOpenAIAgents,
   getToolsForGoogleADK,
-
-  // Frontend tool detection
   isFrontendToolResult,
   parseFrontendToolResult,
 
-  // Layer schemas
+  // System prompt builder
+  buildSystemPrompt,
+  toolPrompts,
+  getToolPrompt,
+  sharedSections,
+
+  // Schemas
+  deckGLJsonSpecSchema,
+  layerSpecSchema,
   supportedLayerTypes,
   getLayerSpecSchema,
-} from '@carto/map-ai-tools';
+
+  // Response utilities
+  parseToolResponse,
+  successResponse,
+  errorResponse,
+  ErrorCodes,
+} from '@carto/maps-ai-tools';
 ```
 
 ### Type Definitions
 
 ```typescript
-type ToolName =
-  | 'geocode'
-  | 'set-map-view'
-  | 'set-basemap'
-  | 'set-deck-state'
-  | 'take-map-screenshot'
-  | 'carto-query';
+type ToolName = 'set-deck-state';
+
+type Basemap = 'dark-matter' | 'positron' | 'voyager';
+
+interface DeckStateData {
+  viewState: MapViewState;
+  deckConfig: DeckConfig;
+  basemap: Basemap;
+  activeLayerId?: string;
+  transitionDuration: number;
+}
+
+interface DeckConfig {
+  layers: LayerSpec[];
+  widgets: Record<string, unknown>[];
+  effects: Record<string, unknown>[];
+}
 
 interface FrontendToolResult {
   __frontend_tool__: true;
   toolName: string;
   data: unknown;
 }
-
-type SupportedLayerType =
-  | 'VectorTileLayer'
-  | 'H3TileLayer'
-  | 'QuadbinTileLayer'
-  | 'GeoJsonLayer'
-  | 'ScatterplotLayer'
-  | 'PathLayer'
-  | 'ArcLayer';
 ```
 
 ---
@@ -559,6 +653,7 @@ type SupportedLayerType =
 "Fly to San Francisco"
 "Go to Madrid and zoom in"
 "Show me Paris at zoom level 14"
+"Rotate map 180 degrees with a very slow transition"
 ```
 
 **Layer Creation:**
@@ -572,15 +667,47 @@ type SupportedLayerType =
 ```
 "Color the layer by population using the Sunset palette"
 "Use colorBins with domain [0, 100, 1000, 10000]"
-"Make it 3D with height based on value"
+"Make it 3D with height based on population"
 "Change the palette to Teal"
 ```
 
-**Data Queries:**
+**Map Controls:**
 ```
-"How many points are in the layer?"
-"What's the average population by state?"
-"Show me the top 10 cities by population"
+"Switch to dark mode"
+"Use the voyager basemap"
+"Remove the airports layer"
+"Reorder layers: put population on top"
+```
+
+---
+
+## Development Commands
+
+### Core Library
+
+```bash
+cd map-ai-tools
+npm install && npm run build      # Build ESM + CJS to dist/
+npm run dev                       # Watch mode
+npm run type-check                # Type check without emitting
+```
+
+### Backend (Vercel AI SDK)
+
+```bash
+cd backend-integration/vercel-ai-sdk
+npm run dev                       # Dev server with hot reload (port 3003)
+npm run build                     # Compile TypeScript to dist/
+npm run typecheck                 # Type check
+```
+
+### Frontend (Angular)
+
+```bash
+cd frontend-integration/angular
+pnpm install                      # Install dependencies
+pnpm start                        # Dev server (http://localhost:4200)
+pnpm build                        # Production build
 ```
 
 ---
@@ -588,31 +715,35 @@ type SupportedLayerType =
 ## Troubleshooting
 
 ### Layer Not Visible
+
 - Check that `visible: true` is set (or not explicitly false)
 - Verify the data source table name is correct
 - For spatial index layers (H3/Quadbin), ensure `aggregationExp` is provided
+- For VectorTileLayer with expressions, ensure required columns are in `data.columns`
 
 ### Colors Not Updating
+
 - Include `updateTriggers` when using color functions:
+
   ```json
   "updateTriggers": {
     "getFillColor": { "colors": "Teal" }
   }
   ```
 
-### Layer Duplication
-- When updating a layer, use the **same ID** as the original
-- The AI is instructed to use the "active layer" when no layer is specified
+- Ensure `attr` matches the aggregation alias (e.g., `"attr": "population"` with `"SUM(population) as population"`)
+
+### Transition Not Working
+
+- Ensure `transitionDuration` is passed in `initialViewState` (not at the root level)
+- Default transition is 1000ms when not specified
 
 ### WebSocket Connection Issues
+
 - Ensure backend is running on the expected port
 - Check CORS settings if frontend/backend are on different origins
 
 ---
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 
