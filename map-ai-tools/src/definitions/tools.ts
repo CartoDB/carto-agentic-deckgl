@@ -11,43 +11,31 @@ type ToolOutputType = 'spec' | 'data';
 /**
  * Consolidated Tool Definitions
  *
- * These 3 tools provide complete map control using the "Teach the agent Deck.gl" pattern
+ * Single tool provides complete map control using the "Teach the agent Deck.gl" pattern
  * from simpleAgentMap. Instead of 40+ granular tools, we use JSONConverter as the central engine.
  */
 export const tools = {
   // ============================================================================
-  // Consolidated Tools (simpleAgentMap pattern)
-  // These 3 tools replace the 40+ granular tools for simpler integration
+  // Consolidated Tool (simpleAgentMap pattern)
+  // This single tool replaces the 40+ granular tools for simpler integration
   // ============================================================================
-
-  [TOOL_NAMES.SET_MAP_VIEW]: {
-    name: TOOL_NAMES.SET_MAP_VIEW,
-    description: 'Set the map view to specific coordinates with optional pitch/bearing. Use after geocoding a place.',
-    outputType: 'spec' as ToolOutputType,
-    schema: z.object({
-      latitude: z.number().min(-90).max(90).describe('Latitude coordinate'),
-      longitude: z.number().min(-180).max(180).describe('Longitude coordinate'),
-      zoom: z.number().min(0).max(22).describe('Zoom level (0-22)'),
-      pitch: z.number().min(0).max(85).optional().describe('Map pitch/tilt in degrees (0-85)'),
-      bearing: z.number().min(-180).max(180).optional().describe('Map bearing/rotation in degrees'),
-      transitionDuration: z.number().min(0).optional().describe('Animation duration in milliseconds'),
-    }),
-  },
-
-  [TOOL_NAMES.SET_BASEMAP]: {
-    name: TOOL_NAMES.SET_BASEMAP,
-    description: 'Change the map basemap style. Options: dark-matter (dark theme), positron (light theme), voyager (colorful roads).',
-    outputType: 'spec' as ToolOutputType,
-    schema: z.object({
-      basemap: z.enum(['dark-matter', 'positron', 'voyager']).describe('Basemap style'),
-    }),
-  },
 
   [TOOL_NAMES.SET_DECK_STATE]: {
     name: TOOL_NAMES.SET_DECK_STATE,
-    description: `Set Deck.gl visualization state including layers, widgets, and effects.`,
+    description: `Set Deck.gl visualization state including view navigation, basemap style, layers, widgets, and effects.`,
     outputType: 'spec' as ToolOutputType,
     schema: z.object({
+      initialViewState: z.object({
+        latitude: z.number().min(-90).max(90).describe('Latitude coordinate'),
+        longitude: z.number().min(-180).max(180).describe('Longitude coordinate'),
+        zoom: z.number().min(0).max(22).describe('Zoom level (0-22)'),
+        pitch: z.number().min(0).max(85).optional().describe('Map pitch/tilt in degrees (0-85)'),
+        bearing: z.number().min(-180).max(180).optional().describe('Map bearing/rotation in degrees'),
+        transitionDuration: z.number().min(0).optional().describe('Animation duration in milliseconds'),
+      }).optional().describe('Navigate the map to specific coordinates with optional pitch/bearing'),
+      mapStyle: z.enum(['dark-matter', 'positron', 'voyager']).optional().describe(
+        'Basemap style: dark-matter (dark theme), positron (light theme), voyager (colorful roads)'
+      ),
       layers: z.array(z.record(z.string(), z.unknown())).optional().describe(
         'Array of Deck.gl layer configurations in JSON format. Each layer must have @@type.'
       ),
@@ -154,11 +142,9 @@ export function getDataTools(): ToolName[] {
 
 /**
  * Consolidated tool names
- * These 3 tools replace the 40+ granular tools for simpler integration
+ * This single tool replaces the 40+ granular tools for simpler integration
  */
 export const consolidatedToolNames: ToolName[] = [
-  TOOL_NAMES.SET_MAP_VIEW,
-  TOOL_NAMES.SET_BASEMAP,
   TOOL_NAMES.SET_DECK_STATE,
 ];
 
