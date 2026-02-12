@@ -106,12 +106,14 @@ export class App implements OnInit, OnDestroy {
     const currentView = this.deckState.getViewState();
     const newZoom = Math.min(22, (currentView.zoom ?? 3) + 1);
 
-    await this.executorsService.execute(TOOL_NAMES.SET_MAP_VIEW, {
-      latitude: currentView.latitude,
-      longitude: currentView.longitude,
-      zoom: newZoom,
-      pitch: currentView.pitch ?? 0,
-      bearing: currentView.bearing ?? 0
+    await this.executorsService.execute(TOOL_NAMES.SET_DECK_STATE, {
+      initialViewState: {
+        latitude: currentView.latitude,
+        longitude: currentView.longitude,
+        zoom: newZoom,
+        pitch: currentView.pitch ?? 0,
+        bearing: currentView.bearing ?? 0
+      }
     });
   }
 
@@ -119,12 +121,14 @@ export class App implements OnInit, OnDestroy {
     const currentView = this.deckState.getViewState();
     const newZoom = Math.max(0, (currentView.zoom ?? 3) - 1);
 
-    await this.executorsService.execute(TOOL_NAMES.SET_MAP_VIEW, {
-      latitude: currentView.latitude,
-      longitude: currentView.longitude,
-      zoom: newZoom,
-      pitch: currentView.pitch ?? 0,
-      bearing: currentView.bearing ?? 0
+    await this.executorsService.execute(TOOL_NAMES.SET_DECK_STATE, {
+      initialViewState: {
+        latitude: currentView.latitude,
+        longitude: currentView.longitude,
+        zoom: newZoom,
+        pitch: currentView.pitch ?? 0,
+        bearing: currentView.bearing ?? 0
+      }
     });
   }
 

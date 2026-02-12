@@ -7,25 +7,26 @@ import { TOOL_NAMES } from '../definitions/dictionary.js';
 import type { ToolPromptConfig } from './types.js';
 
 export const toolPrompts: Record<string, ToolPromptConfig> = {
-  [TOOL_NAMES.SET_MAP_VIEW]: {
-    name: TOOL_NAMES.SET_MAP_VIEW,
-    prompt: `### 1. set-map-view
-Navigate the map to specific coordinates with optional pitch/bearing.
-- Input: { latitude, longitude, zoom, pitch?, bearing? }
-- Use to fly to a location`,
-  },
-
-  [TOOL_NAMES.SET_BASEMAP]: {
-    name: TOOL_NAMES.SET_BASEMAP,
-    prompt: `### 2. set-basemap
-Change the map basemap style.
-- Options: "dark-matter", "positron", "voyager"`,
-  },
-
   [TOOL_NAMES.SET_DECK_STATE]: {
     name: TOOL_NAMES.SET_DECK_STATE,
-    prompt: `### 3. set-deck-state ⭐ MOST POWERFUL
-Set Deck.gl visualization state including layers, widgets, and effects.
+    prompt: `### 1. set-deck-state
+Set Deck.gl visualization state including view navigation, basemap style, layers, widgets, and effects.
+
+**Navigate to a location:**
+{ "initialViewState": { "latitude": 48.8566, "longitude": 2.3522, "zoom": 12 } }
+
+**Change basemap:**
+{ "mapStyle": "dark-matter" }
+Options: "dark-matter" (dark theme), "positron" (light theme), "voyager" (colorful roads)
+
+**Both at once:**
+{ "initialViewState": { "latitude": 40.7128, "longitude": -74.006, "zoom": 14 }, "mapStyle": "dark-matter" }
+
+**Navigate + add layer:**
+{ "initialViewState": { "latitude": 40.7128, "longitude": -74.006, "zoom": 12 }, "layers": [{ ... }] }
+
+- pitch (0-85) and bearing (-180 to 180) are optional
+- transitionDuration defaults to 1000ms
 Pass configurations in Deck.gl JSON format with @@type, @@function prefixes.
 Layers are MERGED by ID - existing layers not in the update are preserved.
 
@@ -215,7 +216,7 @@ Add filters to ANY data source (vectorTableSource, h3TableSource, quadbinTableSo
   "data": {
     "@@function": "h3TableSource",
     "tableName": "ps-catalog-default.ps-demo-tables.derived_spatialfeatures_usa_h3res8_v1_yearly_v2",
-    "aggregationExp": "SUM(population) as value",
+    "aggregationExp": "SUM(population) as population",
     "filters": {
       "urbanity": {
         "in": { "values": ["urban"] }
@@ -224,7 +225,7 @@ Add filters to ANY data source (vectorTableSource, h3TableSource, quadbinTableSo
   },
   "getFillColor": {
     "@@function": "colorBins",
-    "attr": "value",
+    "attr": "population",
     "domain": [0, 1000, 10000, 100000],
     "colors": "Sunset"
   }
@@ -339,16 +340,16 @@ Follow these steps:
      "data": {
        "@@function": "quadbinTableSource",
        "tableName": "...",
-       "aggregationExp": "SUM(population) as value"
+       "aggregationExp": "SUM(population) as population"
      },
      "getFillColor": {
        "@@function": "colorBins",
-       "attr": "value",
+       "attr": "population",
        "domain": [0, 1000, 10000, 100000, 1000000],
        "colors": "Teal"
      },
      "updateTriggers": {
-       "getFillColor": { "attr": "value", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "Teal" }
+       "getFillColor": { "attr": "population", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "Teal" }
      }
    }
 
@@ -380,18 +381,18 @@ Basic H3 layer with sum aggregation:
   "data": {
     "@@function": "h3TableSource",
     "tableName": "TABLE_NAME",
-    "aggregationExp": "SUM(population) as value"
+    "aggregationExp": "SUM(population) as population"
   },
   "opacity": 0.8,
   "extruded": false,
   "getFillColor": {
     "@@function": "colorBins",
-    "attr": "value",
+    "attr": "population",
     "domain": [0, 1000, 10000, 100000, 1000000],
     "colors": "Sunset"
   },
   "updateTriggers": {
-    "getFillColor": { "attr": "value", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "Sunset" }
+    "getFillColor": { "attr": "population", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "Sunset" }
   },
   "lineWidthMinPixels": 0.5,
   "getLineWidth": 0.5,
@@ -406,34 +407,35 @@ H3 with continuous color interpolation:
   "data": {
     "@@function": "h3QuerySource",
     "sqlQuery": "SELECT * FROM my_table WHERE year = 2023",
-    "aggregationExp": "AVG(temperature) as value"
+    "aggregationExp": "AVG(temperature) as temperature"
   },
   "getFillColor": {
     "@@function": "colorContinuous",
-    "attr": "value",
+    "attr": "temperature",
     "domain": [0, 100],
     "colors": "Temps"
   },
   "updateTriggers": {
-    "getFillColor": { "attr": "value", "domain": [0, 100], "colors": "Temps" }
+    "getFillColor": { "attr": "temperature", "domain": [0, 100], "colors": "Temps" }
   }
 }
 
 **H3 Aggregation Expressions:**
-- SUM(column) as value - Total of values in each hexagon
-- AVG(column) as value - Average value per hexagon
-- COUNT(*) as value - Number of records per hexagon
-- MIN/MAX(column) as value - Min/max values
+- SUM(column) as column - Total of values in each hexagon (e.g., SUM(population) as population)
+- AVG(column) as column - Average value per hexagon (e.g., AVG(temperature) as temperature)
+- COUNT(*) as count - Number of records per hexagon
+- MIN/MAX(column) as column - Min/max values (e.g., MAX(income) as income)
+- Multiple aggregations: SUM(population) as population, SUM(male) as male
 
 **Color Styling Functions (for getFillColor):**
 1. colorBins - Threshold-based (discrete breaks):
-   { "@@function": "colorBins", "attr": "value", "domain": [100, 500, 1000], "colors": "Sunset" }
+   { "@@function": "colorBins", "attr": "population", "domain": [100, 500, 1000], "colors": "Sunset" }
 
 2. colorCategories - Categorical data:
    { "@@function": "colorCategories", "attr": "category", "domain": ["A", "B", "C"], "colors": "Bold" }
 
 3. colorContinuous - Smooth interpolation:
-   { "@@function": "colorContinuous", "attr": "value", "domain": [0, 100], "colors": "Temps" }
+   { "@@function": "colorContinuous", "attr": "temperature", "domain": [0, 100], "colors": "Temps" }
 
 **Available Color Palettes:**
 Sunset, Teal, BluYl, PurpOr, PinkYl, Bold, Temps, Emrld, Burg, OrYel, Peach, Mint, Magenta
@@ -442,7 +444,7 @@ Sunset, Teal, BluYl, PurpOr, PinkYl, Bold, Temps, Emrld, Burg, OrYel, Peach, Min
 When using color styling functions (colorBins, colorCategories, colorContinuous), ALWAYS include updateTriggers to ensure deck.gl recalculates colors when parameters change:
 
 "updateTriggers": {
-  "getFillColor": { "attr": "value", "domain": [...], "colors": "Sunset" }
+  "getFillColor": { "attr": "population", "domain": [...], "colors": "Sunset" }
 }
 
 This is REQUIRED when:
@@ -453,11 +455,12 @@ This is REQUIRED when:
 The updateTriggers value should mirror the color function parameters. When any parameter changes, deck.gl will detect the difference and re-evaluate the accessor.
 
 **H3 Guidelines:**
-- aggregationExp is REQUIRED - always include "as value" suffix
+- aggregationExp is REQUIRED - use the column name as alias (e.g., "SUM(population) as population", NOT "SUM(population) as value")
+- For multiple aggregations, comma-separate them: "SUM(population) as population, SUM(male) as male"
 - Ask user about aggregation method (SUM, AVG, COUNT, etc.) if not specified
 - Ask user about color classification preference (colorBins, colorCategories, colorContinuous)
 - Use colorBins for numeric thresholds, colorCategories for text categories
-- The "attr" in color functions must match the alias in aggregationExp (typically "value")
+- The "attr" in color functions must match the alias in aggregationExp (the column name)
 
 **QuadbinTileLayer (spatial aggregation with square cells):**
 Quadbin layers aggregate data into square cells using the Bing Maps tile system. IMPORTANT: aggregationExp is REQUIRED.
@@ -469,18 +472,18 @@ Basic Quadbin layer with sum aggregation:
   "data": {
     "@@function": "quadbinTableSource",
     "tableName": "TABLE_NAME",
-    "aggregationExp": "SUM(population) as value"
+    "aggregationExp": "SUM(population) as population"
   },
   "opacity": 0.8,
   "extruded": false,
   "getFillColor": {
     "@@function": "colorBins",
-    "attr": "value",
+    "attr": "population",
     "domain": [0, 1000, 10000, 100000, 1000000],
     "colors": "PinkYl"
   },
   "updateTriggers": {
-    "getFillColor": { "attr": "value", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "PinkYl" }
+    "getFillColor": { "attr": "population", "domain": [0, 1000, 10000, 100000, 1000000], "colors": "PinkYl" }
   },
   "lineWidthMinPixels": 0.5,
   "getLineWidth": 0.5,
@@ -495,56 +498,58 @@ Quadbin with continuous color interpolation:
   "data": {
     "@@function": "quadbinQuerySource",
     "sqlQuery": "SELECT * FROM my_quadbin_table WHERE year = 2023",
-    "aggregationExp": "AVG(temperature) as value"
+    "aggregationExp": "AVG(temperature) as temperature"
   },
   "getFillColor": {
     "@@function": "colorContinuous",
-    "attr": "value",
+    "attr": "temperature",
     "domain": [0, 100],
     "colors": "Temps"
   },
   "updateTriggers": {
-    "getFillColor": { "attr": "value", "domain": [0, 100], "colors": "Temps" }
+    "getFillColor": { "attr": "temperature", "domain": [0, 100], "colors": "Temps" }
   }
 }
 
-3D extruded Quadbin layer:
+3D extruded Quadbin layer with multi-aggregation (color by one column, extrude by another):
 {
   "@@type": "QuadbinTileLayer",
-  "id": "sales-quadbin-3d",
+  "id": "demographics-quadbin-3d",
   "data": {
     "@@function": "quadbinTableSource",
-    "tableName": "my_sales_quadbin_table",
-    "aggregationExp": "SUM(sales) as value",
+    "tableName": "TABLE_NAME",
+    "aggregationExp": "SUM(population) as population, SUM(male) as male",
     "aggregationResLevel": 8
   },
   "extruded": true,
-  "getElevation": "@@=properties.value",
+  "getElevation": "@@=properties.male",
   "elevationScale": 100,
   "getFillColor": {
     "@@function": "colorBins",
-    "attr": "value",
-    "domain": [0, 100, 1000, 10000],
+    "attr": "population",
+    "domain": [0, 1000, 10000, 100000],
     "colors": "Sunset"
   },
   "updateTriggers": {
-    "getFillColor": { "attr": "value", "domain": [0, 100, 1000, 10000], "colors": "Sunset" }
+    "getFillColor": { "attr": "population", "domain": [0, 1000, 10000, 100000], "colors": "Sunset" }
   }
 }
 
 **Quadbin Aggregation Expressions:**
-- SUM(column) as value - Total of values in each square cell
-- AVG(column) as value - Average value per cell
-- COUNT(*) as value - Number of records per cell
-- MIN/MAX(column) as value - Min/max values
+- SUM(column) as column - Total of values in each square cell (e.g., SUM(sales) as sales)
+- AVG(column) as column - Average value per cell (e.g., AVG(temperature) as temperature)
+- COUNT(*) as count - Number of records per cell
+- MIN/MAX(column) as column - Min/max values (e.g., MAX(income) as income)
+- Multiple aggregations: SUM(population) as population, SUM(male) as male
 
 **Quadbin Guidelines:**
-- aggregationExp is REQUIRED - always include "as value" suffix
+- aggregationExp is REQUIRED - use the column name as alias (e.g., "SUM(population) as population", NOT "SUM(population) as value")
+- For multiple aggregations, comma-separate them: "SUM(population) as population, SUM(male) as male"
 - Resolution levels range from 0-26 (vs H3's 0-15)
 - Ask user about aggregation method (SUM, AVG, COUNT, etc.) if not specified
 - Ask user about color classification preference (colorBins, colorCategories, colorContinuous)
 - Use colorBins for numeric thresholds, colorCategories for text categories
-- The "attr" in color functions must match the alias in aggregationExp (typically "value")
+- The "attr" in color functions must match the alias in aggregationExp (the column name)
 - Quadbin uses square cells (good for Bing Maps tile alignment), H3 uses hexagons (better for distance analysis)
 
 **When to use Quadbin vs H3:**

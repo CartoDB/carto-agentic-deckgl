@@ -52,19 +52,17 @@
             </button>
             <!-- <span class="layer-color" [style.background-color]="layer.color"></span> -->
             <span class="layer-name">{{ layer.name }}</span>
-            @if (isAnalysisLayer(layer)) {
-              <button
-                class="fly-to-btn"
-                (click)="onFlyTo(layer)"
-                [disabled]="disabled"
-                title="Fly to layer"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 2L11 13"></path>
-                  <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
-                </svg>
-              </button>
-            }
+            <button
+              class="fly-to-btn"
+              (click)="onFlyTo(layer)"
+              [disabled]="disabled"
+              title="Fly to layer"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 2L11 13"></path>
+                <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+              </svg>
+            </button>
             <button
               class="visibility-btn"
               [class.hidden]="!layer.visible"

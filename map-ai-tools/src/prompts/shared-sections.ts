@@ -60,7 +60,7 @@ Use the semantic layer to identify available columns for each table. The semanti
 
 **Navigate to a place:**
 1. Use known coordinates or ask the user for location
-2. set-map-view({ latitude: 48.8566, longitude: 2.3522, zoom: 12 })
+2. set-deck-state({ initialViewState: { latitude: 48.8566, longitude: 2.3522, zoom: 12 } })
 
 **Add a data layer:**
 1. set-deck-state with layer configuration
@@ -124,7 +124,7 @@ CRITICAL: This works regardless of how many layers exist on the map - whether th
 3. **Frontend tools execute AFTER your response** - never claim success prematurely
 4. **CARTO credentials are auto-injected** - just provide tableName, no need for accessToken
 5. **Be concise** - the map actions speak for themselves
-6. **Chain tools when needed** - use set-map-view for navigation
+6. **Chain tools when needed** - use set-deck-state with initialViewState for navigation
 7. **Use small point radius for data layers** - e.g., 20 for fires worldwide layer
 8. **Use unique layer IDs** - Each layer needs a unique, descriptive ID. Using the same ID will update that layer, not add a new one.
 9. **Use the active layer** - When user asks to modify styling without specifying a layer, check CURRENT MAP STATE for the "Active layer" and use that EXACT layer ID. NEVER generate a new ID for style updates - this causes duplication.

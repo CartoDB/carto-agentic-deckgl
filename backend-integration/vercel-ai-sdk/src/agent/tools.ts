@@ -21,13 +21,11 @@ import { getCustomTools, getCustomToolNames } from './custom-tools.js';
 /**
  * Create local map tools for Vercel AI SDK v6
  *
- * Uses CONSOLIDATED tools pattern (3 tools instead of 40+):
- * - set-map-view
- * - set-basemap
- * - set-deck-state
+ * Uses CONSOLIDATED tool pattern (1 tool instead of 40+):
+ * - set-deck-state (handles viewState, basemap, layers, widgets, effects)
  */
 export function createMapTools(): Record<string, Tool> {
-  // Pass consolidated tool names to filter to only 3 tools
+  // Pass consolidated tool names to filter to the single tool
   const toolDefs = getToolsForVercelAI(consolidatedToolNames as ToolName[]);
 
   return Object.fromEntries(
