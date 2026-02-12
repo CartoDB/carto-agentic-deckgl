@@ -3,8 +3,6 @@
  * Use these constants for type-safe tool references across backend and frontend
  */
 export const TOOL_NAMES = {
-  SET_MAP_VIEW: 'set-map-view',
-  SET_BASEMAP: 'set-basemap',
   SET_DECK_STATE: 'set-deck-state',
 } as const;
 

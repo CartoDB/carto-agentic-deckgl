@@ -1,11 +1,12 @@
 /**
  * Consolidated Tool Executors Service
  *
- * Simplified executor pattern using JSONConverter as the central engine.
- * Angular equivalent of Vanilla's consolidated-executors.ts
+ * Unified executor pattern using JSONConverter as the central engine.
+ * All deck.gl state (viewState, basemap, layers, widgets, effects) is
+ * managed through a single set-deck-state tool.
  *
  * Architecture:
- * - Executors update DeckStateService (centralized state)
+ * - Executor updates DeckStateService (centralized state)
  * - DeckStateService notifies listeners on change
  * - DeckMapService.renderFromState() converts JSON → deck.gl layers
  */
@@ -13,10 +14,6 @@
 import { Injectable } from '@angular/core';
 import { TOOL_NAMES } from '@carto/maps-ai-tools';
 import { DeckStateService, Basemap, LayerSpec } from '../state/deck-state.service';
-import {
-  LOCATION_PIN_LAYER_ID,
-  createLocationPinLayerSpec
-} from '../config/location-pin.config';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.utils';
 
 // ==================== TYPES ====================
@@ -32,20 +29,16 @@ type ToolExecutor = (params: unknown) => ToolResult | Promise<ToolResult>;
 
 // ==================== PARAMETER TYPES ====================
 
-interface SetMapViewParams {
-  latitude: number;
-  longitude: number;
-  zoom: number;
-  pitch?: number;
-  bearing?: number;
-  transitionDuration?: number;
-}
-
-interface SetBasemapParams {
-  basemap: Basemap;
-}
-
 interface SetDeckStateParams {
+  initialViewState?: {
+    latitude: number;
+    longitude: number;
+    zoom: number;
+    pitch?: number;
+    bearing?: number;
+    transitionDuration?: number;
+  };
+  mapStyle?: Basemap;
   layers?: LayerSpec[];
   widgets?: Record<string, unknown>[];
   effects?: Record<string, unknown>[];
@@ -54,7 +47,7 @@ interface SetDeckStateParams {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class ConsolidatedExecutorsService {
   private executors: Record<string, ToolExecutor> = {};
@@ -71,7 +64,7 @@ export class ConsolidatedExecutorsService {
     if (!executor) {
       return {
         success: false,
-        message: `Unknown tool: ${toolName}`
+        message: `Unknown tool: ${toolName}`,
       };
     }
 
@@ -81,220 +74,162 @@ export class ConsolidatedExecutorsService {
       return {
         success: false,
         message: `Execution error: ${error instanceof Error ? error.message : String(error)}`,
-        error: error instanceof Error ? error : new Error(String(error))
+        error: error instanceof Error ? error : new Error(String(error)),
       };
     }
   }
 
   private createExecutors(): Record<string, ToolExecutor> {
     return {
-      // ==================== SET MAP VIEW ====================
-      [TOOL_NAMES.SET_MAP_VIEW]: (params: unknown): ToolResult => {
-        const { latitude, longitude, zoom, pitch, bearing } = params as SetMapViewParams;
-
+      // ==================== SET DECK STATE (unified) ====================
+      [TOOL_NAMES.SET_DECK_STATE]: (params: unknown): ToolResult => {
+        const paramsObj = params as SetDeckStateParams;
+        const updatedParts: string[] = [];
         try {
-          // Update view state
-          this.deckState.setViewState({
-            latitude,
-            longitude,
-            zoom,
-            pitch: pitch ?? 0,
-            bearing: bearing ?? 0,
-          });
-
-          // Add new pin to collection (accumulates all pins)
-          this.deckState.addPinLocation({ longitude, latitude });
-
-          // Get all pin locations and create layer with all of them
-          const allPinLocations = this.deckState.getPinLocations();
-          const pinLayerSpec = createLocationPinLayerSpec(allPinLocations);
-          const currentLayers = this.deckState.getLayers();
-
-          // Check if pin layer already exists
-          const existingPinIndex = currentLayers.findIndex(
-            layer => layer['id'] === LOCATION_PIN_LAYER_ID
-          );
-
-          let updatedLayers: LayerSpec[];
-          if (existingPinIndex >= 0) {
-            // Update existing pin layer with all pins
-            updatedLayers = [...currentLayers];
-            updatedLayers[existingPinIndex] = pinLayerSpec;
-          } else {
-            // Add new pin layer
-            updatedLayers = [...currentLayers, pinLayerSpec];
+          // Step 1: Update view state if provided
+          if (paramsObj.initialViewState) {
+            const vs = paramsObj.initialViewState;
+            this.deckState.setViewState({
+              latitude: vs.latitude,
+              longitude: vs.longitude,
+              zoom: vs.zoom,
+              pitch: vs.pitch ?? 0,
+              bearing: vs.bearing ?? 0,
+              transitionDuration: vs.transitionDuration,
+            });
+            updatedParts.push('viewState');
           }
 
-          this.deckState.setLayers(updatedLayers);
+          // Step 2: Update basemap if provided
+          if (paramsObj.mapStyle) {
+            this.deckState.setBasemap(paramsObj.mapStyle);
+            updatedParts.push('basemap');
+          }
 
-          return {
-            success: true,
-            message: `Map view updated to ${latitude.toFixed(4)}, ${longitude.toFixed(4)} (zoom ${zoom})`,
-          };
-        } catch (error) {
-          return {
-            success: false,
-            message: `Failed to set map view: ${error instanceof Error ? error.message : String(error)}`,
-            error: error instanceof Error ? error : new Error(String(error)),
-          };
-        }
-      },
+          // Step 3: Process layers/widgets/effects if any deck config fields are present
+          const hasDeckConfigFields =
+            'layers' in paramsObj ||
+            'removeLayerIds' in paramsObj ||
+            'layerOrder' in paramsObj ||
+            'widgets' in paramsObj ||
+            'effects' in paramsObj;
 
-      // ==================== SET BASEMAP ====================
-      [TOOL_NAMES.SET_BASEMAP]: (params: unknown): ToolResult => {
-        const { basemap } = params as SetBasemapParams;
+          if (hasDeckConfigFields) {
+            const currentConfig = this.deckState.getDeckConfig();
 
-        try {
-          this.deckState.setBasemap(basemap);
+            // Process layer removals FIRST
+            let workingLayers = currentConfig.layers ?? [];
+            if (paramsObj.removeLayerIds && paramsObj.removeLayerIds.length > 0) {
+              const idsToRemove = new Set(paramsObj.removeLayerIds);
+              workingLayers = workingLayers.filter(
+                (layer) => !idsToRemove.has(layer['id'] as string),
+              );
+            }
 
-          return {
-            success: true,
-            message: `Basemap changed to ${basemap}`,
-          };
-        } catch (error) {
-          return {
-            success: false,
-            message: `Failed to set basemap: ${error instanceof Error ? error.message : String(error)}`,
-            error: error instanceof Error ? error : new Error(String(error)),
-          };
-        }
-      },
+            // Determine final layers based on explicit presence
+            let finalLayers: LayerSpec[];
+            const hasLayersProperty = 'layers' in paramsObj;
+            const layersValue = paramsObj.layers;
+            const isLayersArray = Array.isArray(layersValue);
+            const isLayersEmpty = isLayersArray && layersValue.length === 0;
 
-      // ==================== SET DECK STATE ====================
-      [TOOL_NAMES.SET_DECK_STATE]: (params: unknown): ToolResult => {
-        const paramsObj = params as SetDeckStateParams & { layers?: LayerSpec[]; widgets?: Record<string, unknown>[]; effects?: Record<string, unknown>[] };
-        const { layers, widgets, effects, removeLayerIds } = paramsObj;
+            if (hasLayersProperty) {
+              if (isLayersEmpty) {
+                // Empty array explicitly provided → replace (remove all)
+                finalLayers = [];
+              } else if (isLayersArray && layersValue.length > 0) {
+                // Non-empty array provided → merge with working layers (after removals)
+                finalLayers = mergeLayerSpecs(workingLayers, layersValue);
+              } else {
+                // layers is explicitly undefined or null → keep working layers
+                finalLayers = workingLayers;
+              }
+            } else {
+              // layers not provided → use working layers (after removals)
+              finalLayers = workingLayers;
+            }
 
-        try {
-          const currentConfig = this.deckState.getDeckConfig();
+            // Apply layer ordering if specified
+            const { layerOrder } = paramsObj;
+            if (layerOrder && layerOrder.length > 0) {
+              const layerMap = new Map(finalLayers.map((l) => [l['id'] as string, l]));
+              const orderedLayers: LayerSpec[] = [];
 
-          // Step 1: Process layer removals FIRST
-          let workingLayers = currentConfig.layers ?? [];
-          if (removeLayerIds && removeLayerIds.length > 0) {
-            const idsToRemove = new Set(removeLayerIds);
-            workingLayers = workingLayers.filter(
-              layer => !idsToRemove.has(layer['id'] as string)
+              for (const id of layerOrder) {
+                const layer = layerMap.get(id);
+                if (layer) {
+                  orderedLayers.push(layer);
+                  layerMap.delete(id);
+                }
+              }
+
+              // Append remaining layers not in layerOrder
+              for (const layer of layerMap.values()) {
+                orderedLayers.push(layer);
+              }
+
+              finalLayers = orderedLayers;
+            }
+
+            // Determine final widgets
+            let finalWidgets: Record<string, unknown>[];
+            if ('widgets' in paramsObj) {
+              if (paramsObj.widgets && paramsObj.widgets.length === 0) {
+                finalWidgets = [];
+              } else if (paramsObj.widgets) {
+                finalWidgets = paramsObj.widgets;
+              } else {
+                finalWidgets = currentConfig.widgets ?? [];
+              }
+            } else {
+              finalWidgets = currentConfig.widgets ?? [];
+            }
+
+            // Determine final effects
+            let finalEffects: Record<string, unknown>[];
+            if ('effects' in paramsObj) {
+              if (paramsObj.effects && paramsObj.effects.length === 0) {
+                finalEffects = [];
+              } else if (paramsObj.effects) {
+                finalEffects = paramsObj.effects;
+              } else {
+                finalEffects = currentConfig.effects ?? [];
+              }
+            } else {
+              finalEffects = currentConfig.effects ?? [];
+            }
+
+            const config = {
+              layers: finalLayers,
+              widgets: finalWidgets,
+              effects: finalEffects,
+            };
+
+            // Validate columns
+            for (const layer of config.layers) {
+              validateLayerColumns(layer);
+            }
+
+            this.deckState.setDeckConfig(config);
+
+            // Track active layer
+            if (finalLayers.length > 0) {
+              const lastLayerId = finalLayers[finalLayers.length - 1]['id'] as string;
+              if (lastLayerId) {
+                this.deckState.setActiveLayerId(lastLayerId);
+              }
+            } else {
+              this.deckState.setActiveLayerId(undefined);
+            }
+
+            updatedParts.push(
+              `${config.layers.length} layer(s), ${config.widgets.length} widget(s), ${config.effects.length} effect(s)`,
             );
           }
 
-          // Step 2: Determine final layers based on explicit presence
-          let finalLayers: LayerSpec[];
-          const hasLayersProperty = 'layers' in paramsObj;
-          const layersValue = paramsObj.layers;
-          const isLayersArray = Array.isArray(layersValue);
-          const isLayersEmpty = isLayersArray && layersValue.length === 0;
-
-          if (hasLayersProperty) {
-            // layers was explicitly provided
-            if (isLayersEmpty) {
-              // Empty array explicitly provided → replace (remove all)
-              finalLayers = [];
-            } else if (isLayersArray && layersValue.length > 0) {
-              // Non-empty array provided → merge with working layers (after removals)
-              finalLayers = mergeLayerSpecs(workingLayers, layersValue);
-            } else {
-              // layers is explicitly undefined or null → keep working layers
-              finalLayers = workingLayers;
-            }
-          } else {
-            // layers not provided → use working layers (after removals)
-            finalLayers = workingLayers;
-          }
-
-          // Apply layer ordering if specified
-          const { layerOrder } = paramsObj;
-          if (layerOrder && layerOrder.length > 0) {
-            const layerMap = new Map(finalLayers.map(l => [l['id'] as string, l]));
-            const orderedLayers: LayerSpec[] = [];
-
-            // Add layers in specified order
-            for (const id of layerOrder) {
-              const layer = layerMap.get(id);
-              if (layer) {
-                orderedLayers.push(layer);
-                layerMap.delete(id);
-              }
-            }
-
-            // Append remaining layers not in layerOrder (preserves their relative order)
-            for (const layer of layerMap.values()) {
-              orderedLayers.push(layer);
-            }
-
-            finalLayers = orderedLayers;
-          }
-
-          // Determine final widgets based on explicit presence
-          let finalWidgets: Record<string, unknown>[];
-          if ('widgets' in paramsObj) {
-            // widgets was explicitly provided
-            if (paramsObj.widgets && paramsObj.widgets.length === 0) {
-              // Empty array explicitly provided → replace (remove all)
-              finalWidgets = [];
-            } else if (paramsObj.widgets) {
-              // Non-empty array provided → replace
-              finalWidgets = paramsObj.widgets;
-            } else {
-              // widgets is explicitly undefined → keep existing
-              finalWidgets = currentConfig.widgets ?? [];
-            }
-          } else {
-            // widgets not provided → keep existing
-            finalWidgets = currentConfig.widgets ?? [];
-          }
-
-          // Determine final effects based on explicit presence
-          let finalEffects: Record<string, unknown>[];
-          if ('effects' in paramsObj) {
-            // effects was explicitly provided
-            if (paramsObj.effects && paramsObj.effects.length === 0) {
-              // Empty array explicitly provided → replace (remove all)
-              finalEffects = [];
-            } else if (paramsObj.effects) {
-              // Non-empty array provided → replace
-              finalEffects = paramsObj.effects;
-            } else {
-              // effects is explicitly undefined → keep existing
-              finalEffects = currentConfig.effects ?? [];
-            }
-          } else {
-            // effects not provided → keep existing
-            finalEffects = currentConfig.effects ?? [];
-          }
-
-          const config = {
-            layers: finalLayers,
-            widgets: finalWidgets,
-            effects: finalEffects,
-          };
-
-          // Validate columns
-          for (const layer of config.layers) {
-            validateLayerColumns(layer);
-          }
-
-          this.deckState.setDeckConfig(config);
-
-          // Track active layer
-          if (finalLayers.length > 0) {
-            const lastLayerId = finalLayers[finalLayers.length - 1]['id'] as string;
-            if (lastLayerId) {
-              this.deckState.setActiveLayerId(lastLayerId);
-            }
-          } else {
-            // Clear active layer when all layers are removed
-            this.deckState.setActiveLayerId(undefined);
-          }
-
           return {
             success: true,
-            message: `Config updated: ${config.layers.length} layer(s), ${config.widgets.length} widget(s), ${config.effects.length} effect(s)`,
-            data: {
-              layerCount: config.layers.length,
-              widgetCount: config.widgets.length,
-              effectCount: config.effects.length,
-              layerIds: config.layers.map(l => l['id']),
-            },
+            message: `Updated: ${updatedParts.join(', ')}`,
           };
         } catch (error) {
           return {
@@ -304,7 +239,6 @@ export class ConsolidatedExecutorsService {
           };
         }
       },
-
     };
   }
 }

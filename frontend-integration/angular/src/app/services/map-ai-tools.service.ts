@@ -26,7 +26,6 @@ import { ConsolidatedExecutorsService } from './consolidated-executors.service';
 import { WebSocketService } from './websocket.service';
 import { DeckStateService } from '../state/deck-state.service';
 import { environment } from '../../environments/environment';
-import { LOCATION_PIN_LAYER_ID } from '../config/location-pin.config';
 import { extractLegendFromLayer } from '../utils/legend.utils';
 
 @Injectable({
@@ -74,12 +73,6 @@ export class MapAIToolsService implements OnDestroy {
           const id = (layer['id'] as string) || 'unknown';
           let name = id;
           let color = '#036fe2';
-
-          // Provide friendly names for special layers
-          if (id === LOCATION_PIN_LAYER_ID) {
-            name = 'Location Pin';
-            color = '#333333'; // Match the pin SVG color
-          }
 
           // Extract legend data from layer spec
           const legend = extractLegendFromLayer(layer);

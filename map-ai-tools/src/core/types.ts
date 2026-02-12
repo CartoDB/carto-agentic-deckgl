@@ -31,18 +31,7 @@ export type {
 
 // ============================================================================
 // Zod-inferred parameter types (auto-generated from tool schemas)
-// Consolidated tools only (3 tools)
 // ============================================================================
-
-/**
- * Parameters for set-map-view tool
- */
-export type SetMapViewParams = z.infer<typeof tools['set-map-view']['schema']>;
-
-/**
- * Parameters for set-basemap tool
- */
-export type SetBasemapParams = z.infer<typeof tools['set-basemap']['schema']>;
 
 /**
  * Parameters for set-deck-state tool
@@ -52,10 +41,7 @@ export type SetDeckStateParams = z.infer<typeof tools['set-deck-state']['schema'
 /**
  * Union type of all tool parameter types
  */
-export type ToolParams =
-  | SetMapViewParams
-  | SetBasemapParams
-  | SetDeckStateParams
+export type ToolParams = SetDeckStateParams
 
 /**
  * OpenAI function calling tool definition
