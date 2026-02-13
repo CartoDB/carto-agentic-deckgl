@@ -470,6 +470,6 @@ function resolveValue(value: any): any {
   return value;
 }
 
-// Export for use in useDeckLayers hook
+// Export for use in useDeckProps hook
 export { resolveValue, deckJsonConfiguration };
 /* eslint-enable @typescript-eslint/no-explicit-any */

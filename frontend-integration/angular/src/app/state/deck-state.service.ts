@@ -24,9 +24,17 @@ export type Basemap = 'dark-matter' | 'positron' | 'voyager';
 export type LayerSpec = Record<string, unknown>;
 
 /**
- * Deck.gl configuration in JSON format
+ * Deck.gl specification in JSON format (unified)
  */
-export interface DeckConfig {
+export interface DeckSpec {
+  initialViewState: {
+    longitude: number;
+    latitude: number;
+    zoom: number;
+    pitch: number;
+    bearing: number;
+    transitionDuration?: number;
+  };
   layers: LayerSpec[];
   widgets: Record<string, unknown>[];
   effects: Record<string, unknown>[];
@@ -36,11 +44,9 @@ export interface DeckConfig {
  * Complete deck state data
  */
 export interface DeckStateData {
-  viewState: MapViewState;
-  deckConfig: DeckConfig;
+  deckSpec: DeckSpec;
   basemap: Basemap;
   activeLayerId?: string;
-  transitionDuration: number;
 }
 
 /**
@@ -63,9 +69,16 @@ export const DEFAULT_VIEW_STATE: MapViewState = {
 };
 
 /**
- * Default deck configuration
+ * Default deck specification
  */
-const DEFAULT_DECK_CONFIG: DeckConfig = {
+const DEFAULT_DECK_SPEC: DeckSpec = {
+  initialViewState: {
+    longitude: -110.5556199,
+    latitude: 41.8097343,
+    zoom: 3,
+    pitch: 0,
+    bearing: 0
+  },
   layers: [],
   widgets: [],
   effects: []
@@ -76,11 +89,9 @@ const DEFAULT_DECK_CONFIG: DeckConfig = {
 })
 export class DeckStateService {
   // Private state subjects
-  private viewStateSubject = new BehaviorSubject<MapViewState>({ ...DEFAULT_VIEW_STATE });
-  private deckConfigSubject = new BehaviorSubject<DeckConfig>({ ...DEFAULT_DECK_CONFIG });
+  private deckSpecSubject = new BehaviorSubject<DeckSpec>({ ...DEFAULT_DECK_SPEC });
   private basemapSubject = new BehaviorSubject<Basemap>('positron');
   private activeLayerIdSubject = new BehaviorSubject<string | undefined>(undefined);
-  private transitionDurationSubject = new BehaviorSubject<number>(1000);
   private changedKeysSubject = new BehaviorSubject<string[]>([]);
 
   // Track initial layer IDs to distinguish from chat-generated layers
@@ -90,8 +101,7 @@ export class DeckStateService {
   private layerCenters = new Map<string, { longitude: number; latitude: number; zoom: number }>();
 
   // Public observables
-  public viewState$ = this.viewStateSubject.asObservable();
-  public deckConfig$ = this.deckConfigSubject.asObservable();
+  public deckSpec$ = this.deckSpecSubject.asObservable();
   public basemap$ = this.basemapSubject.asObservable();
   public activeLayerId$ = this.activeLayerIdSubject.asObservable();
 
@@ -99,20 +109,16 @@ export class DeckStateService {
    * Combined state observable - emits whenever any state changes
    */
   public state$: Observable<StateChange> = combineLatest([
-    this.viewStateSubject,
-    this.deckConfigSubject,
+    this.deckSpecSubject,
     this.basemapSubject,
     this.activeLayerIdSubject,
-    this.transitionDurationSubject,
     this.changedKeysSubject
   ]).pipe(
-    map(([viewState, deckConfig, basemap, activeLayerId, transitionDuration, changedKeys]) => ({
+    map(([deckSpec, basemap, activeLayerId, changedKeys]) => ({
       state: {
-        viewState,
-        deckConfig,
+        deckSpec,
         basemap,
-        activeLayerId,
-        transitionDuration
+        activeLayerId
       },
       changedKeys
     })),
@@ -125,23 +131,25 @@ export class DeckStateService {
   /**
    * Layers observable for components that only need layer info
    */
-  public layers$: Observable<LayerSpec[]> = this.deckConfigSubject.pipe(
-    map(config => config.layers),
+  public layers$: Observable<LayerSpec[]> = this.deckSpecSubject.pipe(
+    map(spec => spec.layers),
     distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
   );
 
   // ==================== GETTERS ====================
 
   getViewState(): MapViewState {
-    return { ...this.viewStateSubject.value };
+    const { longitude, latitude, zoom, pitch, bearing } = this.deckSpecSubject.value.initialViewState;
+    return { longitude, latitude, zoom, pitch, bearing };
   }
 
-  getDeckConfig(): DeckConfig {
-    const config = this.deckConfigSubject.value;
+  getDeckSpec(): DeckSpec {
+    const spec = this.deckSpecSubject.value;
     return {
-      layers: [...config.layers],
-      widgets: [...config.widgets],
-      effects: [...config.effects]
+      initialViewState: { ...spec.initialViewState },
+      layers: [...spec.layers],
+      widgets: [...spec.widgets],
+      effects: [...spec.effects]
     };
   }
 
@@ -155,16 +163,14 @@ export class DeckStateService {
 
   getState(): DeckStateData {
     return {
-      viewState: this.getViewState(),
-      deckConfig: this.getDeckConfig(),
+      deckSpec: this.getDeckSpec(),
       basemap: this.getBasemap(),
-      activeLayerId: this.getActiveLayerId(),
-      transitionDuration: this.transitionDurationSubject.value
+      activeLayerId: this.getActiveLayerId()
     };
   }
 
   getLayers(): LayerSpec[] {
-    return [...this.deckConfigSubject.value.layers];
+    return [...this.deckSpecSubject.value.layers];
   }
 
   /**
@@ -177,76 +183,79 @@ export class DeckStateService {
   // ==================== SETTERS ====================
 
   /**
-   * Update view state (partial update supported)
+   * Update initialViewState (partial update supported)
    */
-  setViewState(partial: Partial<MapViewState> & { transitionDuration?: number }): void {
-    const { transitionDuration, ...viewStatePartial } = partial;
-    if (transitionDuration !== undefined) {
-      this.transitionDurationSubject.next(transitionDuration);
-    } else {
-      this.transitionDurationSubject.next(1000);
-    }
-    const current = this.viewStateSubject.value;
-    this.viewStateSubject.next({ ...current, ...viewStatePartial });
-    this.notifyChange(['viewState']);
+  setInitialViewState(partial: Partial<MapViewState> & { transitionDuration?: number }): void {
+    const current = this.deckSpecSubject.value;
+    const updated: DeckSpec = {
+      ...current,
+      initialViewState: {
+        ...current.initialViewState,
+        ...partial
+      }
+    };
+    this.deckSpecSubject.next(updated);
+    this.notifyChange(['initialViewState']);
   }
 
   /**
-   * Set the complete deck configuration
+   * Set the deck layers, widgets, and effects
+   * Preserves initialViewState, updates layers/widgets/effects
    * Captures current viewState as center for newly added layers
    */
-  setDeckConfig(config: DeckConfig): void {
-    const current = this.deckConfigSubject.value;
+  setDeckLayers(config: { layers: LayerSpec[]; widgets: Record<string, unknown>[]; effects: Record<string, unknown>[] }): void {
+    const current = this.deckSpecSubject.value;
     const existingLayerIds = new Set(current.layers.map(l => l['id'] as string));
 
-    // Capture center for new layers based on current viewState
-    const currentViewState = this.viewStateSubject.value;
+    // Capture center for new layers based on current initialViewState
+    const currentViewState = current.initialViewState;
     const newLayers = config.layers ?? [];
     for (const layer of newLayers) {
       const layerId = layer['id'] as string;
       if (layerId && !existingLayerIds.has(layerId) && !this.layerCenters.has(layerId)) {
         this.layerCenters.set(layerId, {
-          longitude: currentViewState.longitude ?? 0,
-          latitude: currentViewState.latitude ?? 0,
-          zoom: currentViewState.zoom ?? 12
+          longitude: currentViewState.longitude,
+          latitude: currentViewState.latitude,
+          zoom: currentViewState.zoom
         });
       }
     }
 
-    this.deckConfigSubject.next({
+    this.deckSpecSubject.next({
+      ...current,
       layers: newLayers,
       widgets: config.widgets ?? [],
       effects: config.effects ?? []
     });
-    this.notifyChange(['deckConfig']);
+    this.notifyChange(['layers']);
   }
 
   /**
-   * Update only the layers, preserving widgets and effects
+   * Update only the layers, preserving initialViewState, widgets and effects
    * Captures current viewState as center for newly added layers
    */
   setLayers(layers: LayerSpec[]): void {
-    const current = this.deckConfigSubject.value;
+    const current = this.deckSpecSubject.value;
     const existingLayerIds = new Set(current.layers.map(l => l['id'] as string));
 
-    // Capture center for new layers based on current viewState
-    const currentViewState = this.viewStateSubject.value;
+    // Capture center for new layers based on current initialViewState
+    const currentViewState = current.initialViewState;
     for (const layer of layers) {
       const layerId = layer['id'] as string;
       if (layerId && !existingLayerIds.has(layerId) && !this.layerCenters.has(layerId)) {
         this.layerCenters.set(layerId, {
-          longitude: currentViewState.longitude ?? 0,
-          latitude: currentViewState.latitude ?? 0,
-          zoom: currentViewState.zoom ?? 12
+          longitude: currentViewState.longitude,
+          latitude: currentViewState.latitude,
+          zoom: currentViewState.zoom
         });
       }
     }
 
-    this.deckConfigSubject.next({
+    this.deckSpecSubject.next({
       ...current,
       layers
     });
-    this.notifyChange(['deckConfig']);
+    this.notifyChange(['layers']);
   }
 
   /**

@@ -46,7 +46,7 @@ export default function App() {
   const handleZoomIn = useCallback(() => {
     const currentView = deckState.getViewState();
     const newZoom = Math.min(22, (currentView.zoom ?? 3) + 1);
-    deckState.setViewState({
+    deckState.setInitialViewState({
       latitude: currentView.latitude,
       longitude: currentView.longitude,
       zoom: newZoom,
@@ -58,7 +58,7 @@ export default function App() {
   const handleZoomOut = useCallback(() => {
     const currentView = deckState.getViewState();
     const newZoom = Math.max(0, (currentView.zoom ?? 3) - 1);
-    deckState.setViewState({
+    deckState.setInitialViewState({
       latitude: currentView.latitude,
       longitude: currentView.longitude,
       zoom: newZoom,
@@ -69,7 +69,7 @@ export default function App() {
 
   const handleLayerToggle = useCallback(
     (event: { layerId: string; visible: boolean }) => {
-      const currentLayers = deckState.getDeckConfig().layers;
+      const currentLayers = deckState.getDeckSpec().layers;
       const updatedLayers = currentLayers.map((layer) => {
         if (layer['id'] === event.layerId) {
           return { ...layer, visible: event.visible };
@@ -86,7 +86,7 @@ export default function App() {
       const layer = aiTools.layers.find((l) => l.id === event.layerId);
       if (!layer?.center) return;
 
-      deckState.setViewState({
+      deckState.setInitialViewState({
         latitude: layer.center.latitude,
         longitude: layer.center.longitude,
         zoom: layer.center.zoom ?? 12,

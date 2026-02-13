@@ -86,10 +86,10 @@ export class ConsolidatedExecutorsService {
         const paramsObj = params as SetDeckStateParams;
         const updatedParts: string[] = [];
         try {
-          // Step 1: Update view state if provided
+          // Step 1: Update initialViewState if provided
           if (paramsObj.initialViewState) {
             const vs = paramsObj.initialViewState;
-            this.deckState.setViewState({
+            this.deckState.setInitialViewState({
               latitude: vs.latitude,
               longitude: vs.longitude,
               zoom: vs.zoom,
@@ -115,7 +115,12 @@ export class ConsolidatedExecutorsService {
             'effects' in paramsObj;
 
           if (hasDeckConfigFields) {
-            const currentConfig = this.deckState.getDeckConfig();
+            const currentSpec = this.deckState.getDeckSpec();
+            const currentConfig = {
+              layers: currentSpec.layers,
+              widgets: currentSpec.widgets,
+              effects: currentSpec.effects
+            };
 
             // Process layer removals FIRST
             let workingLayers = currentConfig.layers ?? [];
@@ -210,7 +215,7 @@ export class ConsolidatedExecutorsService {
               validateLayerColumns(layer);
             }
 
-            this.deckState.setDeckConfig(config);
+            this.deckState.setDeckLayers(config);
 
             // Track active layer
             if (finalLayers.length > 0) {
