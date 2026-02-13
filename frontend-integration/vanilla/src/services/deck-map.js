@@ -6,7 +6,7 @@
  */
 
 import { EventEmitter } from '../state/event-emitter.js';
-import { Deck, FlyToInterpolator } from '@deck.gl/core';
+import { Deck } from '@deck.gl/core';
 import { log as lumaLog } from '@luma.gl/core';
 import { BASEMAP } from '@deck.gl/carto';
 import maplibregl from 'maplibre-gl';
@@ -108,42 +108,7 @@ export class DeckMapManager extends EventEmitter {
       return;
     }
 
-    const jsonConverter = getJsonConverter();
     console.log('[DeckMapManager] Rendering state update:', changedKeys);
-
-    // Update view state
-    if (changedKeys.includes('viewState')) {
-      const { longitude, latitude, zoom, pitch, bearing } = state.viewState;
-      const transitionDuration = state.transitionDuration ?? 1000;
-
-      this._deck.setProps({
-        initialViewState: {
-          longitude,
-          latitude,
-          zoom,
-          pitch: pitch ?? 0,
-          bearing: bearing ?? 0,
-          transitionDuration,
-          transitionInterpolator: new FlyToInterpolator(),
-        },
-      });
-
-      if (this._deck.viewManager) {
-        this._deck.viewManager.setProps({
-          viewState: {
-            longitude,
-            latitude,
-            zoom,
-            pitch: pitch ?? 0,
-            bearing: bearing ?? 0,
-            transitionDuration,
-            transitionInterpolator: new FlyToInterpolator(),
-          },
-        });
-      }
-
-      this._scheduleRedraws();
-    }
 
     // Update basemap
     if (changedKeys.includes('basemap')) {
@@ -153,49 +118,45 @@ export class DeckMapManager extends EventEmitter {
       }
     }
 
-    // Update layers via JSONConverter
-    if (changedKeys.includes('deckConfig')) {
-      const layerSpecs = state.deckConfig.layers ?? [];
-      console.log('[DeckMapManager] Converting', layerSpecs.length, 'layer specs');
+    // Update view state and/or layers via unified JSONConverter
+    if (changedKeys.includes('initialViewState') || changedKeys.includes('layers')) {
+      const jsonConverter = getJsonConverter();
 
-      const convertedLayers = [];
+      const initialViewState = state.deckSpec.initialViewState;
 
-      for (let index = 0; index < layerSpecs.length; index++) {
-        const layerJson = layerSpecs[index];
-        const layerId = layerJson['id'] || `layer-${index}`;
+      // Deep clone layers for credential injection
+      const layersClone = JSON.parse(JSON.stringify(state.deckSpec.layers || []));
 
-        try {
-          const layerWithId = { ...layerJson, id: layerId };
-          const layerWithCredentials = this._injectCartoCredentials(layerWithId);
+      // Inject credentials into all layers
+      const layersWithCredentials = layersClone.map((layer, index) => {
+        const layerId = layer['id'] || `layer-${index}`;
+        return this._injectCartoCredentials({ ...layer, id: layerId });
+      });
 
-          const converted = jsonConverter.convert(layerWithCredentials);
-
-          if (converted) {
-            convertedLayers.push(converted);
-            console.log('[DeckMapManager] Converted layer:', layerId);
-          } else {
-            console.error('[DeckMapManager] Failed to convert layer:', layerId);
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error('[DeckMapManager] Failed to convert layer:', layerId, errorMessage);
-        }
-      }
+      // Construct spec with fresh initialViewState and cloned/injected layers
+      const spec = {
+        initialViewState,
+        layers: layersWithCredentials,
+        widgets: state.deckSpec.widgets || [],
+        effects: state.deckSpec.effects || [],
+      };
 
       try {
-        this._deck.setProps({
-          layers: convertedLayers,
-          onError: (error, layer) => {
-            console.error('[DeckMapManager] Layer rendering error:', {
-              error: error.message,
-              layerId: layer?.id,
-            });
-          },
-        });
-        this._scheduleRedraws();
-        console.log('[DeckMapManager] Set', convertedLayers.length, 'layers on deck');
+        const deckProps = jsonConverter.convert(spec);
+        if (deckProps) {
+          this._deck.setProps({
+            ...deckProps,
+            onError: (error, layer) => {
+              console.error('[DeckMapManager] Layer rendering error:', {
+                error: error.message,
+                layerId: layer?.id,
+              });
+            },
+          });
+          this._scheduleRedraws();
+        }
       } catch (error) {
-        console.error('[DeckMapManager] Failed to set layers:', error);
+        console.error('[DeckMapManager] Failed to convert spec:', error);
       }
     }
   }

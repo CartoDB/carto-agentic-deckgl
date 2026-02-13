@@ -154,9 +154,9 @@ export class App implements OnInit, OnDestroy {
       return;
     }
 
-    // Directly set view state WITHOUT adding a pin
+    // Directly set initialViewState WITHOUT adding a pin
     // Pins should only be added when user requests a location via chat
-    this.deckState.setViewState({
+    this.deckState.setInitialViewState({
       latitude: layer.center.latitude,
       longitude: layer.center.longitude,
       zoom: layer.center.zoom ?? 12,

@@ -91,17 +91,17 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
   const toolExecutorRef = useRef<ExecuteToolFn | null>(null);
   if (!toolExecutorRef.current) {
     toolExecutorRef.current = createToolExecutor({
-      setViewState: (vs) => deckStateRef.current.setViewState(vs),
+      setInitialViewState: (vs) => deckStateRef.current.setInitialViewState(vs),
       setBasemap: (b) => deckStateRef.current.setBasemap(b),
-      setDeckConfig: (c) => deckStateRef.current.setDeckConfig(c),
+      setDeckLayers: (c) => deckStateRef.current.setDeckLayers(c),
       setActiveLayerId: (id) => deckStateRef.current.setActiveLayerId(id),
-      getDeckConfig: () => deckStateRef.current.getDeckConfig(),
+      getDeckSpec: () => deckStateRef.current.getDeckSpec(),
     });
   }
 
-  // Derive layers from deckConfig
+  // Derive layers from deckSpec
   const layers = useMemo<LayerConfig[]>(() => {
-    return deckState.state.deckConfig.layers.map((layer) => {
+    return deckState.state.deckSpec.layers.map((layer) => {
       const id = (layer['id'] as string) || 'unknown';
       const name = id;
       let color = '#036fe2';
@@ -133,7 +133,7 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
         legend,
       };
     });
-  }, [deckState.state.deckConfig.layers, deckState.getLayerCenter]);
+  }, [deckState.state.deckSpec.layers, deckState.getLayerCenter]);
 
   const setLoaderState = useCallback((state: LoaderState, message?: string) => {
     setLoaderStateValue(state);
@@ -282,7 +282,7 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
           dispatchMessages({ type: 'ADD_MESSAGE', payload: toolMessage });
         }
 
-        const currentLayers = deckStateRef.current.getDeckConfig().layers.map((layer) => ({
+        const currentLayers = deckStateRef.current.getDeckSpec().layers.map((layer) => ({
           id: (layer['id'] as string) || 'unknown',
           type: (layer['@@type'] as string) || 'Unknown',
           visible: layer['visible'] !== false,
@@ -370,7 +370,7 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
     const currentState = deckStateRef.current;
     const state = {
       viewState: currentState.getViewState(),
-      deckConfig: currentState.getDeckConfig(),
+      deckSpec: currentState.getDeckSpec(),
     };
 
     return {
@@ -381,7 +381,7 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
         pitch: state.viewState.pitch ?? 0,
         bearing: state.viewState.bearing ?? 0,
       },
-      layers: state.deckConfig.layers.map((layer) => {
+      layers: state.deckSpec.layers.map((layer) => {
         const baseInfo = {
           id: (layer['id'] as string) || 'unknown',
           type: (layer['@@type'] as string) || 'Unknown',

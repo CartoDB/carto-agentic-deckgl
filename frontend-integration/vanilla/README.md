@@ -161,9 +161,9 @@ graph TB
 
     Orchestrator -->|"sendChatMessage()"| WSClient
     Orchestrator -->|"execute()"| ToolExec
-    ToolExec -->|"setViewState()<br/>setDeckConfig()"| DeckState
+    ToolExec -->|"setInitialViewState()<br/>setDeckLayers()"| DeckState
     DeckState -->|"emit('change')"| DeckMap
-    DeckMap -->|"convert()"| JSONConfig
+    DeckMap -->|"convert(fullSpec)"| JSONConfig
     DeckMap -->|"emit('viewStateChange')"| ZoomControls
 
     Orchestrator -->|"emit('messages')"| ChatUI
@@ -231,50 +231,63 @@ This is the most transparent view of the architecture — every connection betwe
 
 The `DeckState` class extends a custom `EventEmitter` and serves the same role as Angular's `DeckStateService` and React's `DeckStateContext`. State changes are broadcast via the `'change'` event.
 
+State is organized around a unified `_deckSpec` object that mirrors the official deck.gl JSON spec pattern. Basemap is kept separate because it's a MapLibre concern.
+
+### State Shape
+
+```javascript
+// Unified DeckSpec — one object for the entire deck.gl configuration
+this._deckSpec = {
+  initialViewState: { longitude, latitude, zoom, pitch, bearing, transitionDuration },
+  layers: [],
+  widgets: [],
+  effects: [],
+};
+
+// Separate concerns
+this._basemap = 'positron';        // MapLibre (map.setStyle())
+this._activeLayerId = undefined;   // UI tracking
+```
+
 ### EventEmitter Pattern
 
 ```javascript
 export class DeckState extends EventEmitter {
-  constructor() {
-    super();
-    this._viewState = { ...DEFAULT_VIEW_STATE };
-    this._deckConfig = { layers: [], widgets: [], effects: [] };
-    this._basemap = 'positron';
-    this._activeLayerId = undefined;
-    this._transitionDuration = 1000;
-    this._initialLayerIds = new Set();
-    this._layerCenters = new Map();
-  }
-
-  setViewState(partial) {
+  setInitialViewState(partial) {
     const { transitionDuration, ...viewStatePartial } = partial;
-    this._transitionDuration = transitionDuration ?? 1000;
-    this._viewState = { ...this._viewState, ...viewStatePartial };
-    this._notifyChange(['viewState']);
+    this._deckSpec = {
+      ...this._deckSpec,
+      initialViewState: {
+        ...this._deckSpec.initialViewState,
+        ...viewStatePartial,
+        transitionDuration: transitionDuration ?? 1000,
+      },
+    };
+    this._notifyChange(['initialViewState']);
   }
 
-  setDeckConfig(config) {
+  setDeckLayers(config) {
     // Capture center for new layers
-    const existingLayerIds = new Set(this._deckConfig.layers.map(l => l['id']));
-    for (const layer of config.layers ?? []) {
-      const layerId = layer['id'];
-      if (layerId && !existingLayerIds.has(layerId) && !this._layerCenters.has(layerId)) {
-        this._layerCenters.set(layerId, {
-          longitude: this._viewState.longitude,
-          latitude: this._viewState.latitude,
-          zoom: this._viewState.zoom,
-        });
-      }
-    }
-    this._deckConfig = { layers: config.layers ?? [], widgets: config.widgets ?? [], effects: config.effects ?? [] };
-    this._notifyChange(['deckConfig']);
+    this._deckSpec = {
+      ...this._deckSpec,
+      layers: config.layers ?? [],
+      widgets: config.widgets ?? [],
+      effects: config.effects ?? [],
+    };
+    this._notifyChange(['layers']);
+  }
+
+  getDeckSpec() {
+    return {
+      initialViewState: { ...this._deckSpec.initialViewState },
+      layers: [...this._deckSpec.layers],
+      widgets: [...this._deckSpec.widgets],
+      effects: [...this._deckSpec.effects],
+    };
   }
 
   _notifyChange(changedKeys) {
-    this.emit('change', {
-      state: this.getState(),
-      changedKeys,
-    });
+    this.emit('change', { state: this.getState(), changedKeys });
   }
 }
 ```
@@ -288,17 +301,12 @@ deckState.on('change', ({ state, changedKeys }) => {
     this.renderFromState(state, changedKeys);
   }
 });
-
-// In main.js (UI updates via orchestrator events)
-orchestrator.on('layers', (layers) => {
-  layerToggle.setLayers(layers);
-});
 ```
 
 ### Key Differences from Angular/React
 
 - **No observables or reducers** — Simple getter/setter pattern with event emission
-- **Synchronous reads** — `getViewState()`, `getDeckConfig()` return values immediately (no subscriptions needed)
+- **Synchronous reads** — `getViewState()`, `getDeckSpec()` return values immediately (no subscriptions needed)
 - **Manual cleanup** — No lifecycle hooks; listeners must be removed manually if needed
 - **Private by convention** — Properties prefixed with `_` (no TypeScript private modifiers)
 
@@ -306,47 +314,45 @@ orchestrator.on('layers', (layers) => {
 
 ## Tool Executor
 
-The `ToolExecutor` receives the `DeckState` instance directly and calls its methods to update state. No interface abstraction is needed since there's no DI framework.
+The `ToolExecutor` receives the `DeckState` instance directly and calls its methods to update state. Uses a map-of-executors pattern for O(1) tool dispatch.
 
 ```javascript
 export class ToolExecutor {
   constructor(deckState) {
-    this.deckState = deckState;
+    this._deckState = deckState;
+    this._executors = this._createExecutors();
   }
 
   async execute(toolName, params) {
-    if (toolName !== TOOL_NAMES.SET_DECK_STATE) {
+    const executor = this._executors[toolName];
+    if (!executor) {
       return { success: false, message: `Unknown tool: ${toolName}` };
     }
-    return this.executeSetDeckState(params);
+    return await Promise.resolve(executor(params));
   }
 
-  executeSetDeckState(params) {
-    const updatedParts = [];
+  _createExecutors() {
+    return {
+      [TOOL_NAMES.SET_DECK_STATE]: (params) => {
+        const updatedParts = [];
 
-    // Phase 1: viewState
-    if (params.initialViewState) {
-      this.deckState.setViewState({
-        latitude: params.initialViewState.latitude,
-        longitude: params.initialViewState.longitude,
-        zoom: params.initialViewState.zoom,
-        pitch: params.initialViewState.pitch ?? 0,
-        bearing: params.initialViewState.bearing ?? 0,
-        transitionDuration: params.initialViewState.transitionDuration,
-      });
-      updatedParts.push('viewState');
-    }
+        // Phase 1: viewState
+        if (params.initialViewState) {
+          this._deckState.setInitialViewState({ ... });
+          updatedParts.push('viewState');
+        }
 
-    // Phase 2: basemap
-    if (params.mapStyle) {
-      this.deckState.setBasemap(params.mapStyle);
-      updatedParts.push('basemap');
-    }
+        // Phase 2: basemap
+        if (params.mapStyle) {
+          this._deckState.setBasemap(params.mapStyle);
+        }
 
-    // Phase 3: layers/widgets/effects
-    // (Same merge/remove/order pipeline as Angular and React)
+        // Phase 3: layers → getDeckSpec(), merge, remove, order, setDeckLayers()
+        // (Same pipeline as Angular and React)
 
-    return { success: true, message: `Updated: ${updatedParts.join(', ')}` };
+        return { success: true, message: `Updated: ${updatedParts.join(', ')}` };
+      },
+    };
   }
 }
 ```
@@ -453,32 +459,33 @@ async initialize(containerId, canvasId) {
 }
 ```
 
-### Rendering
+### Rendering — Full-Spec Conversion
+
+Uses the official deck.gl pattern: `jsonConverter.convert(fullSpec)` → `deck.setProps(result)`.
 
 ```javascript
-renderFromState(state, changedKeys) {
+_renderFromState(state, changedKeys) {
   const jsonConverter = getJsonConverter();
 
-  if (changedKeys.includes('viewState')) {
-    this.deck.setProps({
-      initialViewState: {
-        ...state.viewState,
-        transitionDuration: state.transitionDuration,
-        transitionInterpolator: new FlyToInterpolator(),
-      },
-    });
+  // Full-spec conversion (viewState + layers unified)
+  if (changedKeys.includes('initialViewState') || changedKeys.includes('layers')) {
+    const spec = {
+      initialViewState: state.deckSpec.initialViewState,
+      layers: (state.deckSpec.layers || []).map((layer, i) => {
+        const cloned = JSON.parse(JSON.stringify(layer));
+        cloned.id = cloned.id || `layer-${i}`;
+        return this._injectCartoCredentials(cloned);
+      }),
+    };
+
+    const deckProps = jsonConverter.convert(spec);
+    this._deck.setProps(deckProps);
+    this._scheduleRedraws();
   }
 
+  // Basemap is a MapLibre concern (separate)
   if (changedKeys.includes('basemap')) {
-    this.map.setStyle(BASEMAP_URLS[state.basemap]);
-  }
-
-  if (changedKeys.includes('deckConfig')) {
-    const convertedLayers = state.deckConfig.layers.map(spec => {
-      const withCreds = this.injectCartoCredentials(spec);
-      return jsonConverter.convert(withCreds);
-    });
-    this.deck.setProps({ layers: convertedLayers });
+    this._map.setStyle(BASEMAP_URLS[state.basemap]);
   }
 }
 ```

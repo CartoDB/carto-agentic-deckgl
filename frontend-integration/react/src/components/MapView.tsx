@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { DeckGL } from '@deck.gl/react';
 import { Map } from 'react-map-gl/maplibre';
-import { FlyToInterpolator } from '@deck.gl/core';
 import { BASEMAP } from '@deck.gl/carto';
-import { useDeckLayers } from '../hooks/useDeckLayers';
+import { useDeckProps } from '../hooks/useDeckProps';
 import { useDeckState } from '../hooks/useDeckState';
 import { getTooltipContent } from '../utils/tooltip';
 import type { PickingInfo } from '@deck.gl/core';
@@ -22,17 +21,10 @@ interface MapViewProps {
 
 export function MapView({ onViewStateChange }: MapViewProps) {
   const deckState = useDeckState();
-  const layers = useDeckLayers();
+  const deckProps = useDeckProps();
   const redrawTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const { viewState, basemap, transitionDuration } = deckState.state;
-
-  // Compute initialViewState with transition properties (matches Angular/Vanilla pattern)
-  const initialViewState = useMemo(() => ({
-    ...viewState,
-    transitionDuration,
-    transitionInterpolator: new FlyToInterpolator(),
-  }), [viewState, transitionDuration]);
+  const { basemap } = deckState.state;
 
   // Only update the ref (no context dispatch) on user drag — matches Angular/Vanilla behavior
   const handleViewStateChange = useCallback(
@@ -47,12 +39,13 @@ export function MapView({ onViewStateChange }: MapViewProps) {
     return getTooltipContent(info);
   }, []);
 
-  // Schedule redraws after layer updates
+  // Schedule redraws after spec updates
+  const deckLayers = deckProps.layers as unknown[] | undefined;
   useEffect(() => {
     redrawTimersRef.current.forEach(clearTimeout);
     redrawTimersRef.current = [];
 
-    if (layers.length > 0) {
+    if (deckLayers && deckLayers.length > 0) {
       const timers = [
         setTimeout(() => {
           requestAnimationFrame(() => { /* Force redraw */ });
@@ -67,15 +60,14 @@ export function MapView({ onViewStateChange }: MapViewProps) {
     return () => {
       redrawTimersRef.current.forEach(clearTimeout);
     };
-  }, [layers]);
+  }, [deckLayers]);
 
   return (
     <div className="map-view-container">
       <DeckGL
-        initialViewState={initialViewState}
+        {...deckProps}
         onViewStateChange={handleViewStateChange}
         controller
-        layers={layers}
         getTooltip={getTooltip}
       >
         <Map mapStyle={BASEMAP_URLS[basemap]} />

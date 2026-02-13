@@ -107,11 +107,11 @@ src/
 │   ├── useDeckState.ts             # Access DeckStateContext
 │   ├── useMapAITools.ts            # Access MapAIToolsContext
 │   ├── useWebSocket.ts             # Access WebSocketContext
-│   ├── useDeckLayers.ts            # Convert state layers for UI
+│   ├── useDeckProps.ts              # Full-spec JSONConverter conversion
 │   └── useIsMobile.ts              # Viewport size detection
 │
 ├── services/
-│   └── tool-executor.ts            # Pure class (no React deps)
+│   └── tool-executor.ts            # Pure function (no React deps)
 │
 ├── config/
 │   ├── deck-json-config.ts         # JSONConverter setup (@@type, @@function, @@=, @@#)
@@ -150,7 +150,7 @@ graph TB
     end
 
     subgraph Pure
-        ToolExec["ToolExecutor<br/><i>pure class</i>"]
+        ToolExec["createToolExecutor()<br/><i>factory function</i>"]
     end
 
     subgraph Config
@@ -162,13 +162,13 @@ graph TB
     MapAIToolsProvider --> App
 
     ChatUI -->|"useMapAITools()"| MapAIToolsProvider
-    MapView -->|"useDeckState()"| DeckStateProvider
+    MapView -->|"useDeckProps()"| DeckStateProvider
     LayerToggle -->|"useDeckState()"| DeckStateProvider
     ZoomControls -->|"useDeckState()"| DeckStateProvider
 
-    MapAIToolsProvider -->|"execute()"| ToolExec
-    ToolExec -->|"setViewState()<br/>setDeckConfig()"| DeckStateProvider
-    MapView -->|"convert()"| JSONConfig
+    MapAIToolsProvider -->|"executeTool()"| ToolExec
+    ToolExec -->|"setInitialViewState()<br/>setDeckLayers()"| DeckStateProvider
+    MapView -->|"convert(fullSpec)"| JSONConfig
 ```
 
 ### Provider Nesting Order
@@ -194,86 +194,62 @@ The nesting order matters: `MapAIToolsProvider` depends on both `DeckStateContex
 
 The `DeckStateContext` uses React's `useReducer` for predictable state transitions and `useRef` for mutable data that doesn't trigger re-renders (layer centers, initial layer IDs, current view state from user drag).
 
+State is organized around a unified `DeckSpec` object that mirrors the official deck.gl JSON spec pattern. Basemap is kept separate because it's a MapLibre concern (`map.setStyle()`), not part of deck.gl.
+
+### State Shape
+
+```typescript
+interface DeckSpec {
+  initialViewState: ViewState & { transitionDuration?: number };
+  layers: LayerSpec[];
+  widgets: Record<string, unknown>[];
+  effects: Record<string, unknown>[];
+}
+
+interface DeckStateData {
+  deckSpec: DeckSpec;       // Unified deck.gl spec
+  basemap: Basemap;         // MapLibre concern (separate)
+  activeLayerId?: string;
+}
+```
+
 ### Reducer Actions
 
 ```typescript
 type DeckStateAction =
-  | { type: 'SET_VIEW_STATE'; payload: Partial<ViewState> & { transitionDuration?: number } }
-  | { type: 'SET_DECK_CONFIG'; payload: DeckConfig }
+  | { type: 'SET_INITIAL_VIEW_STATE'; payload: Partial<ViewState> & { transitionDuration?: number } }
+  | { type: 'SET_DECK_LAYERS'; payload: { layers; widgets; effects } }
   | { type: 'SET_LAYERS'; payload: LayerSpec[] }
   | { type: 'SET_BASEMAP'; payload: Basemap }
   | { type: 'SET_ACTIVE_LAYER_ID'; payload: string | undefined }
   | { type: 'CLEAR_CHAT_LAYERS'; payload: Set<string> };
 ```
 
-### Provider Implementation
+### Context Methods
 
 ```typescript
-export function DeckStateProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(deckStateReducer, initialState);
-
-  // Mutable refs for data that doesn't need re-renders
-  const layerCentersRef = useRef(new Map<string, { longitude; latitude; zoom }>());
-  const initialLayerIdsRef = useRef(new Set<string>());
-  const currentViewStateRef = useRef<ViewState>({ ...DEFAULT_VIEW_STATE });
-  const stateRef = useRef(state);
-  stateRef.current = state;
-
-  // Stable callbacks via useCallback
-  const setViewState = useCallback(
-    (partial: Partial<ViewState> & { transitionDuration?: number }) => {
-      currentViewStateRef.current = { ...currentViewStateRef.current, ...partial };
-      dispatch({ type: 'SET_VIEW_STATE', payload: partial });
-    }, []
-  );
-
-  const setDeckConfig = useCallback(
-    (config: DeckConfig) => {
-      // Capture center for new layers using current position ref
-      const existingLayerIds = new Set(
-        stateRef.current.deckConfig.layers.map(l => l['id'] as string)
-      );
-      for (const layer of config.layers ?? []) {
-        const layerId = layer['id'] as string;
-        if (layerId && !existingLayerIds.has(layerId)) {
-          layerCentersRef.current.set(layerId, {
-            longitude: currentViewStateRef.current.longitude,
-            latitude: currentViewStateRef.current.latitude,
-            zoom: currentViewStateRef.current.zoom,
-          });
-        }
-      }
-      dispatch({ type: 'SET_DECK_CONFIG', payload: config });
-    }, []
-  );
-
-  // updateCurrentViewState: updates ref only, no re-render
-  // Used by MapView to track user drag position
-  const updateCurrentViewState = useCallback(
-    (vs: Partial<ViewState>) => {
-      currentViewStateRef.current = { ...currentViewStateRef.current, ...vs };
-    }, []
-  );
-
-  return (
-    <DeckStateContext.Provider value={contextValue}>
-      {children}
-    </DeckStateContext.Provider>
-  );
+interface DeckStateContextValue {
+  state: DeckStateData;
+  setInitialViewState: (partial) => void;  // Updates deckSpec.initialViewState
+  setDeckLayers: (config) => void;         // Updates deckSpec.layers/widgets/effects
+  setLayers: (layers) => void;             // Updates deckSpec.layers only
+  setBasemap: (basemap) => void;           // MapLibre basemap
+  getDeckSpec: () => DeckSpec;             // Current full spec snapshot
+  getViewState: () => ViewState;           // Current camera from ref
+  // ...
 }
 ```
 
 ### Using the Hook
 
 ```typescript
-// In any component
 import { useDeckState } from '../hooks/useDeckState';
 
 function MyComponent() {
-  const { state, setViewState, setBasemap, getLayerCenter } = useDeckState();
+  const { state, setInitialViewState, setBasemap, getLayerCenter } = useDeckState();
 
-  // state.viewState, state.deckConfig, state.basemap are reactive
-  // setViewState, setBasemap are stable references (useCallback)
+  // state.deckSpec.layers, state.deckSpec.initialViewState, state.basemap are reactive
+  // setInitialViewState, setBasemap are stable references (useCallback)
 }
 ```
 
@@ -285,52 +261,49 @@ The `currentViewStateRef` tracks the actual camera position from user drag inter
 
 ## Tool Executor
 
-The `ToolExecutor` is a **pure class with no React dependencies**. It receives a `DeckStateActions` interface and can be used in any context — React, tests, or standalone scripts.
+The tool executor is a **pure factory function with no React dependencies**. `createToolExecutor()` receives a `DeckStateActions` interface and returns an `ExecuteToolFn` closure. Uses a map-of-executors pattern for O(1) tool dispatch.
 
 ```typescript
 export interface DeckStateActions {
-  setViewState: (vs: { latitude; longitude; zoom; pitch?; bearing?; transitionDuration? }) => void;
+  setInitialViewState: (vs: { latitude; longitude; zoom; pitch?; bearing?; transitionDuration? }) => void;
   setBasemap: (basemap: Basemap) => void;
-  setDeckConfig: (config: DeckConfig) => void;
+  setDeckLayers: (config: DeckLayersConfig) => void;
   setActiveLayerId: (id: string | undefined) => void;
-  getDeckConfig: () => DeckConfig;
+  getDeckSpec: () => DeckLayersConfig;
 }
 
-export class ToolExecutor {
-  constructor(private actions: DeckStateActions) {}
+export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
+  const executors: Record<string, ToolExecutorFn> = {
+    [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
+  };
 
-  async execute(toolName: string, params: unknown): Promise<ToolResult> {
-    if (toolName !== TOOL_NAMES.SET_DECK_STATE) {
-      return { success: false, message: `Unknown tool: ${toolName}` };
-    }
-    return this.executeSetDeckState(params as SetDeckStateParams);
-  }
-
-  private executeSetDeckState(params: SetDeckStateParams): ToolResult {
-    // Phase 1: viewState → this.actions.setViewState()
-    // Phase 2: basemap   → this.actions.setBasemap()
-    // Phase 3: deckConfig → remove, merge, order, validate, setDeckConfig()
-    // (Same pipeline as Angular and Vanilla)
-  }
+  return async (toolName, params) => {
+    const executor = executors[toolName];
+    if (!executor) return { success: false, message: `Unknown tool: ${toolName}` };
+    return executor(params);
+  };
 }
+
+// executeSetDeckState pipeline:
+// Phase 1: viewState → actions.setInitialViewState()
+// Phase 2: basemap   → actions.setBasemap()
+// Phase 3: layers    → remove, merge, order, validate, actions.setDeckLayers()
 ```
 
 ### Instantiation in MapAIToolsContext
 
-The `ToolExecutor` is instantiated inside the `MapAIToolsProvider` by passing the `DeckStateContext` callbacks:
+The executor is created inside the `MapAIToolsProvider` by passing `DeckStateContext` callbacks through refs:
 
 ```typescript
 // Inside MapAIToolsProvider
-const { setViewState, setBasemap, setDeckConfig, setActiveLayerId, getDeckConfig } = useDeckState();
-
-const executorRef = useRef<ToolExecutor | null>(null);
-if (!executorRef.current) {
-  executorRef.current = new ToolExecutor({
-    setViewState,
-    setBasemap,
-    setDeckConfig,
-    setActiveLayerId,
-    getDeckConfig,
+const toolExecutorRef = useRef<ExecuteToolFn | null>(null);
+if (!toolExecutorRef.current) {
+  toolExecutorRef.current = createToolExecutor({
+    setInitialViewState: (vs) => deckStateRef.current.setInitialViewState(vs),
+    setBasemap: (b) => deckStateRef.current.setBasemap(b),
+    setDeckLayers: (c) => deckStateRef.current.setDeckLayers(c),
+    setActiveLayerId: (id) => deckStateRef.current.setActiveLayerId(id),
+    getDeckSpec: () => deckStateRef.current.getDeckSpec(),
   });
 }
 ```
@@ -398,83 +371,65 @@ function ChatUI() {
 
 ## Deck Map Renderer
 
-The `MapView` component manages deck.gl and MapLibre instances imperatively. Unlike Angular's service-based approach, React uses `useRef` to hold the instances and `useEffect` for lifecycle management.
+The React integration uses the `<DeckGL>` React component from `@deck.gl/react`, combined with a `useDeckProps()` hook that performs full-spec JSONConverter conversion following the official deck.gl pattern.
 
-### Imperative Initialization
+### useDeckProps Hook — Full-Spec Conversion
 
-```tsx
-function MapView() {
-  const deckRef = useRef<Deck | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const { state, updateCurrentViewState } = useDeckState();
+The `useDeckProps` hook converts the unified `DeckSpec` from state into deck.gl props using a single `jsonConverter.convert(fullSpec)` call:
 
-  useEffect(() => {
-    // Create MapLibre map
-    const map = new maplibregl.Map({
-      container: 'map-container',
-      style: BASEMAP_URLS[state.basemap],
-      interactive: false,
-    });
+```typescript
+export function useDeckProps(): Record<string, unknown> {
+  const { state } = useDeckState();
 
-    // Create deck.gl instance
-    const deck = new Deck({
-      canvas: 'deck-canvas',
-      initialViewState: state.viewState,
-      controller: true,
-      onViewStateChange: ({ viewState: vs }) => {
-        map.jumpTo({ center: [vs.longitude, vs.latitude], zoom: vs.zoom });
-        updateCurrentViewState(vs); // Update ref, no re-render
-      },
-      getTooltip: (info) => getTooltipContent(info),
-    });
-
-    deckRef.current = deck;
-    mapRef.current = map;
-
-    return () => {
-      deck.finalize();
-      map.remove();
-    };
-  }, []);
-
-  // Re-render layers when state changes
-  useEffect(() => {
-    if (!deckRef.current) return;
+  return useMemo(() => {
     const jsonConverter = getJsonConverter();
 
-    const convertedLayers = state.deckConfig.layers.map(spec => {
-      const withCreds = injectCartoCredentials(spec);
-      return jsonConverter.convert(withCreds);
+    // Deep clone layers for credential injection (avoid mutating state)
+    const layers = (state.deckSpec.layers || []).map((layerJson, i) => {
+      const layer = JSON.parse(JSON.stringify(layerJson));
+      layer.id = layer.id || `layer-${i}`;
+      return injectCartoCredentials(layer);
     });
 
-    deckRef.current.setProps({ layers: convertedLayers });
-  }, [state.deckConfig.layers]);
+    // Build full spec (initialViewState is plain data, no class instances)
+    const spec = {
+      initialViewState: state.deckSpec.initialViewState,
+      layers,
+    };
 
-  // Animate camera on viewState change
-  useEffect(() => {
-    if (!deckRef.current) return;
-    deckRef.current.setProps({
-      initialViewState: {
-        ...state.viewState,
-        transitionDuration: state.transitionDuration,
-        transitionInterpolator: new FlyToInterpolator(),
-      },
-    });
-  }, [state.viewState]);
+    return jsonConverter.convert(spec) || {};
+  }, [state.deckSpec]);
+}
+```
+
+### MapView Component — Spread Props
+
+The `MapView` component spreads the converted props directly into `<DeckGL>`:
+
+```tsx
+function MapView({ onViewStateChange }) {
+  const deckState = useDeckState();
+  const deckProps = useDeckProps();
+  const { basemap } = deckState.state;
 
   return (
-    <div id="map-container" className="map-container">
-      <canvas id="deck-canvas" />
-    </div>
+    <DeckGL
+      {...deckProps}
+      onViewStateChange={handleViewStateChange}
+      controller
+      getTooltip={getTooltip}
+    >
+      <Map mapStyle={BASEMAP_URLS[basemap]} />
+    </DeckGL>
   );
 }
 ```
 
-### Key Differences from Angular
+### Key Differences from Angular/Vanilla
 
-- **No DeckMapService** — The MapView component manages both deck.gl and MapLibre directly
-- **useEffect for reactivity** — State changes trigger effects instead of RxJS subscriptions
-- **useRef for instances** — deck.gl and MapLibre instances are held in refs, not service properties
+- **Declarative `<DeckGL>`** — Uses the `@deck.gl/react` component instead of imperative `new Deck()`
+- **`useDeckProps` hook** — Single full-spec conversion replaces per-layer loops
+- **Spread pattern** — `{...deckProps}` passes all converted props at once
 - **updateCurrentViewState** — User drag updates a ref (not state) to avoid re-render loops
 
 ---

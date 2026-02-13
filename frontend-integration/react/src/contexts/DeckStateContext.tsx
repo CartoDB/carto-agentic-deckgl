@@ -2,19 +2,17 @@
  * DeckState Context
  *
  * Centralized state management for deck.gl map.
- * Replaces Angular's DeckStateService with React Context + useReducer.
+ * Uses a unified DeckSpec object that mirrors the official deck.gl JSON spec pattern:
+ *   jsonConverter.convert(deckSpec) → deckProps → <DeckGL {...deckProps} />
+ *
+ * Basemap is kept separate because it's a MapLibre concern (map.setStyle()),
+ * not part of the deck.gl spec.
  */
 
 import React, { createContext, useReducer, useRef, useCallback, type ReactNode } from 'react';
 import type { LayerSpec } from '../utils/layer-merge';
 
 export type Basemap = 'dark-matter' | 'positron' | 'voyager';
-
-export interface DeckConfig {
-  layers: LayerSpec[];
-  widgets: Record<string, unknown>[];
-  effects: Record<string, unknown>[];
-}
 
 export interface ViewState {
   longitude: number;
@@ -24,12 +22,17 @@ export interface ViewState {
   bearing: number;
 }
 
+export interface DeckSpec {
+  initialViewState: ViewState & { transitionDuration?: number };
+  layers: LayerSpec[];
+  widgets: Record<string, unknown>[];
+  effects: Record<string, unknown>[];
+}
+
 interface DeckStateData {
-  viewState: ViewState;
-  deckConfig: DeckConfig;
+  deckSpec: DeckSpec;
   basemap: Basemap;
   activeLayerId?: string;
-  transitionDuration: number;
 }
 
 const DEFAULT_VIEW_STATE: ViewState = {
@@ -40,7 +43,8 @@ const DEFAULT_VIEW_STATE: ViewState = {
   pitch: 0,
 };
 
-const DEFAULT_DECK_CONFIG: DeckConfig = {
+const DEFAULT_DECK_SPEC: DeckSpec = {
+  initialViewState: { ...DEFAULT_VIEW_STATE },
   layers: [],
   widgets: [],
   effects: [],
@@ -48,8 +52,8 @@ const DEFAULT_DECK_CONFIG: DeckConfig = {
 
 // Actions
 type DeckStateAction =
-  | { type: 'SET_VIEW_STATE'; payload: Partial<ViewState> & { transitionDuration?: number } }
-  | { type: 'SET_DECK_CONFIG'; payload: DeckConfig }
+  | { type: 'SET_INITIAL_VIEW_STATE'; payload: Partial<ViewState> & { transitionDuration?: number } }
+  | { type: 'SET_DECK_LAYERS'; payload: { layers: LayerSpec[]; widgets: Record<string, unknown>[]; effects: Record<string, unknown>[] } }
   | { type: 'SET_LAYERS'; payload: LayerSpec[] }
   | { type: 'SET_BASEMAP'; payload: Basemap }
   | { type: 'SET_ACTIVE_LAYER_ID'; payload: string | undefined }
@@ -57,20 +61,34 @@ type DeckStateAction =
 
 function deckStateReducer(state: DeckStateData, action: DeckStateAction): DeckStateData {
   switch (action.type) {
-    case 'SET_VIEW_STATE': {
+    case 'SET_INITIAL_VIEW_STATE': {
       const { transitionDuration, ...viewStatePartial } = action.payload;
       return {
         ...state,
-        viewState: { ...state.viewState, ...viewStatePartial },
-        transitionDuration: transitionDuration ?? 1000,
+        deckSpec: {
+          ...state.deckSpec,
+          initialViewState: {
+            ...state.deckSpec.initialViewState,
+            ...viewStatePartial,
+            transitionDuration: transitionDuration ?? 1000,
+          },
+        },
       };
     }
-    case 'SET_DECK_CONFIG':
-      return { ...state, deckConfig: action.payload };
+    case 'SET_DECK_LAYERS':
+      return {
+        ...state,
+        deckSpec: {
+          ...state.deckSpec,
+          layers: action.payload.layers,
+          widgets: action.payload.widgets,
+          effects: action.payload.effects,
+        },
+      };
     case 'SET_LAYERS':
       return {
         ...state,
-        deckConfig: { ...state.deckConfig, layers: action.payload },
+        deckSpec: { ...state.deckSpec, layers: action.payload },
       };
     case 'SET_BASEMAP':
       return { ...state, basemap: action.payload };
@@ -78,12 +96,12 @@ function deckStateReducer(state: DeckStateData, action: DeckStateAction): DeckSt
       return { ...state, activeLayerId: action.payload };
     case 'CLEAR_CHAT_LAYERS': {
       const initialLayerIds = action.payload;
-      const filteredLayers = state.deckConfig.layers.filter((layer) =>
+      const filteredLayers = state.deckSpec.layers.filter((layer) =>
         initialLayerIds.has(layer['id'] as string)
       );
       return {
         ...state,
-        deckConfig: { ...state.deckConfig, layers: filteredLayers },
+        deckSpec: { ...state.deckSpec, layers: filteredLayers },
         activeLayerId:
           state.activeLayerId && !initialLayerIds.has(state.activeLayerId)
             ? undefined
@@ -98,14 +116,14 @@ function deckStateReducer(state: DeckStateData, action: DeckStateAction): DeckSt
 // Context value type
 export interface DeckStateContextValue {
   state: DeckStateData;
-  setViewState: (partial: Partial<ViewState> & { transitionDuration?: number }) => void;
+  setInitialViewState: (partial: Partial<ViewState> & { transitionDuration?: number }) => void;
   updateCurrentViewState: (vs: Partial<ViewState>) => void;
-  setDeckConfig: (config: DeckConfig) => void;
+  setDeckLayers: (config: { layers: LayerSpec[]; widgets: Record<string, unknown>[]; effects: Record<string, unknown>[] }) => void;
   setLayers: (layers: LayerSpec[]) => void;
   setBasemap: (basemap: Basemap) => void;
   setActiveLayerId: (id: string | undefined) => void;
   getViewState: () => ViewState;
-  getDeckConfig: () => DeckConfig;
+  getDeckSpec: () => DeckSpec;
   getLayerCenter: (layerId: string) => { longitude: number; latitude: number; zoom: number } | undefined;
   clearChatGeneratedLayers: () => void;
   setInitialLayerIds: (ids: string[]) => void;
@@ -115,11 +133,9 @@ export const DeckStateContext = createContext<DeckStateContextValue | null>(null
 
 export function DeckStateProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(deckStateReducer, {
-    viewState: { ...DEFAULT_VIEW_STATE },
-    deckConfig: { ...DEFAULT_DECK_CONFIG },
+    deckSpec: { ...DEFAULT_DECK_SPEC, initialViewState: { ...DEFAULT_VIEW_STATE } },
     basemap: 'positron' as Basemap,
     activeLayerId: undefined,
-    transitionDuration: 1000,
   });
 
   // Use refs for mutable data that doesn't need re-renders
@@ -131,11 +147,11 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const setViewState = useCallback(
+  const setInitialViewState = useCallback(
     (partial: Partial<ViewState> & { transitionDuration?: number }) => {
       const { transitionDuration: _, ...viewStatePartial } = partial;
       currentViewStateRef.current = { ...currentViewStateRef.current, ...viewStatePartial };
-      dispatch({ type: 'SET_VIEW_STATE', payload: partial });
+      dispatch({ type: 'SET_INITIAL_VIEW_STATE', payload: partial });
     },
     []
   );
@@ -148,13 +164,13 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const setDeckConfig = useCallback(
-    (config: DeckConfig) => {
+  const setDeckLayers = useCallback(
+    (config: { layers: LayerSpec[]; widgets: Record<string, unknown>[]; effects: Record<string, unknown>[] }) => {
       // Capture center for new layers using actual current position
       const currentState = stateRef.current;
       const currentVS = currentViewStateRef.current;
       const existingLayerIds = new Set(
-        currentState.deckConfig.layers.map((l) => l['id'] as string)
+        currentState.deckSpec.layers.map((l) => l['id'] as string)
       );
       const newLayers = config.layers ?? [];
       for (const layer of newLayers) {
@@ -167,7 +183,7 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
           });
         }
       }
-      dispatch({ type: 'SET_DECK_CONFIG', payload: config });
+      dispatch({ type: 'SET_DECK_LAYERS', payload: config });
     },
     []
   );
@@ -178,7 +194,7 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
       const currentState = stateRef.current;
       const currentVS = currentViewStateRef.current;
       const existingLayerIds = new Set(
-        currentState.deckConfig.layers.map((l) => l['id'] as string)
+        currentState.deckSpec.layers.map((l) => l['id'] as string)
       );
       for (const layer of layers) {
         const layerId = layer['id'] as string;
@@ -205,12 +221,13 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
 
   const getViewState = useCallback(() => ({ ...currentViewStateRef.current }), []);
 
-  const getDeckConfig = useCallback(() => {
-    const config = stateRef.current.deckConfig;
+  const getDeckSpec = useCallback((): DeckSpec => {
+    const spec = stateRef.current.deckSpec;
     return {
-      layers: [...config.layers],
-      widgets: [...config.widgets],
-      effects: [...config.effects],
+      initialViewState: { ...spec.initialViewState },
+      layers: [...spec.layers],
+      widgets: [...spec.widgets],
+      effects: [...spec.effects],
     };
   }, []);
 
@@ -221,7 +238,7 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
 
   const clearChatGeneratedLayers = useCallback(() => {
     // Clean up layer centers for removed layers
-    const currentLayers = stateRef.current.deckConfig.layers;
+    const currentLayers = stateRef.current.deckSpec.layers;
     const removedLayerIds = currentLayers
       .filter((layer) => !initialLayerIdsRef.current.has(layer['id'] as string))
       .map((layer) => layer['id'] as string);
@@ -237,14 +254,14 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
 
   const contextValue: DeckStateContextValue = {
     state,
-    setViewState,
+    setInitialViewState,
     updateCurrentViewState,
-    setDeckConfig,
+    setDeckLayers,
     setLayers,
     setBasemap,
     setActiveLayerId,
     getViewState,
-    getDeckConfig,
+    getDeckSpec,
     getLayerCenter,
     clearChatGeneratedLayers,
     setInitialLayerIds,

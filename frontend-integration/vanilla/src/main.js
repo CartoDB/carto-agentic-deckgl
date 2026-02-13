@@ -73,7 +73,7 @@ const layerToggle = new LayerToggle(document.getElementById('layer-toggle-wrappe
     const layers = orchestrator.getLayerConfigs();
     const layer = layers.find((l) => l.id === event.layerId);
     if (layer?.center) {
-      deckState.setViewState({
+      deckState.setInitialViewState({
         latitude: layer.center.latitude,
         longitude: layer.center.longitude,
         zoom: layer.center.zoom ?? 12,
