@@ -33,8 +33,8 @@ export class MapAIToolsOrchestrator extends EventEmitter {
 
     // Subscribe to deck state layers for legend extraction
     this._deckState.on('change', ({ state, changedKeys }) => {
-      if (changedKeys.includes('deckConfig')) {
-        this._updateLayerConfigs(state.deckConfig.layers);
+      if (changedKeys.includes('layers')) {
+        this._updateLayerConfigs(state.deckSpec.layers);
       }
     });
   }
@@ -103,13 +103,13 @@ export class MapAIToolsOrchestrator extends EventEmitter {
 
     return {
       viewState: {
-        longitude: state.viewState.longitude ?? 0,
-        latitude: state.viewState.latitude ?? 0,
-        zoom: state.viewState.zoom ?? 3,
-        pitch: state.viewState.pitch ?? 0,
-        bearing: state.viewState.bearing ?? 0,
+        longitude: state.deckSpec.initialViewState.longitude ?? 0,
+        latitude: state.deckSpec.initialViewState.latitude ?? 0,
+        zoom: state.deckSpec.initialViewState.zoom ?? 3,
+        pitch: state.deckSpec.initialViewState.pitch ?? 0,
+        bearing: state.deckSpec.initialViewState.bearing ?? 0,
       },
-      layers: state.deckConfig.layers.map((layer) => {
+      layers: state.deckSpec.layers.map((layer) => {
         const baseInfo = {
           id: layer['id'] || 'unknown',
           type: layer['@@type'] || 'Unknown',

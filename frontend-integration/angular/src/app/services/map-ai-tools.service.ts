@@ -178,16 +178,17 @@ export class MapAIToolsService implements OnDestroy {
 
   private createInitialState(): InitialState {
     const state = this.deckState.getState();
+    const spec = state.deckSpec;
 
     return {
       viewState: {
-        longitude: state.viewState.longitude ?? 0,
-        latitude: state.viewState.latitude ?? 0,
-        zoom: state.viewState.zoom ?? 3,
-        pitch: state.viewState.pitch ?? 0,
-        bearing: state.viewState.bearing ?? 0
+        longitude: spec.initialViewState.longitude,
+        latitude: spec.initialViewState.latitude,
+        zoom: spec.initialViewState.zoom,
+        pitch: spec.initialViewState.pitch,
+        bearing: spec.initialViewState.bearing
       },
-      layers: state.deckConfig.layers.map(layer => {
+      layers: spec.layers.map(layer => {
         const baseInfo = {
           id: (layer['id'] as string) || 'unknown',
           type: (layer['@@type'] as string) || 'Unknown',

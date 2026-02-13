@@ -163,12 +163,12 @@ graph TB
     ChatUI -->|"sendMessage()"| MapAITools
     MapAITools -->|"sendChatMessage()"| WebSocket
     MapAITools -->|"execute()"| Executors
-    Executors -->|"setViewState()<br/>setDeckConfig()"| DeckState
+    Executors -->|"setInitialViewState()<br/>setDeckLayers()"| DeckState
     DeckState -->|"state$ observable"| DeckMap
-    DeckMap -->|"convert()"| JSONConfig
+    DeckMap -->|"convert(fullSpec)"| JSONConfig
     MapView -->|"initialize()"| DeckMap
     LayerToggle -->|"setLayers()"| DeckState
-    ZoomControls -->|"setViewState()"| DeckState
+    ZoomControls -->|"setInitialViewState()"| DeckState
 ```
 
 ### Service Dependencies
@@ -188,17 +188,20 @@ DeckMapService                ← injects DeckStateService
 
 ## State Management
 
-The `DeckStateService` is the single source of truth for all map-related state. It uses RxJS `BehaviorSubject` instances for each state slice, combined into a single `state$` observable that emits on every change.
+The `DeckStateService` is the single source of truth for all map-related state. It uses a unified `DeckSpec` BehaviorSubject that mirrors the official deck.gl JSON spec pattern. Basemap is kept separate because it's a MapLibre concern.
 
-### State Structure
+### State Shape
 
 ```typescript
-interface DeckStateData {
-  viewState: MapViewState;       // latitude, longitude, zoom, pitch, bearing
-  deckConfig: DeckConfig;        // layers, widgets, effects
-  basemap: Basemap;              // 'dark-matter' | 'positron' | 'voyager'
-  activeLayerId?: string;        // Currently active layer
-  transitionDuration: number;    // Animation duration in ms
+interface DeckSpec {
+  initialViewState: {
+    longitude: number; latitude: number; zoom: number;
+    pitch: number; bearing: number;
+    transitionDuration?: number;
+  };
+  layers: LayerSpec[];
+  widgets: Record<string, unknown>[];
+  effects: Record<string, unknown>[];
 }
 ```
 
@@ -207,45 +210,55 @@ interface DeckStateData {
 ```typescript
 @Injectable({ providedIn: 'root' })
 export class DeckStateService {
-  // Each state slice is a BehaviorSubject
-  private viewStateSubject = new BehaviorSubject<MapViewState>(DEFAULT_VIEW_STATE);
-  private deckConfigSubject = new BehaviorSubject<DeckConfig>(DEFAULT_DECK_CONFIG);
+  // Unified deck.gl spec
+  private deckSpecSubject = new BehaviorSubject<DeckSpec>(DEFAULT_DECK_SPEC);
+  // Separate concerns
   private basemapSubject = new BehaviorSubject<Basemap>('positron');
+  private activeLayerIdSubject = new BehaviorSubject<string | undefined>(undefined);
   private changedKeysSubject = new BehaviorSubject<string[]>([]);
 
   // Combined observable emits on any change
   public state$: Observable<StateChange> = combineLatest([
-    this.viewStateSubject,
-    this.deckConfigSubject,
+    this.deckSpecSubject,
     this.basemapSubject,
     this.activeLayerIdSubject,
-    this.transitionDurationSubject,
     this.changedKeysSubject,
   ]).pipe(
-    map(([viewState, deckConfig, basemap, activeLayerId, transitionDuration, changedKeys]) => ({
-      state: { viewState, deckConfig, basemap, activeLayerId, transitionDuration },
+    map(([deckSpec, basemap, activeLayerId, changedKeys]) => ({
+      state: { deckSpec, basemap, activeLayerId },
       changedKeys,
     })),
     distinctUntilChanged(/* deep equality check */)
   );
 
   // Convenience observable for components that only need layers
-  public layers$: Observable<LayerSpec[]> = this.deckConfigSubject.pipe(
-    map(config => config.layers),
+  public layers$: Observable<LayerSpec[]> = this.deckSpecSubject.pipe(
+    map(spec => spec.layers),
     distinctUntilChanged()
   );
 
   // Setters notify change through changedKeys
-  setViewState(partial: Partial<MapViewState>): void {
-    this.viewStateSubject.next({ ...this.viewStateSubject.value, ...partial });
-    this.notifyChange(['viewState']);
+  setInitialViewState(partial: Partial<ViewState> & { transitionDuration?: number }): void {
+    const current = this.deckSpecSubject.value;
+    this.deckSpecSubject.next({
+      ...current,
+      initialViewState: { ...current.initialViewState, ...partial },
+    });
+    this.notifyChange(['initialViewState']);
   }
 
-  setDeckConfig(config: DeckConfig): void {
-    // Captures layer centers for zoom-to-layer feature
-    this.deckConfigSubject.next(config);
-    this.notifyChange(['deckConfig']);
+  setDeckLayers(config: { layers; widgets; effects }): void {
+    const current = this.deckSpecSubject.value;
+    this.deckSpecSubject.next({
+      ...current,
+      layers: config.layers ?? [],
+      widgets: config.widgets ?? [],
+      effects: config.effects ?? [],
+    });
+    this.notifyChange(['layers']);
   }
+
+  getDeckSpec(): DeckSpec { return { ...this.deckSpecSubject.value }; }
 }
 ```
 
@@ -273,7 +286,7 @@ export class LayerToggleComponent implements OnInit, OnDestroy {
 
 ### Change Tracking
 
-Every setter calls `notifyChange(['viewState'])` or `notifyChange(['deckConfig'])` with an array of changed keys. The `DeckMapService` uses these keys to perform partial updates — only re-rendering the parts of the map that actually changed.
+Every setter calls `notifyChange(['initialViewState'])` or `notifyChange(['layers'])` with an array of changed keys. The `DeckMapService` uses these keys to decide when to re-convert the full spec.
 
 ---
 
@@ -300,14 +313,14 @@ export class ConsolidatedExecutorsService {
 
 The executor follows the three-phase pipeline described in the [global guide](../README.md#tool-execution-pipeline):
 
-1. Update `viewState` via `this.deckState.setViewState()`
+1. Update `initialViewState` via `this.deckState.setInitialViewState()`
 2. Update `basemap` via `this.deckState.setBasemap()`
 3. Process layers/widgets/effects:
    - Remove layers listed in `removeLayerIds`
    - Deep merge incoming layers with existing using `mergeLayerSpecs()`
    - Apply `layerOrder` if specified
    - Validate columns with `validateLayerColumns()`
-   - Update state via `this.deckState.setDeckConfig()`
+   - Update state via `this.deckState.setDeckLayers()`
 
 ---
 
@@ -413,36 +426,32 @@ async initialize(containerId: string, canvasId: string) {
 }
 ```
 
-### Rendering from State
+### Rendering from State — Full-Spec Conversion
 
-The `renderFromState` method uses `changedKeys` for efficient partial updates:
+Uses the official deck.gl pattern: `jsonConverter.convert(fullSpec)` → `deck.setProps(result)`.
 
 ```typescript
 private renderFromState(state: DeckStateData, changedKeys: string[]): void {
   const jsonConverter = getJsonConverter();
 
-  // Only update what changed
-  if (changedKeys.includes('viewState')) {
-    this.deck.setProps({
-      initialViewState: {
-        ...state.viewState,
-        transitionDuration: state.transitionDuration,
-        transitionInterpolator: new FlyToInterpolator(),
-      },
+  // Full-spec conversion (viewState + layers unified)
+  if (changedKeys.includes('initialViewState') || changedKeys.includes('layers')) {
+    const spec = JSON.parse(JSON.stringify(state.deckSpec));
+
+    // Inject credentials into layers
+    spec.layers = (spec.layers || []).map((layer, i) => {
+      layer.id = layer.id || `layer-${i}`;
+      return this.injectCartoCredentials(layer);
     });
+
+    const deckProps = jsonConverter.convert(spec);
+    this.deck.setProps(deckProps);
+    this.scheduleRedraws();
   }
 
+  // Basemap is a MapLibre concern (separate)
   if (changedKeys.includes('basemap')) {
     this.map.setStyle(BASEMAP_URLS[state.basemap]);
-  }
-
-  if (changedKeys.includes('deckConfig')) {
-    const convertedLayers = state.deckConfig.layers.map(layerSpec => {
-      const withCredentials = this.injectCartoCredentials(layerSpec);
-      return jsonConverter.convert(withCredentials);
-    });
-
-    this.deck.setProps({ layers: convertedLayers });
   }
 }
 ```

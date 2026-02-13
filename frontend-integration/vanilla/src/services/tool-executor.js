@@ -39,7 +39,7 @@ export class ToolExecutor {
           // Step 1: Update view state
           if (params.initialViewState) {
             const vs = params.initialViewState;
-            this._deckState.setViewState({
+            this._deckState.setInitialViewState({
               latitude: vs.latitude,
               longitude: vs.longitude,
               zoom: vs.zoom,
@@ -65,10 +65,10 @@ export class ToolExecutor {
             'effects' in params;
 
           if (hasDeckConfigFields) {
-            const currentConfig = this._deckState.getDeckConfig();
+            const currentSpec = this._deckState.getDeckSpec();
 
             // Process layer removals FIRST
-            let workingLayers = currentConfig.layers ?? [];
+            let workingLayers = currentSpec.layers ?? [];
             if (params.removeLayerIds && params.removeLayerIds.length > 0) {
               const idsToRemove = new Set(params.removeLayerIds);
               workingLayers = workingLayers.filter(
@@ -123,10 +123,10 @@ export class ToolExecutor {
               } else if (params.widgets) {
                 finalWidgets = params.widgets;
               } else {
-                finalWidgets = currentConfig.widgets ?? [];
+                finalWidgets = currentSpec.widgets ?? [];
               }
             } else {
-              finalWidgets = currentConfig.widgets ?? [];
+              finalWidgets = currentSpec.widgets ?? [];
             }
 
             // Determine final effects
@@ -137,10 +137,10 @@ export class ToolExecutor {
               } else if (params.effects) {
                 finalEffects = params.effects;
               } else {
-                finalEffects = currentConfig.effects ?? [];
+                finalEffects = currentSpec.effects ?? [];
               }
             } else {
-              finalEffects = currentConfig.effects ?? [];
+              finalEffects = currentSpec.effects ?? [];
             }
 
             const config = {
@@ -154,7 +154,7 @@ export class ToolExecutor {
               validateLayerColumns(layer);
             }
 
-            this._deckState.setDeckConfig(config);
+            this._deckState.setDeckLayers(config);
 
             // Track active layer
             if (finalLayers.length > 0) {

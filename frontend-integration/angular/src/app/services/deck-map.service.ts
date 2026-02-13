@@ -7,7 +7,7 @@
 
 import { Injectable, OnDestroy } from '@angular/core';
 import { Subject, Subscription } from 'rxjs';
-import { Deck, FlyToInterpolator, Layer } from '@deck.gl/core';
+import { Deck, Layer } from '@deck.gl/core';
 import { log as lumaLog } from '@luma.gl/core';
 import { BASEMAP } from '@deck.gl/carto';
 import maplibregl from 'maplibre-gl';
@@ -146,46 +146,6 @@ export class DeckMapService implements OnDestroy {
     const jsonConverter = getJsonConverter();
     console.log('[DeckMapService] Rendering state update:', changedKeys);
 
-    // Update view state
-    if (changedKeys.includes('viewState')) {
-      const { longitude, latitude, zoom, pitch, bearing } = state.viewState;
-      const transitionDuration = state.transitionDuration ?? 1000;
-
-      // Force update the view state by setting initialViewState
-      // This works even after user interaction
-      this.deck.setProps({
-        initialViewState: {
-          longitude,
-          latitude,
-          zoom,
-          pitch: pitch ?? 0,
-          bearing: bearing ?? 0,
-          transitionDuration,
-          transitionInterpolator: new FlyToInterpolator(),
-        },
-      });
-
-      // Also update the deck's viewManager directly for more reliable updates
-      // This ensures the view state is properly set even after manual interaction
-      if (this.deck.viewManager) {
-        this.deck.viewManager.setProps({
-          viewState: {
-            longitude,
-            latitude,
-            zoom,
-            pitch: pitch ?? 0,
-            bearing: bearing ?? 0,
-            transitionDuration,
-            transitionInterpolator: new FlyToInterpolator(),
-          },
-        });
-      }
-
-      // Force multiple redraws to ensure the view state is applied
-      this.scheduleRedraws();
-      console.log('[DeckMapService] View state updated:', { longitude, latitude, zoom, pitch, bearing });
-    }
-
     // Update basemap
     if (changedKeys.includes('basemap')) {
       const basemapUrl = BASEMAP_URLS[state.basemap];
@@ -195,94 +155,26 @@ export class DeckMapService implements OnDestroy {
       }
     }
 
-    // Update layers via JSONConverter
-    if (changedKeys.includes('deckConfig')) {
-      const layerSpecs = state.deckConfig.layers ?? [];
-      console.log('[DeckMapService] Converting', layerSpecs.length, 'layer specs');
-      // Log full layer specs for debugging conversion issues
-      console.log('[DeckMapService] Layer specs:', JSON.stringify(layerSpecs, null, 2));
+    // Update view state and/or layers via unified JSONConverter
+    if (changedKeys.includes('initialViewState') || changedKeys.includes('layers')) {
+      // Clone the spec to avoid mutating the original
+      const spec = JSON.parse(JSON.stringify(state.deckSpec));
 
-      const convertedLayers: unknown[] = [];
+      // Inject layer IDs and CARTO credentials
+      spec.layers = (spec.layers || []).map((layer: Record<string, unknown>, i: number) => {
+        const layerWithId = { ...layer, id: layer.id || `layer-${i}` };
+        return this.injectCartoCredentials(layerWithId);
+      });
 
-      for (let index = 0; index < layerSpecs.length; index++) {
-        const layerJson = layerSpecs[index];
-        const layerId = (layerJson['id'] as string) || `layer-${index}`;
+      console.log('[DeckMapService] Converting full spec with', spec.layers.length, 'layers');
 
-        try {
-          // Debug: Log layer spec before conversion
-          console.log('[DeckMapService] Layer spec before conversion:', {
-            id: layerId,
-            type: layerJson['@@type'],
-            dataConfig: layerJson['data']
-          });
-
-          // Ensure each layer has an ID
-          const layerWithId = { ...layerJson, id: layerId };
-
-          // Inject CARTO credentials into data sources
-          const layerWithCredentials = this.injectCartoCredentials(layerWithId);
-
-          // Log JSON spec before JSONConverter processing
-          console.log('[DeckMapService] JSON spec before JSONConverter:', JSON.stringify(layerWithCredentials, null, 2));
-
-          // Convert JSON to deck.gl layer instance
-          const converted = jsonConverter.convert(layerWithCredentials);
-
-          // Debug: Log layer after conversion
-          console.log('[DeckMapService] Layer after conversion:', {
-            id: layerId,
-            layerType: converted?.constructor?.name,
-            hasData: !!(converted as any)?.props?.data,
-            dataType: typeof (converted as any)?.props?.data,
-            isPromise: (converted as any)?.props?.data instanceof Promise
-          });
-
-          if (converted) {
-            // Validate VectorTileLayer data - track Promise resolution
-            if (converted.constructor?.name === 'VectorTileLayer') {
-              const data = (converted as any).props?.data;
-              console.log('[DeckMapService] VectorTileLayer validation:', {
-                layerId,
-                dataType: typeof data,
-                isPromise: data instanceof Promise,
-                hasTiles: !!(data?.tiles),
-                tilesArray: data?.tiles
-              });
-
-              // If data is a Promise, log when it resolves
-              if (data instanceof Promise) {
-                data.then(
-                  (resolved: any) => console.log('[DeckMapService] VectorTileLayer data resolved:', {
-                    layerId,
-                    hasTiles: !!resolved?.tiles,
-                    tilesLength: resolved?.tiles?.length,
-                    tiles: resolved?.tiles?.slice(0, 2) // Log first 2 tiles only
-                  }),
-                  (error: any) => console.error('[DeckMapService] VectorTileLayer data failed:', {
-                    layerId,
-                    error: error?.message || error
-                  })
-                );
-              }
-            }
-
-            convertedLayers.push(converted);
-            console.log('[DeckMapService] Converted layer:', layerId);
-          } else {
-            // Log when conversion fails silently (returns null/undefined)
-            console.error('[DeckMapService] Failed to convert layer:', layerId);
-            console.error('[DeckMapService] Layer spec was:', JSON.stringify(layerWithCredentials, null, 2));
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error('[DeckMapService] Failed to convert layer:', layerId, errorMessage);
-        }
-      }
-
-      // Set all converted layers on deck with error handling
       try {
+        // Convert the entire spec (initialViewState + layers + widgets + effects)
+        const deckProps = jsonConverter.convert(spec);
+
+        // Set all props on deck with error handling
         this.deck.setProps({
-          layers: convertedLayers as Layer[],
+          ...deckProps,
           onError: (error: Error, layer: Layer | null) => {
             console.error('[DeckMapService] Layer rendering error:', {
               error: error.message,
@@ -292,10 +184,11 @@ export class DeckMapService implements OnDestroy {
             });
           }
         });
+
         this.scheduleRedraws();
-        console.log('[DeckMapService] Set', convertedLayers.length, 'layers on deck');
+        console.log('[DeckMapService] Set deck props from unified spec');
       } catch (error) {
-        console.error('[DeckMapService] Failed to set layers:', {
+        console.error('[DeckMapService] Failed to convert spec:', {
           error: error instanceof Error ? error.message : error,
           stack: error instanceof Error ? error.stack : undefined
         });

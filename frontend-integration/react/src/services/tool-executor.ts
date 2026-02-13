@@ -18,7 +18,7 @@ export interface ToolResult {
 
 export type Basemap = 'dark-matter' | 'positron' | 'voyager';
 
-export interface DeckConfig {
+export interface DeckLayersConfig {
   layers: LayerSpec[];
   widgets: Record<string, unknown>[];
   effects: Record<string, unknown>[];
@@ -42,7 +42,7 @@ interface SetDeckStateParams {
 }
 
 export interface DeckStateActions {
-  setViewState: (vs: {
+  setInitialViewState: (vs: {
     latitude: number;
     longitude: number;
     zoom: number;
@@ -51,9 +51,9 @@ export interface DeckStateActions {
     transitionDuration?: number;
   }) => void;
   setBasemap: (basemap: Basemap) => void;
-  setDeckConfig: (config: DeckConfig) => void;
+  setDeckLayers: (config: DeckLayersConfig) => void;
   setActiveLayerId: (id: string | undefined) => void;
-  getDeckConfig: () => DeckConfig;
+  getDeckSpec: () => DeckLayersConfig;
 }
 
 export type ExecuteToolFn = (toolName: string, params: unknown) => Promise<ToolResult>;
@@ -67,7 +67,7 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
   // Step 1: Update view state
   if (paramsObj.initialViewState) {
     const vs = paramsObj.initialViewState;
-    actions.setViewState({
+    actions.setInitialViewState({
       latitude: vs.latitude,
       longitude: vs.longitude,
       zoom: vs.zoom,
@@ -93,7 +93,7 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
     'effects' in paramsObj;
 
   if (hasDeckConfigFields) {
-    const currentConfig = actions.getDeckConfig();
+    const currentConfig = actions.getDeckSpec();
 
     // Process layer removals FIRST
     let workingLayers = currentConfig.layers ?? [];
@@ -172,7 +172,7 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
       finalEffects = currentConfig.effects ?? [];
     }
 
-    const config: DeckConfig = {
+    const config: DeckLayersConfig = {
       layers: finalLayers,
       widgets: finalWidgets,
       effects: finalEffects,
@@ -182,7 +182,7 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
       validateLayerColumns(layer);
     }
 
-    actions.setDeckConfig(config);
+    actions.setDeckLayers(config);
 
     // Track active layer
     if (finalLayers.length > 0) {
