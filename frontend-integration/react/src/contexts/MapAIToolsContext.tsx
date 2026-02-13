@@ -25,7 +25,7 @@ import type {
 import { useContext } from 'react';
 import { DeckStateContext } from './DeckStateContext';
 import { WebSocketContext } from './WebSocketContext';
-import { ToolExecutor } from '../services/tool-executor';
+import { createToolExecutor, type ExecuteToolFn } from '../services/tool-executor';
 import { extractLegendFromLayer } from '../utils/legend';
 import { environment } from '../config/environment';
 
@@ -83,16 +83,14 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
   const streamingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const STREAMING_TIMEOUT_MS = 30000;
 
-  // Create tool executor with stable reference
-  const toolExecutorRef = useRef<ToolExecutor | null>(null);
-
   // Keep refs to latest deckState actions to avoid stale closures
   const deckStateRef = useRef(deckState);
   deckStateRef.current = deckState;
 
-  // Initialize tool executor
+  // Create tool executor with stable reference
+  const toolExecutorRef = useRef<ExecuteToolFn | null>(null);
   if (!toolExecutorRef.current) {
-    toolExecutorRef.current = new ToolExecutor({
+    toolExecutorRef.current = createToolExecutor({
       setViewState: (vs) => deckStateRef.current.setViewState(vs),
       setBasemap: (b) => deckStateRef.current.setBasemap(b),
       setDeckConfig: (c) => deckStateRef.current.setDeckConfig(c),
@@ -267,7 +265,7 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
       setLoaderState(stage, `Executing ${toolName}...`);
 
       try {
-        const result = await toolExecutorRef.current!.execute(toolName, parameters);
+        const result = await toolExecutorRef.current!(toolName, parameters);
 
         const toolMessage: Message = {
           id: generateMessageId(),
