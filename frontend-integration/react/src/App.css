@@ -142,7 +142,9 @@
   justify-content: center;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
   z-index: 1001;
-  transition: right 0.3s ease-in-out, transform 0.2s ease-in-out;
+  transition:
+    right 0.3s ease-in-out,
+    transform 0.2s ease-in-out;
 }
 
 .fab-button:hover {
@@ -173,7 +175,8 @@
 
 /* Tooltip styles for deck.gl */
 .deck-tooltip {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.95);
@@ -186,7 +189,7 @@
 
 .tooltip-title {
   font-weight: 600;
-  color: #1e293b;
+  color: #fff;
   margin-bottom: 6px;
   font-size: 14px;
 }
@@ -199,12 +202,12 @@
 }
 
 .tooltip-key {
-  color: #64748b;
+  color: #f3f3f3;
   font-size: 12px;
 }
 
 .tooltip-value {
-  color: #1e293b;
+  color: #fff;
   font-weight: 500;
   font-size: 12px;
   text-align: right;
