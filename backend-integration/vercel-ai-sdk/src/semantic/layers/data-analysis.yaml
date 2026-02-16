@@ -1,4 +1,5 @@
 # Provides context for AI to understand available data for location analysis
+# Radius options for POI search (replaces proximity_priorities)
 # Data cubes available for analysis
 cubes:
   - name: higher_edu_by_county

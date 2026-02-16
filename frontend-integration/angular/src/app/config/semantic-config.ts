@@ -1,6 +1,5 @@
 /**
  * Semantic configuration for the application, including predefined welcome chips.
- * This configuration can be extended in the future to include more settings related to semantic features.
  */
 
 export const SEMANTIC_CONFIG = {
@@ -11,35 +10,20 @@ export const SEMANTIC_CONFIG = {
       prompt: 'Show me counties where more than 40% of residents have higher education',
     },
     {
-      id: 'gop_high_income',
-      label: 'Republican counties with high income',
-      prompt: 'Find counties that voted Republican with high household incomes over $100k',
-    },
-    {
-      id: 'education_and_clinton',
-      label: 'High education & Clinton counties',
-      prompt: 'Which counties have both high education levels and voted for Clinton?',
-    },
-    {
-      id: 'democrat_over_60',
-      label: 'Counties with 60%+ Democratic votes',
-      prompt: 'Display counties where Democratic votes exceeded 60%',
-    },
-    {
       id: 'population_density_urban',
       label: 'Population density in urban areas',
       prompt:
         'Show population density by H3 cell filtering by urban areas (High_density_urban, Very_High_density_urban, Low_density_urban, Medium_density_urban)',
     },
     {
-      id: 'healthcare_vs_retail',
-      label: 'Healthcare vs retail POIs',
-      prompt: 'Compare the number of healthcare vs retail POIs across the map',
+      id: 'demographics_buffer_nyc',
+      label: 'MCP Demographics around Times Square',
+      prompt: 'What are the demographics within 5 minutes driving of Times Square, New York?',
     },
     {
-      id: 'hot_populated_areas',
-      label: 'Hot areas with high population',
-      prompt: 'Display areas with average July temperature above 80°F and high population',
+      id: 'healthcare_pois_manhattan',
+      label: 'MCP Healthcare POIs near Central Park',
+      prompt: 'Find healthcare points of interest within 2 km of Central Park, New York',
     },
   ],
 };
