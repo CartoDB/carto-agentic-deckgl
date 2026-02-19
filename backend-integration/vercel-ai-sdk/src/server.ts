@@ -11,6 +11,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import { runMapAgent } from './services/agent-runner.js';
 import { ConversationManager } from './services/conversation-manager.js';
+import { loadSemanticModel, getWelcomeMessage, getWelcomeChips } from './semantic/index.js';
 import type { ChatMessage, ToolResultMessage } from './types/messages.js';
 import type { Express } from 'express';
 
@@ -167,6 +168,19 @@ app.post('/api/chat', async (req, res) => {
     res.write(`data: ${JSON.stringify({ type: 'error', content: err.message })}\n\n`);
     res.end();
   }
+});
+
+// Semantic config endpoint — provides welcome message and chips to the frontend
+app.get('/api/semantic-config', (_req, res) => {
+  const model = loadSemanticModel();
+  if (!model) {
+    res.json({ welcomeMessage: '', welcomeChips: [] });
+    return;
+  }
+  res.json({
+    welcomeMessage: getWelcomeMessage(model),
+    welcomeChips: getWelcomeChips(model),
+  });
 });
 
 // Health check endpoint

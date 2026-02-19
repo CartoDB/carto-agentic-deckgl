@@ -2,7 +2,7 @@
  * System prompt builder for the backend
  *
  * Delegates to @carto/maps-ai-tools for core prompt generation,
- * while handling app-specific semantic layer loading.
+ * while handling app-specific semantic model loading.
  */
 
 import type { InitialState } from '../types/messages.js';
@@ -12,14 +12,14 @@ import {
   type BuildSystemPromptOptions,
   type MapState,
 } from '@carto/maps-ai-tools';
-import { loadSemanticLayer, renderSemanticLayerAsMarkdown } from '../semantic/index.js';
+import { loadSemanticModel, renderSemanticModelAsMarkdown } from '../semantic/index.js';
 import { customPrompt } from './custom-prompt.js';
 
 /**
  * Build the system prompt for the map control agent
  *
  * This is a thin wrapper around the library's buildSystemPrompt function,
- * adding app-specific semantic layer context.
+ * adding app-specific semantic model context.
  *
  * @param toolNames - List of available tool names
  * @param initialState - Current map state (viewState, layers, etc.)
@@ -32,10 +32,10 @@ export function buildSystemPrompt(
   userContext?: UserContext,
   additionalPrompt?: string
 ): string {
-  // Load semantic layer context (app-specific)
-  const semanticLayer = loadSemanticLayer();
-  const semanticContext = semanticLayer
-    ? renderSemanticLayerAsMarkdown(semanticLayer)
+  // Load semantic model context (app-specific)
+  const semanticModel = loadSemanticModel();
+  const semanticContext = semanticModel
+    ? renderSemanticModelAsMarkdown(semanticModel)
     : undefined;
 
   // Check for MCP tools (tools with underscores in their names)
