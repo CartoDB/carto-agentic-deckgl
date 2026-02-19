@@ -1,29 +1,44 @@
 /**
- * Semantic Layer Module
+ * Semantic Model Module (OSI v1.0)
  *
- * Exports semantic layer types, loader functions, and utilities
- * for integrating data context into AI prompts.
+ * Exports semantic model types, loader functions, CARTO extension helpers,
+ * and utilities for integrating data context into AI prompts.
  */
 
 // Type exports
 export type {
-  SemanticLayer,
-  GeoCube,
-  GeoDimension,
-  GeoMeasure,
-  GeoJoin,
-  GeoCubeConfig,
-  GeoVizHint,
-  BusinessType,
-  DemographicOption,
-  ProximityPriority,
+  SemanticModel,
+  Dataset,
+  Field,
+  Metric,
+  Relationship,
+  CustomExtension,
+  AiContext,
+  CartoSpatialData,
+  CartoVisualizationHint,
+  CartoSpatialRelationship,
+  CartoModelExtension,
+  WelcomeChip,
 } from './schema.js';
 
-// Loader function exports
+// Schema exports (for external validation)
+export { semanticModelSchema } from './schema.js';
+
+// Loader and renderer exports
 export {
-  loadSemanticLayer,
-  renderSemanticLayerAsMarkdown,
-  getPrimaryCube,
+  loadSemanticModel,
+  renderSemanticModelAsMarkdown,
+  clearSemanticModelCache,
   getInitialViewState,
   getWelcomeMessage,
+  getWelcomeChips,
+} from './loader.js';
+
+// CARTO extension helper exports
+export {
+  getCartoExtension,
+  getDatasetSpatialData,
+  getFieldVisualizationHint,
+  getModelCartoConfig,
+  getMetricGroup,
 } from './loader.js';
