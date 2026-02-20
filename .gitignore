@@ -27,7 +27,7 @@ npm-debug.log*
 *.tsbuildinfo
 
 simpleAgentMap-main/
-docs/
+claude_docs/
 PRPs/
 prp-requirements/
 
