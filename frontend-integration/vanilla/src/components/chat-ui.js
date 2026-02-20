@@ -7,7 +7,8 @@
  */
 
 import { marked } from 'marked';
-import { SEMANTIC_CONFIG } from '../config/semantic-config.js';
+import { SEMANTIC_CONFIG, fetchSemanticConfig } from '../config/semantic-config.js';
+import { environment } from '../config/environment.js';
 
 export class ChatUI {
   constructor(container, { onSendMessage, onSidebarStateChange, onCloseSidebar, onClearChat, confirmationDialog }) {
@@ -52,6 +53,13 @@ export class ChatUI {
     });
 
     this._render();
+
+    // Fetch semantic config from backend
+    const backendUrl = environment.httpApiUrl.replace(/\/api\/chat$/, '');
+    fetchSemanticConfig(backendUrl).then((config) => {
+      this._welcomeChips = config.welcomeChips;
+      this._renderMessages();
+    });
   }
 
   // ==================== PUBLIC SETTERS ====================
