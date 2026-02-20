@@ -3,6 +3,7 @@ import {
   Input,
   Output,
   EventEmitter,
+  OnInit,
   OnChanges,
   SimpleChanges,
   AfterViewInit,
@@ -16,7 +17,8 @@ import { CommonModule } from '@angular/common';
 import { MarkdownModule } from 'ngx-markdown';
 import { Message, LoaderState } from '../../models/message.model';
 import { ConfirmationDialogComponent } from '../confirmation-dialog/confirmation-dialog';
-import { SEMANTIC_CONFIG } from '../../config/semantic-config';
+import { SEMANTIC_CONFIG, fetchSemanticConfig } from '../../config/semantic-config';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-chat-ui',
@@ -30,7 +32,7 @@ import { SEMANTIC_CONFIG } from '../../config/semantic-config';
   templateUrl: './chat-ui.html',
   styleUrl: './chat-ui.css',
 })
-export class ChatUi implements OnChanges, AfterViewInit, OnDestroy {
+export class ChatUi implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   @Input() isConnected: boolean = false;
   @Input() messages: Message[] = [];
   @Input() loaderState: LoaderState = null;
@@ -54,6 +56,12 @@ export class ChatUi implements OnChanges, AfterViewInit, OnDestroy {
 
   // Welcome chips
   welcomeChips = SEMANTIC_CONFIG.welcomeChips;
+
+  async ngOnInit(): Promise<void> {
+    const backendUrl = environment.httpApiUrl.replace(/\/api\/chat$/, '');
+    const config = await fetchSemanticConfig(backendUrl);
+    this.welcomeChips = config.welcomeChips;
+  }
 
   // Drag handling
   private isDragging: boolean = false;
