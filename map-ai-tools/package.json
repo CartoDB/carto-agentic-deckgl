@@ -46,6 +46,7 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c --watch",
+    "test": "vitest run",
     "type-check": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
@@ -68,7 +69,8 @@
     "@rollup/plugin-typescript": "^12.1.0",
     "@types/node": "^24.10.0",
     "rollup": "^4.55.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@deck.gl/core": "^9.2.2",

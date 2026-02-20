@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  workflow_call:
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # Install and build map-ai-tools first (dependency for frontend components)
+      - name: Install map-ai-tools dependencies
+        working-directory: ./map-ai-tools
+        run: npm ci
+
+      - name: Build map-ai-tools
+        working-directory: ./map-ai-tools
+        run: npm run build
+
+      # Run map-ai-tools tests
+      - name: Test map-ai-tools
+        working-directory: ./map-ai-tools
+        run: npm test
+
+      # Run backend tests
+      - name: Install backend dependencies
+        working-directory: ./backend-integration/vercel-ai-sdk
+        run: npm ci
+
+      - name: Test backend
+        working-directory: ./backend-integration/vercel-ai-sdk
+        run: npm test
+
+      # Run Angular tests
+      - name: Install Angular dependencies
+        working-directory: ./frontend-integration/angular
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Angular
+        working-directory: ./frontend-integration/angular
+        run: pnpm test
+
+      # Run React tests
+      - name: Install React dependencies
+        working-directory: ./frontend-integration/react
+        run: pnpm install --frozen-lockfile
+
+      - name: Test React
+        working-directory: ./frontend-integration/react
+        run: pnpm test
+
+      # Run Vanilla tests
+      - name: Install Vanilla dependencies
+        working-directory: ./frontend-integration/vanilla
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Vanilla
+        working-directory: ./frontend-integration/vanilla
+        run: pnpm test
