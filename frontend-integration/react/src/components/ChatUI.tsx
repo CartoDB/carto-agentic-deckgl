@@ -8,7 +8,8 @@ import {
 } from 'react';
 import { marked } from 'marked';
 import type { Message, LoaderState } from '../types/models';
-import { SEMANTIC_CONFIG } from '../config/semantic-config';
+import { SEMANTIC_CONFIG, fetchSemanticConfig } from '../config/semantic-config';
+import { environment } from '../config/environment';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import './ChatUI.css';
 
@@ -53,7 +54,15 @@ export function ChatUI({
   const dragStartStateRef = useRef<'collapsed' | 'half' | 'full'>('half');
   const dragThreshold = 50;
 
-  const welcomeChips = SEMANTIC_CONFIG.welcomeChips;
+  const [welcomeChips, setWelcomeChips] = useState(SEMANTIC_CONFIG.welcomeChips);
+
+  // Fetch semantic config from backend on mount
+  useEffect(() => {
+    const backendUrl = environment.httpApiUrl.replace(/\/api\/chat$/, '');
+    fetchSemanticConfig(backendUrl).then((config) => {
+      setWelcomeChips(config.welcomeChips);
+    });
+  }, []);
 
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
