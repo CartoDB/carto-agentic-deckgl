@@ -1,0 +1,50 @@
+# Gitleaks configuration for ps-frontend-tools-poc
+# Strategy: Allow public keys only (based on carto-ps-project-template Option A)
+# https://github.com/gitleaks/gitleaks#configuration
+
+title = "ps-frontend-tools-poc - Gitleaks Config"
+
+# Extend default gitleaks rules (required to keep built-in detection)
+[extend]
+useDefault = true
+
+# -------------------------------------------------------------------
+# Global allowlists
+# -------------------------------------------------------------------
+
+# Angular environment files contain CARTO public API tokens and config.
+# These are client-side values designed to be embedded in frontend code.
+[[allowlists]]
+description = "Angular environment config files with public CARTO API tokens"
+paths = [
+  '''frontend-integration/angular/src/environments/environment.*\.ts$''',
+]
+
+# Frontend config files that reference env vars or contain public configuration
+[[allowlists]]
+description = "Frontend config files with public configuration values"
+paths = [
+  '''frontend-integration/angular/src/app/config/.*\.ts$''',
+]
+
+# Integration examples with public client-side CARTO tokens and Google Maps keys.
+# These are demo/example files, not production secrets.
+[[allowlists]]
+description = "Integration example files with public demo credentials"
+paths = [
+  '''integration-examples/.*''',
+]
+
+# -------------------------------------------------------------------
+# Per-rule allowlists
+# -------------------------------------------------------------------
+
+# Google Maps API keys are public client-side keys restricted by HTTP referrer.
+# They are designed to be embedded in frontend code.
+[[rules]]
+id = "gcp-api-key"
+
+  [[rules.allowlists]]
+  description = "Google Maps API keys are public client-side values"
+  regexes = ['''AIzaSy[0-9A-Za-z_\-]{33}''']
+  regexTarget = "match"
