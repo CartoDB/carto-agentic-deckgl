@@ -67,3 +67,12 @@ jobs:
       - name: Typecheck React
         working-directory: ./frontend-integration/react
         run: pnpm typecheck
+
+      # Vue typecheck
+      - name: Install Vue dependencies
+        working-directory: ./frontend-integration/vue
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Vue
+        working-directory: ./frontend-integration/vue
+        run: pnpm typecheck
