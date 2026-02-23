@@ -373,6 +373,7 @@ Example workflow:
 
 **H3TileLayer (spatial aggregation with hexagons):**
 H3 layers aggregate data into hexagonal cells. IMPORTANT: aggregationExp is REQUIRED.
+**IMPORTANT: H3 layers must have \`extruded: false\` by default. Do NOT set extruded to true unless the user explicitly asks for 3D.**
 
 Basic H3 layer with sum aggregation:
 {
@@ -464,6 +465,7 @@ The updateTriggers value should mirror the color function parameters. When any p
 
 **QuadbinTileLayer (spatial aggregation with square cells):**
 Quadbin layers aggregate data into square cells using the Bing Maps tile system. IMPORTANT: aggregationExp is REQUIRED.
+**IMPORTANT: Quadbin layers must have \`extruded: false\` by default. Do NOT set extruded to true unless the user explicitly asks for 3D.**
 
 Basic Quadbin layer with sum aggregation:
 {
