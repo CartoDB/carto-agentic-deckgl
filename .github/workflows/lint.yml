@@ -51,6 +51,10 @@ jobs:
         working-directory: ./frontend-integration/angular
         run: pnpm install --frozen-lockfile
 
+      - name: Create Angular environment file
+        working-directory: ./frontend-integration/angular
+        run: cp src/environments/environment.example src/environments/environment.ts
+
       - name: Typecheck Angular
         working-directory: ./frontend-integration/angular
         run: pnpm typecheck
