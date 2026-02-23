@@ -27,6 +27,73 @@ export interface MCPServerConfig {
 }
 
 /**
+ * Sanitize tool name for OpenAI compatibility
+ * Replaces any character that is not alphanumeric, underscore, or hyphen with underscore.
+ */
+export function sanitizeMCPToolName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+/**
+ * Convert JSON Schema to Zod schema
+ * Uses manual conversion to ensure compatibility with Vercel AI SDK
+ */
+export function convertJsonSchemaToZod(jsonSchema: unknown): z.ZodObject<Record<string, z.ZodType>> {
+  const schema = jsonSchema as Record<string, unknown>;
+
+  if (!schema || typeof schema !== 'object' || !schema.properties) {
+    return z.object({});
+  }
+
+  const properties = schema.properties as Record<string, Record<string, unknown>>;
+  const required = (schema.required as string[]) || [];
+  const shape: Record<string, z.ZodType> = {};
+
+  for (const [key, prop] of Object.entries(properties)) {
+    let zodType: z.ZodType;
+
+    switch (prop.type) {
+      case 'string':
+        zodType = prop.description
+          ? z.string().describe(prop.description as string)
+          : z.string();
+        break;
+      case 'number':
+      case 'integer':
+        zodType = prop.description
+          ? z.number().describe(prop.description as string)
+          : z.number();
+        break;
+      case 'boolean':
+        zodType = prop.description
+          ? z.boolean().describe(prop.description as string)
+          : z.boolean();
+        break;
+      case 'array':
+        zodType = prop.description
+          ? z.array(z.unknown()).describe(prop.description as string)
+          : z.array(z.unknown());
+        break;
+      case 'object':
+        zodType = prop.description
+          ? z.record(z.string(), z.unknown()).describe(prop.description as string)
+          : z.record(z.string(), z.unknown());
+        break;
+      default:
+        zodType = z.unknown();
+    }
+
+    if (!required.includes(key)) {
+      zodType = zodType.optional();
+    }
+
+    shape[key] = zodType;
+  }
+
+  return z.object(shape);
+}
+
+/**
  * MCP Client with whitelist support
  */
 export class MCPClient {
@@ -174,7 +241,7 @@ export class MCPClient {
    * Sanitize tool name for OpenAI compatibility
    */
   private sanitizeToolName(name: string): string {
-    return name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    return sanitizeMCPToolName(name);
   }
 
   /**
@@ -182,58 +249,7 @@ export class MCPClient {
    * Uses manual conversion to ensure compatibility with Vercel AI SDK
    */
   private jsonSchemaToZod(jsonSchema: unknown): z.ZodObject<Record<string, z.ZodType>> {
-    const schema = jsonSchema as Record<string, unknown>;
-
-    if (!schema || typeof schema !== 'object' || !schema.properties) {
-      return z.object({});
-    }
-
-    const properties = schema.properties as Record<string, Record<string, unknown>>;
-    const required = (schema.required as string[]) || [];
-    const shape: Record<string, z.ZodType> = {};
-
-    for (const [key, prop] of Object.entries(properties)) {
-      let zodType: z.ZodType;
-
-      switch (prop.type) {
-        case 'string':
-          zodType = prop.description
-            ? z.string().describe(prop.description as string)
-            : z.string();
-          break;
-        case 'number':
-        case 'integer':
-          zodType = prop.description
-            ? z.number().describe(prop.description as string)
-            : z.number();
-          break;
-        case 'boolean':
-          zodType = prop.description
-            ? z.boolean().describe(prop.description as string)
-            : z.boolean();
-          break;
-        case 'array':
-          zodType = prop.description
-            ? z.array(z.unknown()).describe(prop.description as string)
-            : z.array(z.unknown());
-          break;
-        case 'object':
-          zodType = prop.description
-            ? z.record(z.string(), z.unknown()).describe(prop.description as string)
-            : z.record(z.string(), z.unknown());
-          break;
-        default:
-          zodType = z.unknown();
-      }
-
-      if (!required.includes(key)) {
-        zodType = zodType.optional();
-      }
-
-      shape[key] = zodType;
-    }
-
-    return z.object(shape);
+    return convertJsonSchemaToZod(jsonSchema);
   }
 
   /**

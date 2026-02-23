@@ -29,7 +29,7 @@ const MALFORMED_KEY_PATTERN = /^['"]?(@@[^'"]+)['"]?$/;
  * Sanitize malformed object keys that Gemini may generate
  * Fixes keys like "'@@type'" → "@@type" and "'@@function'" → "@@function"
  */
-const sanitizeMalformedKeys = (data: unknown): unknown => {
+export const sanitizeMalformedKeys = (data: unknown): unknown => {
   if (data === null || data === undefined) {
     return data;
   }
@@ -64,7 +64,7 @@ const sanitizeMalformedKeys = (data: unknown): unknown => {
  * Recursively strip credential fields from data before sending to frontend
  * This ensures sensitive information is never transmitted over WebSocket
  */
-const stripCredentials = (data: unknown): unknown => {
+export const stripCredentials = (data: unknown): unknown => {
   if (data === null || data === undefined) {
     return data;
   }
