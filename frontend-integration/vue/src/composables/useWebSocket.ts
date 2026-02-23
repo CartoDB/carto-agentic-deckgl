@@ -120,13 +120,6 @@ function connect() {
   }
 }
 
-function disconnect() {
-  if (wsRef) {
-    wsRef.close();
-    wsRef = null;
-  }
-}
-
 function sendChatMessage(content: string, initialState?: InitialState) {
   send({
     type: 'chat_message',
