@@ -1,22 +1,16 @@
 name: Security - Secret Scanning
 
 on:
+  workflow_call:
   push:
-    branches:
-      - '**'
-      - '!dev'
-      - '!stg'
-      - '!pro'
-      - '!main'
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
-      - stg
+    branches-ignore:
       - dev
+      - stg
+      - pro
+      - main
 
 concurrency:
-  group: security-scan-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  group: security-scan-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -31,12 +25,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Checkout PS github-actions
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: CartoDB/carto-ps-github-actions
           token: ${{ secrets.X_GITHUB_SUPERCARTOFANTE_CARTO_PS_GITHUB_ACTIONS }}
@@ -47,8 +41,8 @@ jobs:
         id: security-scan
         uses: "./carto-ps-github-actions/.github/actions/security-scan"
         with:
-          base-ref: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/dev' }}
-          head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          base-ref: ${{ github.event.pull_request && format('origin/{0}', github.base_ref) || 'origin/dev' }}
+          head-ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fail-on-secrets: 'true'
 
       - name: Notify on failure
