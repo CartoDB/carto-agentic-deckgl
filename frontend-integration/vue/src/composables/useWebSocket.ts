@@ -154,25 +154,6 @@ function onMessage(callback: (data: WebSocketMessage) => void) {
   messageCallback = callback;
 }
 
-function createWebSocketComposable(): WebSocketComposable {
-  // Connect on first use
-  onMounted(() => {
-    connect();
-  });
-
-  // Disconnect on unmount (only when the last consumer unmounts)
-  onUnmounted(() => {
-    disconnect();
-  });
-
-  return {
-    isConnected,
-    sendChatMessage,
-    sendToolResult,
-    onMessage,
-  };
-}
-
 export function useWebSocket(): WebSocketComposable {
   if (!_instance) {
     _instance = {
