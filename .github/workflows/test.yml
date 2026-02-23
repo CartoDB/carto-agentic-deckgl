@@ -72,3 +72,12 @@ jobs:
       - name: Test Vanilla
         working-directory: ./frontend-integration/vanilla
         run: pnpm test
+
+      # Run Vue tests
+      - name: Install Vue dependencies
+        working-directory: ./frontend-integration/vue
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Vue
+        working-directory: ./frontend-integration/vue
+        run: pnpm test
