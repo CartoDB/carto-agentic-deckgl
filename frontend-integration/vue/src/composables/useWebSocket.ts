@@ -5,7 +5,7 @@
  * Singleton composable that replaces React's WebSocketContext.
  */
 
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref } from 'vue';
 import type { WebSocketMessage, InitialState } from '../types/models';
 import { environment } from '../config/environment';
 
