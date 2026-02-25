@@ -158,19 +158,24 @@ MCP tools from the CARTO server can be either **synchronous** or **asynchronous*
    - "done" → get results immediately
    - "failed" → report error
 
-3. When status is "done", and the user requests the results, call async_workflow_job_get_results_v1_0_0 to get the data. Present results to the user.
+3. When status is "done", call async_workflow_job_get_results_v1_0_0 to get the data.
 
-4. When status is "done", and the user requests a layer:
-   a. Get tableName, connectionName, accessToken from the MCP results
-   b. Convert the Location parameter to apiBaseUrl:
-      - 'US': 'https://gcp-us-east1.api.carto.com'
-      - 'EU': 'https://gcp-europe-west1.api.carto.com'
-      - 'ASIA': 'https://gcp-asia-southeast1.api.carto.com'
-   c. Choose a descriptive layer ID (e.g., "empire_state_pois_layer")
-   d. Call set-deck-state with the layer configuration
-   e. REMEMBER this layer ID for future styling requests
+4. **MANDATORY - ALWAYS CREATE A LAYER:** After getting results from async_workflow_job_get_results_v1_0_0:
+   a. Get the workflowOutputTableName from the tool call input parameters - this is the tableName for the layer
+   b. You MUST call set-deck-state with a VectorTileLayer using that tableName
+   c. Use vectorTableSource with the workflowOutputTableName as the tableName
+   d. Choose a descriptive layer ID (e.g., "times-square-5min-buffer")
+   e. Apply appropriate styling (fill color, stroke, opacity, pickable: true)
+   f. Include initialViewState with coordinates from the result data
+   g. NEVER skip this step - the user ALWAYS expects to see results on the map
 
-5. After adding a layer, if the user asks to style it:
+5. **RESPONSE FORMAT:** Your text response must ONLY contain a natural language summary of the results.
+   - Include key numbers from the data (population, counts, etc.)
+   - NEVER include JSON, code blocks, or layer configuration in the text
+   - NEVER show the deck.gl spec to the user
+   - Example: "Within a 5-minute drive of Times Square, the estimated population is approximately 18,000 people."
+
+6. After adding a layer, if the user asks to style it:
    - Use set-deck-state with updated layer styling
    - Do NOT call MCP tools again - the data already exists on the map`,
 
