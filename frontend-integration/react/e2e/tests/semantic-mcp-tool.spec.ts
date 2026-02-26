@@ -1,4 +1,4 @@
-import { test, expect } from 'playwright';
+import { test, expect } from 'playwright/test';
 import { AppPage } from '../pages/app.page';
 
 test.describe('MCP Tool Chip', () => {

@@ -1,4 +1,4 @@
-import type { Locator, Page } from 'playwright';
+import type { Locator, Page } from 'playwright/test';
 
 export class LayerTogglePage {
   private readonly container: Locator;
