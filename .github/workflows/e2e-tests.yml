@@ -62,7 +62,7 @@ jobs:
         run: cd frontend-integration/react && pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: cd frontend-integration/react && npx playwright install --with-deps chromium
+        run: cd frontend-integration/react && pnpm exec playwright install --with-deps chromium
 
       # Create environment files
       - name: Setup backend environment
