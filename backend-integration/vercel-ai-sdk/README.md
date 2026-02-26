@@ -177,7 +177,7 @@ providers.ts  tools.ts   system-prompt.ts
 5. **Agent runner** calls `streamText()` from Vercel AI SDK with the tool definitions
 6. **Streaming loop**: AI generates text chunks and tool calls
    - Text chunks are streamed back to the client
-   - `set-deck-state` and `set-marker` tool calls are forwarded to the frontend for execution
+   - `set-deck-state` tool calls are forwarded to the frontend for execution
    - Backend-only tools (geocoding) are executed server-side
    - MCP tool calls are forwarded to the MCP server
 7. **Frontend executes tool** and sends result back
@@ -204,7 +204,7 @@ Tools are aggregated from three sources in `agent/tools.ts`:
 
 ### Local Tools (from `@carto/maps-ai-tools`)
 
-The consolidated tools (`set-deck-state` and `set-marker`) are imported from the core library and converted to Vercel AI SDK format.
+The consolidated `set-deck-state` tool is imported from the core library and converted to Vercel AI SDK format.
 
 ### Custom Tools (`agent/custom-tools.ts`)
 
@@ -242,7 +242,6 @@ Application-specific instructions appended to the library prompt:
 - Security guardrails (spatial analysis only)
 - Agent behavior rules (no loops, no self-responses)
 - Layer styling guidance
-- Marker placement rules (when to use `set-marker` vs. navigation-only `set-deck-state`)
 
 ---
 
