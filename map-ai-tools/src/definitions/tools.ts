@@ -54,6 +54,16 @@ export const tools = {
     }),
   },
 
+  [TOOL_NAMES.SET_MARKER]: {
+    name: TOOL_NAMES.SET_MARKER,
+    description: 'Add a location marker pin on the map at the specified coordinates.',
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      latitude: z.number().min(-90).max(90).describe('Latitude coordinate for marker placement'),
+      longitude: z.number().min(-180).max(180).describe('Longitude coordinate for marker placement'),
+    }),
+  },
+
 } as const;
 
 /**
@@ -146,6 +156,7 @@ export function getDataTools(): ToolName[] {
  */
 export const consolidatedToolNames: ToolName[] = [
   TOOL_NAMES.SET_DECK_STATE,
+  TOOL_NAMES.SET_MARKER,
 ];
 
 /**
