@@ -76,7 +76,10 @@ function createMapAIToolsComposable(): MapAIToolsComposable {
 
   // Derive layers from deckSpec
   const layers = computed<LayerConfig[]>(() => {
-    return deckState.state.deckSpec.layers.map((layer) => {
+    return deckState.state.deckSpec.layers.filter((layer) => {
+      const id = (layer['id'] as string) || '';
+      return !id.startsWith('__');
+    }).map((layer) => {
       const id = (layer['id'] as string) || 'unknown';
       const name = id;
       let color = '#036fe2';
@@ -223,7 +226,10 @@ function createMapAIToolsComposable(): MapAIToolsComposable {
         messages.value.push(toolMessage);
       }
 
-      const currentLayers = deckState.getDeckSpec().layers.map((layer) => ({
+      const currentLayers = deckState.getDeckSpec().layers.filter((layer) => {
+        const id = (layer['id'] as string) || '';
+        return !id.startsWith('__');
+      }).map((layer) => ({
         id: (layer['id'] as string) || 'unknown',
         type: (layer['@@type'] as string) || 'Unknown',
         visible: layer['visible'] !== false,
@@ -303,7 +309,10 @@ function createMapAIToolsComposable(): MapAIToolsComposable {
         pitch: state.viewState.pitch ?? 0,
         bearing: state.viewState.bearing ?? 0,
       },
-      layers: state.deckSpec.layers.map((layer) => {
+      layers: state.deckSpec.layers.filter((layer) => {
+        const id = (layer['id'] as string) || '';
+        return !id.startsWith('__');
+      }).map((layer) => {
         const baseInfo = {
           id: (layer['id'] as string) || 'unknown',
           type: (layer['@@type'] as string) || 'Unknown',

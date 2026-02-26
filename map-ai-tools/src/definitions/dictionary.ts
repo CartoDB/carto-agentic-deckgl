@@ -4,6 +4,7 @@
  */
 export const TOOL_NAMES = {
   SET_DECK_STATE: 'set-deck-state',
+  SET_MARKER: 'set-marker',
 } as const;
 
 /**
