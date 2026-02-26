@@ -658,7 +658,7 @@ Do NOT call set-marker for simple navigation/fly-to commands. If the user says "
 1. By default, markers ACCUMULATE. Each add call places a new pin without removing previous ones. If a marker already exists at the same coordinates, it is not duplicated.
 2. Use action "remove" to remove an individual marker by its coordinates. Use action "clear-all" to remove every marker at once.
 3. Coordinates should match the target location (same as initialViewState coordinates).
-4. For MCP workflows: call set-marker AFTER the MCP tool completes, using coordinates from lds-geocode.
+4. For MCP workflows: call set-marker BEFORE the MCP tool starts, right after set-deck-state (flyTo). Sequence: lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool → set-deck-state (add layer).
 5. The marker layer is managed automatically - do NOT remove it with set-deck-state removeLayerIds.
 `,
   },
