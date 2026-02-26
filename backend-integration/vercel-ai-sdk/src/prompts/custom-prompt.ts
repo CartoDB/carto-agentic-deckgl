@@ -61,7 +61,7 @@ When the user mentions a location (address, city, landmark, place name) and you 
 3. Then proceed with the MCP tool call using the coordinates returned by \`lds-geocode\`.
 4. If \`lds-geocode\` fails, inform the user and ask them to provide coordinates or a more specific address.
 
-The sequence for MCP workflows MUST be: lds-geocode → set-deck-state (flyTo) → MCP tool call. Never skip any step.
+The sequence MUST be: lds-geocode → set-deck-state (flyTo) → MCP tool call. Never skip any step.
 
 ### MCP Workflow Results - MANDATORY Layer Creation
 When an MCP async workflow completes (async_workflow_job_get_results returns data):
