@@ -222,18 +222,84 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
 }
 
 function executeSetMarker(actions: DeckStateActions, params: unknown): ToolResult {
-  const { latitude, longitude } = params as { latitude: number; longitude: number };
+  const { action = 'add', latitude, longitude } = params as {
+    action?: 'add' | 'remove' | 'clear-all';
+    latitude?: number;
+    longitude?: number;
+  };
   try {
     const currentSpec = actions.getDeckSpec();
+    const COORDINATE_TOLERANCE = 0.00001;
 
     // Get existing marker layer and its data points (if any)
     const existingMarkerLayer = currentSpec.layers.find(
       (layer) => layer['id'] === MARKER_LAYER_ID
     );
     const existingData = (existingMarkerLayer?.['data'] as Array<{ coordinates: number[] }>) ?? [];
+    const layersWithoutMarker = currentSpec.layers.filter(
+      (layer) => layer['id'] !== MARKER_LAYER_ID
+    );
 
-    // Skip if a marker already exists at approximately these coordinates (~1m precision)
-    const COORDINATE_TOLERANCE = 0.00001;
+    // Handle clear-all: remove the entire marker layer
+    if (action === 'clear-all') {
+      actions.setDeckLayers({
+        layers: layersWithoutMarker,
+        widgets: currentSpec.widgets ?? [],
+        effects: currentSpec.effects ?? [],
+      });
+      return { success: true, message: `All markers cleared (${existingData.length} removed).` };
+    }
+
+    // For add and remove, latitude/longitude are required
+    if (latitude == null || longitude == null) {
+      return { success: false, message: `Latitude and longitude are required for action "${action}".` };
+    }
+
+    // Handle remove: filter out the marker at the given coordinates
+    if (action === 'remove') {
+      const updatedData = existingData.filter(
+        (d) =>
+          !(Math.abs(d.coordinates[0] - longitude) < COORDINATE_TOLERANCE &&
+            Math.abs(d.coordinates[1] - latitude) < COORDINATE_TOLERANCE)
+      );
+
+      if (updatedData.length === existingData.length) {
+        return { success: false, message: `No marker found near [${latitude}, ${longitude}].` };
+      }
+
+      if (updatedData.length === 0) {
+        actions.setDeckLayers({
+          layers: layersWithoutMarker,
+          widgets: currentSpec.widgets ?? [],
+          effects: currentSpec.effects ?? [],
+        });
+      } else {
+        const markerLayer: LayerSpec = {
+          '@@type': 'IconLayer',
+          id: MARKER_LAYER_ID,
+          data: updatedData,
+          getPosition: '@@=coordinates',
+          iconAtlas: LOCATION_MARKER_SVG_DATA_URL,
+          iconMapping: {
+            marker: { x: 0, y: 0, width: 48, height: 48, anchorY: 48 }
+          },
+          getIcon: '@@="marker"',
+          getSize: 48,
+          sizeScale: 1,
+          pickable: false,
+          visible: true,
+        };
+        actions.setDeckLayers({
+          layers: [...layersWithoutMarker, markerLayer],
+          widgets: currentSpec.widgets ?? [],
+          effects: currentSpec.effects ?? [],
+        });
+      }
+
+      return { success: true, message: `Marker removed at [${latitude}, ${longitude}]. Remaining markers: ${updatedData.length}` };
+    }
+
+    // Handle add (default): add a new marker, skip duplicates
     const alreadyExists = existingData.some(
       (d) =>
         Math.abs(d.coordinates[0] - longitude) < COORDINATE_TOLERANCE &&
@@ -242,10 +308,6 @@ function executeSetMarker(actions: DeckStateActions, params: unknown): ToolResul
     const updatedData = alreadyExists
       ? existingData
       : [...existingData, { coordinates: [longitude, latitude] }];
-
-    const layersWithoutMarker = currentSpec.layers.filter(
-      (layer) => layer['id'] !== MARKER_LAYER_ID
-    );
 
     const markerLayer: LayerSpec = {
       '@@type': 'IconLayer',
@@ -263,9 +325,8 @@ function executeSetMarker(actions: DeckStateActions, params: unknown): ToolResul
       visible: true,
     };
 
-    const updatedLayers = [...layersWithoutMarker, markerLayer];
     actions.setDeckLayers({
-      layers: updatedLayers,
+      layers: [...layersWithoutMarker, markerLayer],
       widgets: currentSpec.widgets ?? [],
       effects: currentSpec.effects ?? [],
     });

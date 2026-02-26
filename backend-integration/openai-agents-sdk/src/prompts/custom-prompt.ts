@@ -64,7 +64,7 @@ When the user mentions a location (address, city, landmark, place name) and you 
 The sequence for MCP workflows MUST be: lds-geocode → set-deck-state (flyTo) → MCP tool call. Never skip any step.
 
 ### Marker Placement Rules — CRITICAL
-**DEFAULT: Do NOT place markers.** Only place a marker when one of the two conditions below is met.
+**DEFAULT: Do NOT place markers.** Only place a marker when one of the conditions below is met.
 
 **Condition 1 — User explicitly requests a marker:**
 The user's message contains words like "marker", "pin", "mark", "place a pin".
@@ -73,6 +73,11 @@ Example: "fly to Madrid and add a marker" → geocode → set-deck-state (flyTo)
 **Condition 2 — MCP spatial analysis workflow completes:**
 After an MCP tool (buffer, drivetime, isoline) finishes and the result layer is created.
 Sequence: lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool → set-deck-state (add layer)
+
+**Condition 3 — User requests marker removal or clearing:**
+The user says "clear markers", "remove all markers", "remove the marker", "delete markers", etc.
+- "clear all markers" → set-marker { action: "clear-all" }
+- "remove the marker on Madrid" → lds-geocode("Madrid") → set-marker { action: "remove", latitude, longitude }
 
 **ALL other cases — NO MARKER. Examples of commands that must NOT trigger set-marker:**
 - "fly to New York" → only set-deck-state (flyTo). NO set-marker.
