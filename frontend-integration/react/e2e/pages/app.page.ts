@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page } from 'playwright';
 import { ChatPage } from './chat.page';
 import { MapPage } from './map.page';
 import { LayerTogglePage } from './layer-toggle.page';

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from 'playwright';
 import { AppPage } from '../pages/app.page';
 import { getCurrentModel, getModelSlug } from '../helpers/model-config';
 
