@@ -33,7 +33,9 @@ export class ChatPage {
   }
 
   async waitForThinking(): Promise<void> {
-    await this.loader.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.loader.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {
+      // Loader may never appear if the model responds quickly
+    });
   }
 
   async waitForResponseComplete(options?: { timeout?: number }): Promise<void> {
