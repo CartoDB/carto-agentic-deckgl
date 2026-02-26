@@ -120,7 +120,7 @@ The GitHub Actions workflow (`.github/workflows/e2e-tests.yml`) runs tests in an
 
 Triggers: `push` to `main`/`dev`, and `pull_request` on any branch.
 
-Required GitHub secrets: `CARTO_AI_API_BASE_URL`, `CARTO_AI_API_KEY`, `CARTO_MCP_URL`, `CARTO_MCP_API_KEY`, `CARTO_LDS_API_BASE_URL`, `CARTO_LDS_API_KEY`.
+Required GitHub secrets: `CARTO_AI_API_BASE_URL`, `CARTO_AI_API_KEY`, `CARTO_MCP_URL`, `CARTO_MCP_API_KEY`, `CARTO_LDS_API_BASE_URL`, `CARTO_LDS_API_KEY`, `VITE_API_BASE_URL`, `VITE_API_ACCESS_TOKEN`.
 
 ## Configuration Reference
 
