@@ -212,9 +212,12 @@ export class ToolExecutor {
           );
           const existingData = existingMarkerLayer?.['data'] ?? [];
 
-          // Skip if a marker already exists at these exact coordinates
+          // Skip if a marker already exists at approximately these coordinates (~1m precision)
+          const COORDINATE_TOLERANCE = 0.00001;
           const alreadyExists = existingData.some(
-            (d) => d.coordinates[0] === longitude && d.coordinates[1] === latitude
+            (d) =>
+              Math.abs(d.coordinates[0] - longitude) < COORDINATE_TOLERANCE &&
+              Math.abs(d.coordinates[1] - latitude) < COORDINATE_TOLERANCE
           );
           const updatedData = alreadyExists
             ? existingData
