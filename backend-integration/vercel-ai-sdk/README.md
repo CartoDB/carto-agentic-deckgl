@@ -228,7 +228,7 @@ The system prompt is built in two layers:
 
 `buildSystemPrompt()` generates the base prompt with:
 
-- Tool-specific instructions (how to use `set-deck-state`)
+- Tool-specific instructions (how to use `set-deck-state` and `set-marker`)
 - Current map state (camera position, active layers)
 - User context (country, business type)
 - MCP instructions (if MCP tools are available)
@@ -242,6 +242,10 @@ Application-specific instructions appended to the library prompt:
 - Security guardrails (spatial analysis only)
 - Agent behavior rules (no loops, no self-responses)
 - Layer styling guidance
+- Geocoding workflow sequence (`lds-geocode → set-deck-state → MCP tool`)
+- Marker placement rules (when to use `set-marker` vs. navigation-only `set-deck-state`)
+- MCP workflow results with mandatory layer creation and automatic `set-marker` after completion
+- Response format rules (no JSON/code in chat text)
 
 ---
 
