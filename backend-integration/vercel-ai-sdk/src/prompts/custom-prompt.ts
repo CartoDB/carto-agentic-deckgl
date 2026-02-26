@@ -72,7 +72,7 @@ Example: "fly to Madrid and add a marker" → geocode → set-deck-state (flyTo)
 
 **Condition 2 — MCP spatial analysis workflow completes:**
 After an MCP tool (buffer, drivetime, isoline) finishes and the result layer is created.
-Sequence: lds-geocode → set-deck-state (flyTo) → MCP tool → set-deck-state (add layer) → set-marker
+Sequence: lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool → set-deck-state (add layer)
 
 **ALL other cases — NO MARKER. Examples of commands that must NOT trigger set-marker:**
 - "fly to New York" → only set-deck-state (flyTo). NO set-marker.
