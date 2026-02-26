@@ -38,14 +38,16 @@ export default defineConfig({
       cwd: '../../../backend-integration/vercel-ai-sdk',
       port: 3003,
       reuseExistingServer: true,
-      timeout: 30_000,
+      timeout: process.env.CI ? 60_000 : 30_000,
+      stdout: 'pipe',
     },
     {
       command: 'pnpm dev',
       cwd: '..',
       port: 5173,
       reuseExistingServer: true,
-      timeout: 30_000,
+      timeout: process.env.CI ? 60_000 : 30_000,
+      stdout: 'pipe',
     },
   ],
 
