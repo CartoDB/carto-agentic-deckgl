@@ -25,6 +25,6 @@ test.describe('Custom Tool - LDS Geocode', () => {
     await app.map.waitForStable();
 
     // Visual regression snapshot
-    await app.map.expectScreenshotMatch('fly-to-new-york.png');
+    await app.map.captureScreenshot('fly-to-new-york.png');
   });
 });

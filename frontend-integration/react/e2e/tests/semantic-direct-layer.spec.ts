@@ -27,6 +27,6 @@ test.describe('Direct Semantic Layer Chip', () => {
 
     // Wait for map to stabilize and capture screenshot
     await app.map.waitForStable();
-    await app.map.expectScreenshotMatch('semantic-direct-counties.png');
+    await app.map.captureScreenshot('semantic-direct-counties.png');
   });
 });

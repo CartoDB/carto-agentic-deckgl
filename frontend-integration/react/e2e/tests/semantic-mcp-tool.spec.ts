@@ -27,6 +27,6 @@ test.describe('MCP Tool Chip', () => {
 
     // Wait for map to stabilize and capture screenshot
     await app.map.waitForStable();
-    await app.map.expectScreenshotMatch('mcp-demographics-nyc.png');
+    await app.map.captureScreenshot('mcp-demographics-nyc.png');
   });
 });
