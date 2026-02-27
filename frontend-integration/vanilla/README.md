@@ -348,9 +348,16 @@ export class ToolExecutor {
         }
 
         // Phase 3: layers → getDeckSpec(), merge, remove, order, setDeckLayers()
+        //          System layers (__ prefix) always render on top; active layer skips them
         // (Same pipeline as Angular and React)
 
         return { success: true, message: `Updated: ${updatedParts.join(', ')}` };
+      },
+
+      // set-marker: places an IconLayer (__location-marker__) at given coordinates
+      [TOOL_NAMES.SET_MARKER]: (params) => {
+        // Adds a pin to the marker layer, accumulating markers; skips duplicate coordinates
+        return { success: true, message: `Marker placed at [...]` };
       },
     };
   }

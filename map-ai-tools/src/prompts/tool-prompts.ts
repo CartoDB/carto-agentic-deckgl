@@ -618,6 +618,50 @@ To move a layer DOWN/BACK, move it TOWARDS THE START of the array.
 **ALWAYS DO THIS:** When user asks to reorder layers → IMMEDIATELY call set-deck-state with layerOrder
 `,
   },
+
+  [TOOL_NAMES.SET_MARKER]: {
+    name: TOOL_NAMES.SET_MARKER,
+    prompt: `### 2. set-marker
+Manage location marker pins on the map: add, remove a specific marker, or clear all markers.
+
+**Parameters:**
+- \`action\` (optional, default "add"): \`"add"\` | \`"remove"\` | \`"clear-all"\`
+- \`latitude\` (required for add/remove): Latitude coordinate
+- \`longitude\` (required for add/remove): Longitude coordinate
+
+**Examples:**
+Add a marker: \`{ "latitude": 40.7128, "longitude": -74.006 }\`
+Remove a specific marker: \`{ "action": "remove", "latitude": 40.7128, "longitude": -74.006 }\`
+Clear all markers: \`{ "action": "clear-all" }\`
+
+**ABSOLUTE RULE — READ FIRST:**
+Do NOT call set-marker for simple navigation/fly-to commands. If the user says "fly to X", "go to X", "show me X", "navigate to X", or "zoom to X" WITHOUT explicitly mentioning a marker, you MUST NOT call set-marker. Only call set-deck-state with initialViewState.
+
+**WHEN TO CALL set-marker (ALL conditions must be met):**
+- The user explicitly says "add a marker", "mark this location", "pin this spot", "place a pin" — OR
+- An MCP spatial analysis tool was executed (buffer, drivetime, isoline) — these always get a marker after completion
+- When combined with navigation AND marker mention: "fly to Paris and add a marker"
+- The user says "clear markers", "remove all markers", "delete markers" → use action "clear-all"
+- The user says "remove the marker on X" → geocode X, then use action "remove" with the coordinates
+
+**WHEN NOT TO CALL set-marker:**
+- "fly to [place]" — NO marker (just navigation)
+- "go to [place]" — NO marker (just navigation)
+- "show me [place]" — NO marker (just navigation)
+- "zoom to [place]" — NO marker (just navigation)
+- "navigate to [place]" — NO marker (just navigation)
+- Layer addition/styling/removal operations — NO marker
+- Map style/basemap changes — NO marker
+- ANY command that does not explicitly request a marker or involve MCP spatial analysis — NO marker
+
+**CRITICAL RULES:**
+1. By default, markers ACCUMULATE. Each add call places a new pin without removing previous ones. If a marker already exists at the same coordinates, it is not duplicated.
+2. Use action "remove" to remove an individual marker by its coordinates. Use action "clear-all" to remove every marker at once.
+3. Coordinates should match the target location (same as initialViewState coordinates).
+4. For MCP workflows: call set-marker BEFORE the MCP tool starts, right after set-deck-state (flyTo). Sequence: lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool → set-deck-state (add layer).
+5. The marker layer is managed automatically - do NOT remove it with set-deck-state removeLayerIds.
+`,
+  },
 };
 
 /**
