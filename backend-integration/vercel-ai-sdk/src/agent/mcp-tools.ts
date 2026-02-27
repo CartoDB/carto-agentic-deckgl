@@ -11,6 +11,7 @@ import {
   closeAllMCPClients,
   parseMCPServerConfigs,
 } from '../services/mcp-client.js';
+import { MCP_MOCK_FIXTURES } from './mcp-mock-fixtures.js';
 
 // Track initialization state
 let mcpInitialized = false;
@@ -21,6 +22,26 @@ let mcpToolCache: Record<string, Tool> = {};
  */
 export async function initializeMCPClients(): Promise<void> {
   if (mcpInitialized) {
+    return;
+  }
+
+  // Mock mode: load fixture-backed tools instead of connecting to real MCP servers
+  if (process.env.MCP_MOCK_MODE === 'true') {
+    for (const [name, fixture] of Object.entries(MCP_MOCK_FIXTURES)) {
+      mcpToolCache[name] = tool({
+        description: fixture.description,
+        inputSchema: fixture.inputSchema,
+        execute: async (args) => {
+          console.log(`[MCP:mock] ${name} called with:`, JSON.stringify(args).substring(0, 200));
+          if (fixture.validateInput) {
+            fixture.validateInput(args as Record<string, unknown>);
+          }
+          return fixture.response;
+        },
+      });
+    }
+    console.log(`[MCP:mock] ${Object.keys(MCP_MOCK_FIXTURES).length} mock tools loaded`);
+    mcpInitialized = true;
     return;
   }
 
@@ -92,6 +113,14 @@ export function getMCPStatus(): {
   servers: string[];
   toolCount: number;
 } {
+  if (process.env.MCP_MOCK_MODE === 'true') {
+    return {
+      initialized: mcpInitialized,
+      servers: ['mock'],
+      toolCount: Object.keys(mcpToolCache).length,
+    };
+  }
+
   const clients = getAllMCPClients();
   return {
     initialized: mcpInitialized,
