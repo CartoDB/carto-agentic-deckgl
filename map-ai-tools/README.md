@@ -12,7 +12,7 @@ npm install @carto/maps-ai-tools
 
 - **Isomorphic** - Works in both Node.js and browser environments
 - **Type-safe** - Full TypeScript support with Zod validation
-- **Consolidated Tools** - 3 powerful tools for complete map control
+- **Consolidated Tools** - Tools for complete map control (deck.gl state + marker placement)
 - **Prompts Module** - Built-in system prompt generation for AI agents
 - **Tree-shakeable** - Import only what you need via subpath exports
 
@@ -47,9 +47,8 @@ const tools = getConsolidatedToolDefinitions();
 // Build system prompt with current map state
 const systemPrompt = buildSystemPrompt({
   toolNames: [
-    TOOL_NAMES.SET_MAP_VIEW,
-    TOOL_NAMES.SET_BASEMAP,
     TOOL_NAMES.SET_DECK_STATE,
+    TOOL_NAMES.SET_MARKER,
   ],
   initialState: {
     viewState: { latitude: 40.7128, longitude: -74.006, zoom: 12 },
@@ -91,22 +90,20 @@ websocket.on('tool_call', async (message) => {
 
 ## Consolidated Tools
 
-The library provides 3 consolidated tools for complete map control:
+The library provides 2 consolidated tools for complete map control:
 
-| Tool | Description |
-|------|-------------|
-| `set-map-view` | Navigate to coordinates with zoom, pitch, bearing |
-| `set-basemap` | Change map style (dark-matter, positron, voyager) |
-| `set-deck-state` | Full deck.gl state control (layers, widgets, effects) |
+| Tool             | Description                                                                |
+|------------------|----------------------------------------------------------------------------|
+| `set-deck-state` | Full deck.gl state control (navigation, basemap, layers, widgets, effects) |
+| `set-marker`     | Place a location marker pin at specified coordinates                       |
 
 ### Tool Names
 
 ```typescript
 import { TOOL_NAMES } from '@carto/maps-ai-tools';
 
-TOOL_NAMES.SET_MAP_VIEW  // 'set-map-view'
-TOOL_NAMES.SET_BASEMAP   // 'set-basemap'
 TOOL_NAMES.SET_DECK_STATE // 'set-deck-state'
+TOOL_NAMES.SET_MARKER     // 'set-marker'
 ```
 
 ## Prompts Module
@@ -123,7 +120,7 @@ import {
 
 const options: BuildSystemPromptOptions = {
   // Required: list of available tool names
-  toolNames: ['set-map-view', 'set-basemap', 'set-deck-state'],
+  toolNames: ['set-deck-state', 'set-marker'],
 
   // Optional: current map state for context
   initialState: {
@@ -173,7 +170,7 @@ const combinedPrompts = getToolPrompts(['set-map-view', 'set-deck-state']);
 
 // Access all tool prompts
 console.log(Object.keys(toolPrompts));
-// ['set-map-view', 'set-basemap', 'set-deck-state']
+// ['set-deck-state', 'set-marker']
 ```
 
 ### Shared Sections

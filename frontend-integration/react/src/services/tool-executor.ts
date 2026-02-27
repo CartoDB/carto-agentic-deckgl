@@ -56,6 +56,12 @@ export interface DeckStateActions {
   getDeckSpec: () => DeckLayersConfig;
 }
 
+// ==================== MARKER CONSTANTS ====================
+
+const MARKER_LAYER_ID = '__location-marker__';
+const LOCATION_MARKER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/></filter></defs><g filter="url(#shadow)"><path d="M24 4C16.268 4 10 10.268 10 18c0 10.5 14 26 14 26s14-15.5 14-26c0-7.732-6.268-14-14-14z" fill="#333333"/><path d="M24 4C16.268 4 10 10.268 10 18c0 10.5 14 26 14 26s14-15.5 14-26c0-7.732-6.268-14-14-14z" fill="none" stroke="#666666" stroke-width="1.5"/><circle cx="24" cy="18" r="6" fill="#FFFFFF"/></g></svg>';
+const LOCATION_MARKER_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(LOCATION_MARKER_SVG)}`;
+
 export type ExecuteToolFn = (toolName: string, params: unknown) => Promise<ToolResult>;
 
 type ToolExecutorFn = (params: unknown) => ToolResult;
@@ -172,6 +178,11 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
       finalEffects = currentConfig.effects ?? [];
     }
 
+    // Ensure system layers (__ prefix) always render on top
+    const userFinalLayers = finalLayers.filter(l => !((l['id'] as string) || '').startsWith('__'));
+    const systemFinalLayers = finalLayers.filter(l => ((l['id'] as string) || '').startsWith('__'));
+    finalLayers = [...userFinalLayers, ...systemFinalLayers];
+
     const config: DeckLayersConfig = {
       layers: finalLayers,
       widgets: finalWidgets,
@@ -184,11 +195,16 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
 
     actions.setDeckLayers(config);
 
-    // Track active layer
+    // Track active layer (skip system layers with __ prefix)
     if (finalLayers.length > 0) {
-      const lastLayerId = finalLayers[finalLayers.length - 1]['id'] as string;
-      if (lastLayerId) {
-        actions.setActiveLayerId(lastLayerId);
+      const userLayers = finalLayers.filter(l => {
+        const id = (l['id'] as string) || '';
+        return !id.startsWith('__');
+      });
+      const lastUserLayerId = userLayers.length > 0
+        ? (userLayers[userLayers.length - 1]['id'] as string) : undefined;
+      if (lastUserLayerId) {
+        actions.setActiveLayerId(lastUserLayerId);
       }
     } else {
       actions.setActiveLayerId(undefined);
@@ -205,9 +221,130 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
   };
 }
 
+function executeSetMarker(actions: DeckStateActions, params: unknown): ToolResult {
+  const { action = 'add', latitude, longitude } = params as {
+    action?: 'add' | 'remove' | 'clear-all';
+    latitude?: number;
+    longitude?: number;
+  };
+  try {
+    const currentSpec = actions.getDeckSpec();
+    const COORDINATE_TOLERANCE = 0.00001;
+
+    // Get existing marker layer and its data points (if any)
+    const existingMarkerLayer = currentSpec.layers.find(
+      (layer) => layer['id'] === MARKER_LAYER_ID
+    );
+    const existingData = (existingMarkerLayer?.['data'] as Array<{ coordinates: number[] }>) ?? [];
+    const layersWithoutMarker = currentSpec.layers.filter(
+      (layer) => layer['id'] !== MARKER_LAYER_ID
+    );
+
+    // Handle clear-all: remove the entire marker layer
+    if (action === 'clear-all') {
+      actions.setDeckLayers({
+        layers: layersWithoutMarker,
+        widgets: currentSpec.widgets ?? [],
+        effects: currentSpec.effects ?? [],
+      });
+      return { success: true, message: `All markers cleared (${existingData.length} removed).` };
+    }
+
+    // For add and remove, latitude/longitude are required
+    if (latitude == null || longitude == null) {
+      return { success: false, message: `Latitude and longitude are required for action "${action}".` };
+    }
+
+    // Handle remove: filter out the marker at the given coordinates
+    if (action === 'remove') {
+      const updatedData = existingData.filter(
+        (d) =>
+          !(Math.abs(d.coordinates[0] - longitude) < COORDINATE_TOLERANCE &&
+            Math.abs(d.coordinates[1] - latitude) < COORDINATE_TOLERANCE)
+      );
+
+      if (updatedData.length === existingData.length) {
+        return { success: false, message: `No marker found near [${latitude}, ${longitude}].` };
+      }
+
+      if (updatedData.length === 0) {
+        actions.setDeckLayers({
+          layers: layersWithoutMarker,
+          widgets: currentSpec.widgets ?? [],
+          effects: currentSpec.effects ?? [],
+        });
+      } else {
+        const markerLayer: LayerSpec = {
+          '@@type': 'IconLayer',
+          id: MARKER_LAYER_ID,
+          data: updatedData,
+          getPosition: '@@=coordinates',
+          iconAtlas: LOCATION_MARKER_SVG_DATA_URL,
+          iconMapping: {
+            marker: { x: 0, y: 0, width: 48, height: 48, anchorY: 48 }
+          },
+          getIcon: '@@="marker"',
+          getSize: 48,
+          sizeScale: 1,
+          pickable: false,
+          visible: true,
+        };
+        actions.setDeckLayers({
+          layers: [...layersWithoutMarker, markerLayer],
+          widgets: currentSpec.widgets ?? [],
+          effects: currentSpec.effects ?? [],
+        });
+      }
+
+      return { success: true, message: `Marker removed at [${latitude}, ${longitude}]. Remaining markers: ${updatedData.length}` };
+    }
+
+    // Handle add (default): add a new marker, skip duplicates
+    const alreadyExists = existingData.some(
+      (d) =>
+        Math.abs(d.coordinates[0] - longitude) < COORDINATE_TOLERANCE &&
+        Math.abs(d.coordinates[1] - latitude) < COORDINATE_TOLERANCE
+    );
+    const updatedData = alreadyExists
+      ? existingData
+      : [...existingData, { coordinates: [longitude, latitude] }];
+
+    const markerLayer: LayerSpec = {
+      '@@type': 'IconLayer',
+      id: MARKER_LAYER_ID,
+      data: updatedData,
+      getPosition: '@@=coordinates',
+      iconAtlas: LOCATION_MARKER_SVG_DATA_URL,
+      iconMapping: {
+        marker: { x: 0, y: 0, width: 48, height: 48, anchorY: 48 }
+      },
+      getIcon: '@@="marker"',
+      getSize: 48,
+      sizeScale: 1,
+      pickable: false,
+      visible: true,
+    };
+
+    actions.setDeckLayers({
+      layers: [...layersWithoutMarker, markerLayer],
+      widgets: currentSpec.widgets ?? [],
+      effects: currentSpec.effects ?? [],
+    });
+
+    return { success: true, message: `Marker placed at [${latitude}, ${longitude}]. Total markers: ${updatedData.length}` };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to set marker: ${error instanceof Error ? error.message : String(error)}`,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
 export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
   const executors: Record<string, ToolExecutorFn> = {
     [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
+    [TOOL_NAMES.SET_MARKER]: (params) => executeSetMarker(actions, params),
   };
 
   return async (toolName, params) => {

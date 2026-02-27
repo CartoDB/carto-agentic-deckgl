@@ -311,7 +311,11 @@ export class ConsolidatedExecutorsService {
 }
 ```
 
-The executor follows the three-phase pipeline described in the [global guide](../README.md#tool-execution-pipeline):
+The service handles 2 tools:
+
+### `set-deck-state`
+
+Follows the three-phase pipeline described in the [global guide](../README.md#set-deck-state----three-phase-pipeline):
 
 1. Update `initialViewState` via `this.deckState.setInitialViewState()`
 2. Update `basemap` via `this.deckState.setBasemap()`
@@ -319,8 +323,14 @@ The executor follows the three-phase pipeline described in the [global guide](..
    - Remove layers listed in `removeLayerIds`
    - Deep merge incoming layers with existing using `mergeLayerSpecs()`
    - Apply `layerOrder` if specified
+   - Ensure system layers (`__` prefix) render on top
    - Validate columns with `validateLayerColumns()`
+   - Track active layer (skipping system layers)
    - Update state via `this.deckState.setDeckLayers()`
+
+### `set-marker`
+
+Places an `IconLayer` with ID `__location-marker__` at the specified coordinates. Markers accumulate -- each call adds a new pin without removing previous ones. Duplicates at the same coordinates are skipped. The marker is a system layer -- hidden from the layer toggle UI and AI state context.
 
 ---
 

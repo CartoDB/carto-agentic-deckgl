@@ -275,6 +275,7 @@ export interface DeckStateActions {
 export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
   const executors: Record<string, ToolExecutorFn> = {
     [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
+    [TOOL_NAMES.SET_MARKER]: (params) => executeSetMarker(actions, params),
   };
 
   return async (toolName, params) => {
@@ -288,6 +289,10 @@ export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
 // Phase 1: viewState → actions.setInitialViewState()
 // Phase 2: basemap   → actions.setBasemap()
 // Phase 3: layers    → remove, merge, order, validate, actions.setDeckLayers()
+//          System layers (__ prefix) always render on top; active layer skips them
+
+// executeSetMarker:
+// Adds a pin to the IconLayer (__location-marker__), accumulating markers; skips duplicate coordinates
 ```
 
 ### Instantiation in MapAIToolsContext
