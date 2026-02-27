@@ -34,10 +34,10 @@ Each framework implements 4 core services (as Angular services, Vue composables,
 
 | Service | Responsibility |
 | ------- | -------------- |
-| **State** | Centralized reactive state holding the unified `DeckSpec` (viewState, layers, widgets, effects) plus basemap and active layer tracking |
+| **State** | Centralized reactive state for the unified `DeckSpec` (viewState, layers, widgets, effects) plus basemap and active layer tracking |
 | **WebSocket** | WebSocket client with auto-reconnect |
 | **Orchestrator** | Coordinates messages, routes WebSocket events, executes tool calls, manages chat history and loader state |
-| **Tool Executor** | Receives `set-deck-state` parameters and updates state through a three-phase pipeline (viewState, basemap, layers) |
+| **Tool Executor** | Handles `set-deck-state` and `set-marker` tools. System layers (`__` prefix) are hidden from UI and AI context |
 
 ### Configuration Files
 
@@ -91,7 +91,9 @@ Three pure utility modules are duplicated across frameworks (see [rationale](../
 
 ## Tool Execution Pipeline
 
-All frameworks follow the same three-phase pipeline when executing the `set-deck-state` tool:
+All frameworks handle 2 tools:
+
+### `set-deck-state` -- Three-Phase Pipeline
 
 1. **Phase 1: ViewState** -- Update camera position (`setInitialViewState`)
 2. **Phase 2: Basemap** -- Change map style (`setBasemap`)
@@ -99,8 +101,23 @@ All frameworks follow the same three-phase pipeline when executing the `set-deck
    - Remove layers listed in `removeLayerIds`
    - Deep merge incoming layers with existing (by ID) using `mergeLayerSpecs()`
    - Apply `layerOrder` if specified
+   - Ensure system layers (`__` prefix) render on top of user layers
    - Validate columns with `validateLayerColumns()`
+   - Track active layer (skipping system layers)
    - Update state via `setDeckLayers()`
+
+### `set-marker` -- Location Pin Placement
+
+Places an `IconLayer` with ID `__location-marker__` at the specified coordinates. Markers accumulate across calls -- each new position is added to the existing set. If a marker already exists at the exact same coordinates, it is not duplicated. The marker layer is a system layer (hidden from UI toggle and AI state context).
+
+### System Layers
+
+Layers with IDs prefixed by `__` (e.g., `__location-marker__`) are treated as system layers:
+
+- **Rendering**: Always placed on top of user layers in the layer stack
+- **UI**: Filtered out of the layer toggle panel
+- **AI context**: Excluded from the initial state sent to the backend, so the AI doesn't see or manipulate them
+- **Active layer tracking**: Skipped when determining the active layer ID
 
 ---
 

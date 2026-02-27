@@ -54,6 +54,19 @@ export const tools = {
     }),
   },
 
+  [TOOL_NAMES.SET_MARKER]: {
+    name: TOOL_NAMES.SET_MARKER,
+    description: 'Manage location marker pins on the map: add, remove a specific marker, or clear all markers.',
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      action: z.enum(['add', 'remove', 'clear-all']).default('add').describe(
+        'Action to perform: "add" places a new marker, "remove" removes the marker nearest to the given coordinates, "clear-all" removes every marker.'
+      ),
+      latitude: z.number().min(-90).max(90).optional().describe('Latitude coordinate (required for add/remove)'),
+      longitude: z.number().min(-180).max(180).optional().describe('Longitude coordinate (required for add/remove)'),
+    }),
+  },
+
 } as const;
 
 /**
@@ -146,6 +159,7 @@ export function getDataTools(): ToolName[] {
  */
 export const consolidatedToolNames: ToolName[] = [
   TOOL_NAMES.SET_DECK_STATE,
+  TOOL_NAMES.SET_MARKER,
 ];
 
 /**

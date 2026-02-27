@@ -24,7 +24,7 @@ User Message --> Frontend (WebSocket) --> Backend Server
                               deck.gl state update --> Map renders
 ```
 
-The AI generates deck.gl JSON specifications using the `set-deck-state` consolidated tool. The frontend executes these specs through `JSONConverter` to render layers, update the camera, and change the basemap.
+The AI generates deck.gl JSON specifications using 2 consolidated tools (`set-deck-state` for map state and `set-marker` for location pins). The frontend executes these through `JSONConverter` to render layers, update the camera, and change the basemap.
 
 ## Project Structure
 
@@ -144,9 +144,16 @@ See [map-ai-tools/README.md](map-ai-tools/README.md) for the full API reference.
 
 ## Key Concepts
 
-### Consolidated Tool
+### Consolidated Tools
 
-The AI controls the map through a single `set-deck-state` tool that manages navigation, basemap, layers, widgets, and effects. Layer updates are deep-merged by ID, so partial updates preserve existing properties.
+The AI controls the map through 2 frontend-executed tools:
+
+| Tool             | Description                                                                                                                                                          |
+|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `set-deck-state` | Full deck.gl state control: navigation, basemap, layers, widgets, and effects. Layer updates are deep-merged by ID, so partial updates preserve existing properties. |
+| `set-marker`     | Places a location marker pin at specified coordinates. Markers accumulate across calls; duplicates at the same position are skipped.                                 |
+
+System layers (IDs prefixed with `__`, such as the marker layer) are automatically hidden from the UI layer toggle, excluded from AI state context, and always rendered on top of user layers.
 
 ### deck.gl JSON Spec
 
