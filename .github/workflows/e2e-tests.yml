@@ -78,6 +78,7 @@ jobs:
           MCP_WHITELIST_CARTO=async_workflow_job_get_status_v1_0_0,async_workflow_job_get_results_v1_0_0,ai_tools_filter_pois,ai_tools_drivetime_demographics
           CARTO_LDS_API_BASE_URL=${{ secrets.CARTO_LDS_API_BASE_URL }}
           CARTO_LDS_API_KEY=${{ secrets.CARTO_LDS_API_KEY }}
+          MCP_MOCK_MODE=true
           EOF
 
       - name: Setup frontend environment
