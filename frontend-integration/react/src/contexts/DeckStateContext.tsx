@@ -184,6 +184,17 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
         }
       }
       dispatch({ type: 'SET_DECK_LAYERS', payload: config });
+      // Synchronously update stateRef so getDeckSpec() returns latest state
+      // immediately (React dispatch is async and stateRef only updates on re-render)
+      stateRef.current = {
+        ...stateRef.current,
+        deckSpec: {
+          ...stateRef.current.deckSpec,
+          layers: config.layers,
+          widgets: config.widgets,
+          effects: config.effects,
+        },
+      };
     },
     []
   );
@@ -207,6 +218,11 @@ export function DeckStateProvider({ children }: { children: ReactNode }) {
         }
       }
       dispatch({ type: 'SET_LAYERS', payload: layers });
+      // Synchronously update stateRef
+      stateRef.current = {
+        ...stateRef.current,
+        deckSpec: { ...stateRef.current.deckSpec, layers },
+      };
     },
     []
   );

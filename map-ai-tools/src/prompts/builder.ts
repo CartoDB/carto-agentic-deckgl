@@ -12,6 +12,7 @@ import type { BuildSystemPromptOptions, MapState, UserContext } from './types.js
  */
 const ORDERED_TOOLS = [
   TOOL_NAMES.SET_DECK_STATE,
+  TOOL_NAMES.SET_MARKER,
 ];
 
 /**
@@ -33,7 +34,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 
 ## AVAILABLE TOOLS
 
-You have 1 consolidated tool for complete map control:
+You have 2 consolidated tools for complete map control:
 
 `;
 
@@ -111,11 +112,16 @@ export function buildMapStateSection(state: MapState): string {
   }
 
   // Handle layers array - show stacking order clearly
-  if (state.layers && state.layers.length > 0) {
+  // Filter out system layers (__ prefix) like the location marker
+  const displayLayers = (state.layers || []).filter(l => {
+    const id = (l.id as string) || '';
+    return !id.startsWith('__');
+  });
+  if (displayLayers.length > 0) {
     section += `- Current layers (render order, BOTTOM to TOP):\n`;
-    const layerCount = state.layers.length;
+    const layerCount = displayLayers.length;
     for (let i = 0; i < layerCount; i++) {
-      const layer = state.layers[i];
+      const layer = displayLayers[i];
       const layerType = layer.type || 'unknown';
       const visibility = layer.visible !== false ? 'visible' : 'hidden';
       const isActive = layer.id === state.activeLayerId ? ' \u2190 ACTIVE' : '';

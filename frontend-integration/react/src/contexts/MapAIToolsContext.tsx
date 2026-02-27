@@ -101,7 +101,10 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
 
   // Derive layers from deckSpec
   const layers = useMemo<LayerConfig[]>(() => {
-    return deckState.state.deckSpec.layers.map((layer) => {
+    return deckState.state.deckSpec.layers.filter((layer) => {
+      const id = (layer['id'] as string) || '';
+      return !id.startsWith('__');
+    }).map((layer) => {
       const id = (layer['id'] as string) || 'unknown';
       const name = id;
       let color = '#036fe2';
@@ -282,7 +285,10 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
           dispatchMessages({ type: 'ADD_MESSAGE', payload: toolMessage });
         }
 
-        const currentLayers = deckStateRef.current.getDeckSpec().layers.map((layer) => ({
+        const currentLayers = deckStateRef.current.getDeckSpec().layers.filter((layer) => {
+          const id = (layer['id'] as string) || '';
+          return !id.startsWith('__');
+        }).map((layer) => ({
           id: (layer['id'] as string) || 'unknown',
           type: (layer['@@type'] as string) || 'Unknown',
           visible: layer['visible'] !== false,
@@ -381,7 +387,10 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
         pitch: state.viewState.pitch ?? 0,
         bearing: state.viewState.bearing ?? 0,
       },
-      layers: state.deckSpec.layers.map((layer) => {
+      layers: state.deckSpec.layers.filter((layer) => {
+        const id = (layer['id'] as string) || '';
+        return !id.startsWith('__');
+      }).map((layer) => {
         const baseInfo = {
           id: (layer['id'] as string) || 'unknown',
           type: (layer['@@type'] as string) || 'Unknown',

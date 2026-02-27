@@ -109,7 +109,10 @@ export class MapAIToolsOrchestrator extends EventEmitter {
         pitch: state.deckSpec.initialViewState.pitch ?? 0,
         bearing: state.deckSpec.initialViewState.bearing ?? 0,
       },
-      layers: state.deckSpec.layers.map((layer) => {
+      layers: state.deckSpec.layers.filter((layer) => {
+        const id = layer['id'] || '';
+        return !id.startsWith('__');
+      }).map((layer) => {
         const baseInfo = {
           id: layer['id'] || 'unknown',
           type: layer['@@type'] || 'Unknown',
@@ -288,7 +291,10 @@ export class MapAIToolsOrchestrator extends EventEmitter {
       }
 
       // Get current layer state for context preservation
-      const currentLayers = this._deckState.getLayers().map((layer) => ({
+      const currentLayers = this._deckState.getLayers().filter((layer) => {
+        const id = layer['id'] || '';
+        return !id.startsWith('__');
+      }).map((layer) => ({
         id: layer['id'] || 'unknown',
         type: layer['@@type'] || 'Unknown',
         visible: layer['visible'] !== false,
@@ -358,7 +364,12 @@ export class MapAIToolsOrchestrator extends EventEmitter {
   }
 
   _updateLayerConfigs(layers) {
-    const layerConfigs = layers.map((layer) => {
+    // Filter out system layers (__ prefix) from UI layer toggle
+    const userLayers = layers.filter((layer) => {
+      const id = layer['id'] || '';
+      return !id.startsWith('__');
+    });
+    const layerConfigs = userLayers.map((layer) => {
       const id = layer['id'] || 'unknown';
       let color = '#036fe2';
 

@@ -69,7 +69,12 @@ export class MapAIToolsService implements OnDestroy {
     // Subscribe to deck state layers for UI
     this.subscriptions.push(
       this.deckState.layers$.subscribe(layers => {
-        const layerConfigs = layers.map(layer => {
+        // Filter out system layers (__ prefix) from UI layer toggle
+        const userLayers = layers.filter(layer => {
+          const id = (layer['id'] as string) || '';
+          return !id.startsWith('__');
+        });
+        const layerConfigs = userLayers.map(layer => {
           const id = (layer['id'] as string) || 'unknown';
           let name = id;
           let color = '#036fe2';
@@ -188,7 +193,10 @@ export class MapAIToolsService implements OnDestroy {
         pitch: spec.initialViewState.pitch,
         bearing: spec.initialViewState.bearing
       },
-      layers: spec.layers.map(layer => {
+      layers: spec.layers.filter(layer => {
+        const id = (layer['id'] as string) || '';
+        return !id.startsWith('__');
+      }).map(layer => {
         const baseInfo = {
           id: (layer['id'] as string) || 'unknown',
           type: (layer['@@type'] as string) || 'Unknown',
@@ -393,7 +401,10 @@ export class MapAIToolsService implements OnDestroy {
       }
 
       // Get current layer state to preserve context across conversation turns
-      const currentLayers = this.deckState.getLayers().map(layer => ({
+      const currentLayers = this.deckState.getLayers().filter(layer => {
+        const id = (layer['id'] as string) || '';
+        return !id.startsWith('__');
+      }).map(layer => ({
         id: (layer['id'] as string) || 'unknown',
         type: (layer['@@type'] as string) || 'Unknown',
         visible: layer['visible'] !== false
