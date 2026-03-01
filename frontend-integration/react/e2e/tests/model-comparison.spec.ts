@@ -20,6 +20,11 @@ const testCases = [
     action: 'message' as const,
     text: 'Fly to New York',
   },
+  {
+    name: 'marker-add',
+    action: 'message' as const,
+    text: 'Fly to the Statue of Liberty and place a marker pin there',
+  },
 ];
 
 test.describe(`Model Comparison [${modelSlug}]`, () => {
