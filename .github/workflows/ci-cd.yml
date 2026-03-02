@@ -28,5 +28,12 @@ jobs:
   unit-tests:
     name: Unit Tests
     needs: lint
-    uses: ./.github/workflows/test.yml
+    uses: ./.github/workflows/unit-tests.yml
+    secrets: inherit
+
+  # E2E tests run after unit tests pass
+  e2e-tests:
+    name: E2E Tests
+    needs: lint
+    uses: ./.github/workflows/e2e-tests.yml
     secrets: inherit
