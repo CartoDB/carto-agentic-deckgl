@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIR = resolve(__dirname, '../..');
-const BACKEND_ENV = resolve(FRONTEND_DIR, '../../backend-integration/vercel-ai-sdk/.env');
 const MODEL_CONFIG = resolve(__dirname, '../helpers/model-config.ts');
 
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -50,36 +49,43 @@ function killPort(port) {
   }
 }
 
-function getEnvModel() {
-  if (!existsSync(BACKEND_ENV)) return '';
-  const content = readFileSync(BACKEND_ENV, 'utf-8');
+function getBackendEnvPath(backend) {
+  return resolve(FRONTEND_DIR, `../../backend-integration/${backend}/.env`);
+}
+
+function getEnvModel(backendEnv) {
+  if (!existsSync(backendEnv)) return '';
+  const content = readFileSync(backendEnv, 'utf-8');
   const match = content.match(/^CARTO_AI_API_MODEL=(.*)$/m);
   return match ? match[1] : '';
 }
 
-function setEnvModel(model) {
-  if (!existsSync(BACKEND_ENV)) {
-    console.warn('  WARNING: Backend .env not found at', BACKEND_ENV);
+function setEnvModel(backendEnv, model) {
+  if (!existsSync(backendEnv)) {
+    console.warn('  WARNING: Backend .env not found at', backendEnv);
     return;
   }
-  let content = readFileSync(BACKEND_ENV, 'utf-8');
+  let content = readFileSync(backendEnv, 'utf-8');
   if (/^CARTO_AI_API_MODEL=/m.test(content)) {
     content = content.replace(/^CARTO_AI_API_MODEL=.*$/m, `CARTO_AI_API_MODEL=${model}`);
   } else {
     content += `\nCARTO_AI_API_MODEL=${model}\n`;
   }
-  writeFileSync(BACKEND_ENV, content);
+  writeFileSync(backendEnv, content);
 }
 
 function parseArgs() {
   const args = process.argv.slice(2);
   let models = null;
   let useCurrent = false;
+  let backend = 'openai-agents-sdk';
   const playwrightArgs = [];
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--model' && i + 1 < args.length) {
       models = [args[++i]];
+    } else if (args[i] === '--backend' && i + 1 < args.length) {
+      backend = args[++i];
     } else if (args[i] === '--current') {
       useCurrent = true;
     } else {
@@ -87,14 +93,14 @@ function parseArgs() {
     }
   }
 
-  return { models, useCurrent, playwrightArgs };
+  return { models, useCurrent, backend, playwrightArgs };
 }
 
-function resolveModels(cliModels, useCurrent) {
+function resolveModels(cliModels, useCurrent, backendEnv) {
   if (cliModels) return cliModels;
 
   if (useCurrent) {
-    const current = getEnvModel();
+    const current = getEnvModel(backendEnv);
     if (!current) {
       console.error('ERROR: --current used but no CARTO_AI_API_MODEL found in backend .env');
       process.exit(1);
@@ -110,11 +116,11 @@ function resolveModels(cliModels, useCurrent) {
 }
 
 // Run a single model test, streaming Playwright output live with a spinner during quiet periods
-function runTest(model, playwrightArgs) {
+function runTest(model, playwrightArgs, backend) {
   return new Promise((resolve) => {
     const child = spawn('pnpm', ['e2e', ...playwrightArgs], {
       cwd: FRONTEND_DIR,
-      env: { ...process.env, TEST_MODEL: model },
+      env: { ...process.env, TEST_MODEL: model, BACKEND_SDK: backend },
       stdio: 'pipe',
     });
 
@@ -160,19 +166,20 @@ function runTest(model, playwrightArgs) {
 
 // Main
 async function main() {
-  const { models: cliModels, useCurrent, playwrightArgs } = parseArgs();
-  const models = resolveModels(cliModels, useCurrent);
-  const originalModel = getEnvModel();
+  const { models: cliModels, useCurrent, backend, playwrightArgs } = parseArgs();
+  const backendEnv = getBackendEnvPath(backend);
+  const models = resolveModels(cliModels, useCurrent, backendEnv);
+  const originalModel = getEnvModel(backendEnv);
 
   function cleanup() {
-    if (originalModel) setEnvModel(originalModel);
+    if (originalModel) setEnvModel(backendEnv, originalModel);
     killPort(3003);
   }
   process.on('exit', cleanup);
   process.on('SIGINT', () => { cleanup(); process.exit(1); });
   process.on('SIGTERM', () => { cleanup(); process.exit(1); });
 
-  console.log(`\nE2E Matrix: ${models.length} model${models.length > 1 ? 's' : ''}\n`);
+  console.log(`\nE2E Matrix: ${models.length} model${models.length > 1 ? 's' : ''} (backend: ${backend})\n`);
 
   const results = [];
 
@@ -181,12 +188,12 @@ async function main() {
     const slug = slugify(model);
     const prefix = `[${i + 1}/${models.length}] ${slug}`;
 
-    setEnvModel(model);
+    setEnvModel(backendEnv, model);
     killPort(3003);
 
     console.log(`\n${prefix}`);
     console.log(`${'─'.repeat(prefix.length)}`);
-    const result = await runTest(model, playwrightArgs);
+    const result = await runTest(model, playwrightArgs, backend);
 
     if (result.passed) {
       console.log(`  \u2713 PASS`);

@@ -1,5 +1,7 @@
 import { defineConfig, devices } from 'playwright/test';
 
+const backend = process.env.BACKEND_SDK || 'openai-agents-sdk';
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -35,7 +37,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm run dev',
-      cwd: '../../../backend-integration/vercel-ai-sdk',
+      cwd: `../../../backend-integration/${backend}`,
       port: 3003,
       reuseExistingServer: true,
       timeout: process.env.CI ? 60_000 : 30_000,
