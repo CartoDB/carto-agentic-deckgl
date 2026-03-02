@@ -20,7 +20,7 @@ e2e/
 │   ├── semantic-direct-layer.spec.ts   # Chip: "Counties with 40%+ higher education"
 │   ├── semantic-mcp-tool.spec.ts       # Chip: "MCP Demographics around Times Square"
 │   ├── custom-tool-lds.spec.ts         # Free text: "Fly to New York" (LDS geocode)
-│   └── model-comparison.spec.ts        # All prompts parameterized for cross-model comparison
+│   ├── set-marker.spec.ts             # Marker CRUD: add, remove, clear, accumulate
 └── screenshots/                  # Baseline screenshots (PNGs gitignored)
 ```
 
@@ -98,7 +98,20 @@ If you already have the backend (port 3003) and frontend (port 5173) running, Pl
 | `semantic-direct-layer` | Chip: "Counties with 40%+ higher education" | Direct semantic layer creation, layer toggle, screenshot |
 | `semantic-mcp-tool` | Chip: "MCP Demographics around Times Square" | MCP tool execution, viewport fly-to NYC, screenshot |
 | `custom-tool-lds` | Text: "Fly to New York" | LDS geocode tool, viewport assertion (~40.7, -74.0), screenshot |
-| `model-comparison` | All three prompts | Parameterized cross-model screenshot capture |
+| `set-marker` (6 tests) | Various marker commands | Full marker CRUD lifecycle (see below) |
+
+### Set Marker Tests
+
+The `set-marker.spec.ts` suite validates the `set-marker` tool across 6 scenarios:
+
+| # | Test | Prompt(s) | Validates |
+| - | ---- | --------- | --------- |
+| 1 | Add marker (explicit) | "Fly to Times Square and add a marker" | Marker tool success message, screenshot |
+| 2 | Marker in MCP workflow | Chip: "MCP Demographics around Times Square" | MCP workflow completes with tool calls, screenshot |
+| 3 | Clear all markers | "Fly to Madrid and add a marker" → "Clear all markers" | Sequential: add then clear, "cleared" confirmation |
+| 4 | Remove specific marker | "Fly to Madrid and add a marker" → "Remove the marker on Madrid" | Sequential: add then remove by location, "removed" confirmation |
+| 5 | No marker on fly-to | "Fly to Paris" | Negative test: fly-to executes without placing a marker |
+| 6 | Accumulate markers | "Fly to Madrid and add a marker" → "Fly to Barcelona and add a marker" | Sequential: two markers accumulate, "total markers: 2" confirmation |
 
 ## Page Object Models
 
