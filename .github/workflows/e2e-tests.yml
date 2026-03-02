@@ -1,0 +1,140 @@
+name: E2E Tests
+
+on:
+  workflow_call:
+
+jobs:
+  e2e-tests:
+    name: E2E (${{ matrix.model_name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - model: 'ac_7xhfwyml::azure::gpt-5'
+          #   model_name: 'azure-gpt-5'
+          # - model: 'ac_7xhfwyml::azure::gpt-5-mini'
+          #   model_name: 'azure-gpt-5-mini'
+          # - model: 'ac_7xhfwyml::google::gemini-3-flash-preview'
+          #   model_name: 'google-gemini-3-flash'
+          # - model: 'ac_7xhfwyml::google::gemini-3-pro-preview'
+          #   model_name: 'google-gemini-3-pro'
+          # - model: 'ac_7xhfwyml::openai::gpt-5-mini'
+          #   model_name: 'openai-gpt-5-mini'
+          - model: 'ac_7xhfwyml::openai::gpt-5.2'
+            model_name: 'openai-gpt-5-2'
+          # - model: 'ac_7xhfwyml::vertex::claude-opus-4-5@20251101'
+          #   model_name: 'vertex-claude-opus'
+          - model: 'ac_7xhfwyml::vertex::claude-sonnet-4-5@20250929'
+            model_name: 'vertex-claude-sonnet'
+          # - model: 'ac_7xhfwyml::vertex::gemini-3-flash-preview'
+          #   model_name: 'vertex-gemini-3-flash'
+          - model: 'ac_7xhfwyml::vertex::gemini-3-pro-preview'
+            model_name: 'vertex-gemini-3-pro'
+          # - model: 'ac_7xhfwyml::databricks::databricks-gpt-5-2'
+          #   model_name: 'databricks-gpt-5-2'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # Build core library
+      - name: Build map-ai-tools
+        run: cd map-ai-tools && npm ci && npm run build
+
+      # Install backend
+      - name: Install backend
+        run: cd backend-integration/vercel-ai-sdk && npm ci
+
+      # Install frontend + Playwright
+      - name: Install frontend
+        run: cd frontend-integration/react && pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: cd frontend-integration/react && pnpm exec playwright install --with-deps chromium
+
+      # Create environment files
+      - name: Setup backend environment
+        run: |
+          cat > backend-integration/vercel-ai-sdk/.env << 'EOF'
+          CARTO_AI_API_BASE_URL=${{ secrets.CARTO_AI_API_BASE_URL }}
+          CARTO_AI_API_KEY=${{ secrets.CARTO_AI_API_KEY }}
+          CARTO_AI_API_MODEL=${{ matrix.model }}
+          CARTO_AI_API_TYPE=chat
+          PORT=3003
+          CARTO_MCP_URL=${{ secrets.CARTO_MCP_URL }}
+          CARTO_MCP_API_KEY=${{ secrets.CARTO_MCP_API_KEY }}
+          MCP_WHITELIST_CARTO=async_workflow_job_get_status_v1_0_0,async_workflow_job_get_results_v1_0_0,ai_tools_filter_pois,ai_tools_drivetime_demographics
+          CARTO_LDS_API_BASE_URL=${{ secrets.CARTO_LDS_API_BASE_URL }}
+          CARTO_LDS_API_KEY=${{ secrets.CARTO_LDS_API_KEY }}
+          MCP_MOCK_MODE=true
+          EOF
+
+      - name: Setup frontend environment
+        run: |
+          cat > frontend-integration/react/.env << 'EOF'
+          VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_ACCESS_TOKEN=${{ secrets.VITE_API_ACCESS_TOKEN }}
+          VITE_CONNECTION_NAME=carto_dw
+          VITE_USE_HTTP=false
+          VITE_WS_URL=ws://localhost:3003/ws
+          VITE_HTTP_API_URL=http://localhost:3003/api/chat
+          EOF
+
+      # Run E2E tests
+      - name: Run E2E tests
+        env:
+          TEST_MODEL: ${{ matrix.model }}
+        run: cd frontend-integration/react && pnpm e2e
+
+      # Upload results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results-${{ matrix.model_name }}
+          path: |
+            frontend-integration/react/e2e/test-results/
+            frontend-integration/react/e2e/playwright-report/
+            frontend-integration/react/e2e/screenshots/
+          retention-days: 30
+
+  # Comparison report job
+  e2e-comparison:
+    name: Model Comparison Report
+    needs: e2e-tests
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: all-results
+          pattern: e2e-results-*
+
+      - name: Generate comparison report
+        run: |
+          echo "## E2E Model Comparison Report" > comparison.md
+          echo "" >> comparison.md
+          for dir in all-results/e2e-results-*/; do
+            model=$(basename "$dir" | sed 's/e2e-results-//')
+            echo "### $model" >> comparison.md
+            if [ -d "$dir/playwright-report" ]; then
+              echo "- Playwright report available in artifacts" >> comparison.md
+            fi
+            # Count screenshots
+            screenshot_count=$(find "$dir/screenshots/" -name "*.png" 2>/dev/null | wc -l)
+            echo "- Screenshots captured: $screenshot_count" >> comparison.md
+            echo "" >> comparison.md
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e2e-comparison-report
+          path: comparison.md
