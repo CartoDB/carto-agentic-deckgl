@@ -188,6 +188,52 @@ The backend loads YAML-based data catalogs (GeoCubes) that describe available ta
 
 ---
 
+## Testing
+
+### Unit Tests
+
+```bash
+# Core library
+cd map-ai-tools && npm test
+
+# Backend
+cd backend-integration/vercel-ai-sdk && npm test
+
+# Frontend (any framework)
+cd frontend-integration/react && npm test
+```
+
+### E2E Tests
+
+Playwright-based end-to-end tests validate the full AI pipeline: user message → WebSocket → LLM → tool call → deck.gl rendering. Tests run against the React frontend.
+
+```bash
+cd frontend-integration/react
+
+# Install Playwright browsers (one-time)
+npx playwright install chromium
+
+# Run all E2E tests (auto-starts backend + frontend)
+pnpm e2e
+
+# Headed mode (watch in browser)
+pnpm e2e:headed
+
+# Interactive UI mode
+pnpm e2e:ui
+
+# Run a single test
+pnpm e2e -- --grep "Counties"
+
+# Run with a specific LLM model
+TEST_MODEL="ac_7xhfwyml::openai::gpt-5.2" pnpm e2e
+
+# Run full model matrix
+pnpm e2e:matrix
+```
+
+See [frontend-integration/react/e2e/README.md](frontend-integration/react/e2e/README.md) for test cases, page objects, screenshot comparison, and CI/CD details.
+
 ## Development Commands
 
 ### Core Library
@@ -252,6 +298,7 @@ npm test                        # Run unit tests
 | [frontend-integration/vue/README.md](frontend-integration/vue/README.md) | Vue integration guide |
 | [frontend-integration/react/README.md](frontend-integration/react/README.md) | React integration guide |
 | [frontend-integration/vanilla/README.md](frontend-integration/vanilla/README.md) | Vanilla JS integration guide |
+| [frontend-integration/react/e2e/README.md](frontend-integration/react/e2e/README.md) | E2E test suite documentation |
 
 ---
 
