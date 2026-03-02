@@ -7,7 +7,7 @@
 This monorepo contains three layers that work together:
 
 1. **Core Library** (`map-ai-tools/`) -- Framework-agnostic TypeScript library that defines the AI tool schema, system prompt builder, deck.gl JSON validation, and SDK converters.
-2. **Backend Integrations** (`backend-integration/`) -- Server implementations that connect frontends to AI models. Currently includes Vercel AI SDK with Express + WebSocket.
+2. **Backend Integrations** (`backend-integration/`) -- Server implementations that connect frontends to AI models. Includes OpenAI Agents SDK (default) and Vercel AI SDK, both with Express + WebSocket.
 3. **Frontend Integrations** (`frontend-integration/`) -- Reference implementations in Angular, Vue, React, and Vanilla JS showing how to build the chat-to-map experience.
 
 ## Architecture
@@ -44,6 +44,14 @@ ps-frontend-tools-poc/
 |   +-- README.md                         # Library API documentation
 |
 +-- backend-integration/
+|   +-- openai-agents-sdk/                # OpenAI Agents SDK backend (default)
+|   |   +-- src/
+|   |   |   +-- server.ts                 # Express + WebSocket server
+|   |   |   +-- agent/                    # Tool aggregation, providers, MCP
+|   |   |   +-- services/                 # Agent runner, conversation manager
+|   |   |   +-- prompts/                  # System prompt, custom instructions
+|   |   |   +-- semantic/                 # YAML data catalog (GeoCubes)
+|   |   +-- tests/                        # Unit tests (Vitest)
 |   +-- vercel-ai-sdk/                    # Vercel AI SDK v6 backend
 |   |   +-- src/
 |   |   |   +-- server.ts                 # Express + WebSocket server
@@ -75,13 +83,20 @@ npm install && npm run build
 ### 2. Configure and start the backend
 
 ```bash
-cd backend-integration/vercel-ai-sdk
+# OpenAI Agents SDK (default)
+cd backend-integration/openai-agents-sdk
 npm install
 cp .env.example .env   # Edit with your CARTO AI credentials
 npm run dev             # http://localhost:3003
+
+# Or: Vercel AI SDK
+cd backend-integration/vercel-ai-sdk
+npm install
+cp .env.example .env
+npm run dev
 ```
 
-See [backend-integration/vercel-ai-sdk/README.md](backend-integration/vercel-ai-sdk/README.md) for environment variable details.
+See [backend-integration/README.md](backend-integration/README.md) for environment variable details.
 
 ### 3. Pick a frontend and start it
 
@@ -116,7 +131,8 @@ The backend connects frontends to AI models via WebSocket (or HTTP SSE). It hand
 
 Currently available:
 
-- **Vercel AI SDK** -- Express + WebSocket server using Vercel AI SDK v6 with OpenAI-compatible endpoints. Supports MCP tool servers and CARTO LDS geocoding.
+- **OpenAI Agents SDK** (default) -- Express + WebSocket server using OpenAI Agents SDK. Supports MCP tool servers (with mock mode for testing) and CARTO LDS geocoding.
+- **Vercel AI SDK** -- Express + WebSocket server using Vercel AI SDK v6 with OpenAI-compatible endpoints. Supports MCP tool servers (with mock mode for testing) and CARTO LDS geocoding.
 
 See [backend-integration/README.md](backend-integration/README.md) for the backend architecture overview.
 
@@ -207,14 +223,19 @@ cd frontend-integration/react && npm test
 
 Playwright-based end-to-end tests validate the full AI pipeline: user message → WebSocket → LLM → tool call → deck.gl rendering. Tests run against the React frontend.
 
+The `BACKEND_SDK` env var selects which backend to test against (default: `openai-agents-sdk`).
+
 ```bash
 cd frontend-integration/react
 
 # Install Playwright browsers (one-time)
 npx playwright install chromium
 
-# Run all E2E tests (auto-starts backend + frontend)
+# Run all E2E tests (default: openai-agents-sdk backend)
 pnpm e2e
+
+# Run against a specific backend
+BACKEND_SDK=vercel-ai-sdk pnpm e2e
 
 # Headed mode (watch in browser)
 pnpm e2e:headed
@@ -230,6 +251,9 @@ TEST_MODEL="ac_7xhfwyml::openai::gpt-5.2" pnpm e2e
 
 # Run full model matrix
 pnpm e2e:matrix
+
+# Run matrix against a specific backend
+pnpm e2e:matrix --backend vercel-ai-sdk
 ```
 
 See [frontend-integration/react/e2e/README.md](frontend-integration/react/e2e/README.md) for test cases, page objects, screenshot comparison, and CI/CD details.
@@ -243,6 +267,17 @@ cd map-ai-tools
 npm install && npm run build    # Build ESM + CJS to dist/
 npm run dev                     # Watch mode
 npm run type-check              # Type check without emitting
+npm test                        # Run unit tests
+```
+
+### Backend (OpenAI Agents SDK -- default)
+
+```bash
+cd backend-integration/openai-agents-sdk
+npm run dev                     # Dev server with hot reload (port 3003)
+npm run dev:mock-mcp            # Dev server with MCP mock mode
+npm run build                   # Compile TypeScript to dist/
+npm run typecheck               # Type check
 npm test                        # Run unit tests
 ```
 
@@ -292,6 +327,7 @@ npm test                        # Run unit tests
 |----------|-------------|
 | [map-ai-tools/README.md](map-ai-tools/README.md) | Core library API reference |
 | [backend-integration/README.md](backend-integration/README.md) | Backend integrations overview |
+| [backend-integration/openai-agents-sdk/README.md](backend-integration/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
 | [backend-integration/vercel-ai-sdk/README.md](backend-integration/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
 | [frontend-integration/README.md](frontend-integration/README.md) | Frontend integrations overview |
 | [frontend-integration/angular/README.md](frontend-integration/angular/README.md) | Angular integration guide |

@@ -8,7 +8,7 @@ AI-powered map control framework using `@carto/maps-ai-tools`. Users interact wi
 
 **Tech Stack:**
 - Core Library: `@carto/maps-ai-tools` (TypeScript, Zod, framework-agnostic)
-- Backend: Node.js + TypeScript, Express, WebSocket, Vercel AI SDK v6
+- Backends: Node.js + TypeScript, Express, WebSocket — OpenAI Agents SDK (default) or Vercel AI SDK v6
 - Frontends: Angular 20, React 19, Vue 3, Vanilla JS — all with deck.gl, MapLibre GL, CARTO
 
 ## Project Structure
@@ -17,7 +17,8 @@ AI-powered map control framework using `@carto/maps-ai-tools`. Users interact wi
 ps-frontend-tools-poc/
 ├── map-ai-tools/                    # Core library (@carto/maps-ai-tools)
 ├── backend-integration/
-│   └── vercel-ai-sdk/               # Backend server (Express + WebSocket)
+│   ├── openai-agents-sdk/           # Backend server — OpenAI Agents SDK (default)
+│   └── vercel-ai-sdk/               # Backend server — Vercel AI SDK
 └── frontend-integration/
     ├── angular/                     # Angular 20 frontend
     ├── react/                       # React 19 frontend (+ E2E tests)
@@ -26,6 +27,16 @@ ps-frontend-tools-poc/
 ```
 
 ## Development Commands
+
+### Backend (OpenAI Agents SDK — default)
+```bash
+cd backend-integration/openai-agents-sdk
+npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
+npm run dev:mock-mcp # Start with MCP mock mode (fixture-backed tools)
+npm run build        # Compile TypeScript to dist/
+npm start            # Run production build
+npm run typecheck    # Type check without emitting
+```
 
 ### Backend (Vercel AI SDK)
 ```bash
@@ -63,19 +74,22 @@ npm run build        # Build ESM + CJS outputs to dist/
 ### E2E Tests (React)
 ```bash
 cd frontend-integration/react
-npx playwright install chromium   # One-time browser install
-pnpm e2e                          # Headless (auto-starts backend + frontend)
-pnpm e2e:headed                   # Headed mode (watch in browser)
-pnpm e2e:ui                       # Interactive UI mode
-pnpm e2e -- --grep "Counties"     # Run a single test by name
-pnpm e2e:update-snapshots         # Update screenshot baselines
-pnpm e2e:report                   # View HTML report
-pnpm e2e:matrix                   # Run full 11-model matrix
+npx playwright install chromium                     # One-time browser install
+pnpm e2e                                            # Headless (default: openai-agents-sdk backend)
+pnpm e2e:headed                                     # Headed mode (watch in browser)
+pnpm e2e:ui                                         # Interactive UI mode
+pnpm e2e -- --grep "Counties"                       # Run a single test by name
+BACKEND_SDK=vercel-ai-sdk pnpm e2e                  # Run against Vercel AI SDK backend
+pnpm e2e:update-snapshots                           # Update screenshot baselines
+pnpm e2e:report                                     # View HTML report
+pnpm e2e:matrix                                     # Run full model matrix (default backend)
+pnpm e2e:matrix --backend vercel-ai-sdk             # Run matrix against Vercel backend
+pnpm e2e:matrix --backend openai-agents-sdk --current  # Run matrix with current model
 ```
 
 ### Running the Application
 1. Build core library: `cd map-ai-tools && npm run build`
-2. Start backend: `cd backend-integration/vercel-ai-sdk && npm run dev` (runs on http://localhost:3003)
+2. Start backend: `cd backend-integration/openai-agents-sdk && npm run dev` (runs on http://localhost:3003)
 3. Start frontend: `cd frontend-integration/angular && pnpm start` (http://localhost:4200) or `cd frontend-integration/react && pnpm dev` (http://localhost:5173)
 
 ## Architecture
@@ -167,7 +181,10 @@ The AI generates JSON specs using special prefixes resolved by JSONConverter:
 
 ## Environment Variables
 
-### Backend (`backend-integration/vercel-ai-sdk/.env`)
+### Backend (`backend-integration/<sdk>/.env`)
+
+Both backends use the same environment variables:
+
 ```
 CARTO_AI_API_BASE_URL=https://...    # Required: LLM API endpoint
 CARTO_AI_API_KEY=your-key            # Required: LLM API key
@@ -177,6 +194,7 @@ CARTO_MCP_URL=https://...            # Optional: MCP server URL
 CARTO_MCP_API_KEY=your-key           # Optional: MCP API key
 CARTO_LDS_API_BASE_URL=https://...   # Optional: LDS geocoding endpoint
 CARTO_LDS_API_KEY=your-key           # Optional: LDS API key
+MCP_MOCK_MODE=true                   # Optional: use fixture-backed MCP tools (for testing)
 ```
 
 ### Frontend — Angular (`frontend-integration/angular/src/environments/environment.ts`)
