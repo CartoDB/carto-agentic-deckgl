@@ -9,7 +9,7 @@ AI-powered map control framework using `@carto/maps-ai-tools`. Users interact wi
 **Tech Stack:**
 - Core Library: `@carto/maps-ai-tools` (TypeScript, Zod, framework-agnostic)
 - Backend: Node.js + TypeScript, Express, WebSocket, Vercel AI SDK v6
-- Frontend: Angular 20, deck.gl, MapLibre GL, CARTO
+- Frontends: Angular 20, React 19, Vue 3, Vanilla JS — all with deck.gl, MapLibre GL, CARTO
 
 ## Project Structure
 
@@ -19,7 +19,10 @@ ps-frontend-tools-poc/
 ├── backend-integration/
 │   └── vercel-ai-sdk/               # Backend server (Express + WebSocket)
 └── frontend-integration/
-    └── angular/                     # Angular 20 frontend
+    ├── angular/                     # Angular 20 frontend
+    ├── react/                       # React 19 frontend (+ E2E tests)
+    ├── vue/                         # Vue 3 frontend
+    └── vanilla/                     # Vanilla JS frontend
 ```
 
 ## Development Commands
@@ -39,7 +42,15 @@ cd frontend-integration/angular
 pnpm install         # Install dependencies
 pnpm start           # Start dev server (http://localhost:4200)
 pnpm build           # Build for production
-npx ng build         # Alternative build command
+```
+
+### Frontend (React)
+```bash
+cd frontend-integration/react
+pnpm install         # Install dependencies
+pnpm dev             # Start dev server (http://localhost:5173)
+pnpm build           # Build for production
+pnpm test            # Run unit tests
 ```
 
 ### Core Library
@@ -49,10 +60,23 @@ npm install
 npm run build        # Build ESM + CJS outputs to dist/
 ```
 
+### E2E Tests (React)
+```bash
+cd frontend-integration/react
+npx playwright install chromium   # One-time browser install
+pnpm e2e                          # Headless (auto-starts backend + frontend)
+pnpm e2e:headed                   # Headed mode (watch in browser)
+pnpm e2e:ui                       # Interactive UI mode
+pnpm e2e -- --grep "Counties"     # Run a single test by name
+pnpm e2e:update-snapshots         # Update screenshot baselines
+pnpm e2e:report                   # View HTML report
+pnpm e2e:matrix                   # Run full 11-model matrix
+```
+
 ### Running the Application
 1. Build core library: `cd map-ai-tools && npm run build`
 2. Start backend: `cd backend-integration/vercel-ai-sdk && npm run dev` (runs on http://localhost:3003)
-3. Start frontend: `cd frontend-integration/angular && pnpm start` (runs on http://localhost:4200)
+3. Start frontend: `cd frontend-integration/angular && pnpm start` (http://localhost:4200) or `cd frontend-integration/react && pnpm dev` (http://localhost:5173)
 
 ## Architecture
 
@@ -69,11 +93,12 @@ Angular: Display text + Execute tool_calls via ConsolidatedExecutorsService
                           DeckStateService updates deck.gl
 ```
 
-### Consolidated Tool (1 frontend-executed tool)
+### Consolidated Tools (2 frontend-executed tools)
 
 | Tool             | Purpose                                                                                               |
 |------------------|-------------------------------------------------------------------------------------------------------|
 | `set-deck-state` | Navigate (initialViewState), change basemap (mapStyle), add/update/remove layers, widgets, and effects |
+| `set-marker`     | Place, remove, or clear location marker pins at specified coordinates                                  |
 
 ### Key Files — Backend (`backend-integration/vercel-ai-sdk/src/`)
 
@@ -84,6 +109,7 @@ Angular: Display text + Execute tool_calls via ConsolidatedExecutorsService
 - `agent/tools.ts` — Tool aggregation (local + custom + MCP tools)
 - `agent/custom-tools.ts` — Backend-only tools (e.g., LDS geocode)
 - `agent/mcp-tools.ts` — MCP server integration
+- `agent/mcp-mock-fixtures.ts` — MCP mock fixtures for testing
 - `prompts/system-prompt.ts` — System prompt builder
 - `prompts/custom-prompt.ts` — App-specific AI instructions
 
@@ -147,9 +173,13 @@ CARTO_AI_API_BASE_URL=https://...    # Required: LLM API endpoint
 CARTO_AI_API_KEY=your-key            # Required: LLM API key
 CARTO_AI_API_MODEL=gpt-4o            # Optional: defaults to gpt-4o
 PORT=3003                            # Optional: defaults to 3003
+CARTO_MCP_URL=https://...            # Optional: MCP server URL
+CARTO_MCP_API_KEY=your-key           # Optional: MCP API key
+CARTO_LDS_API_BASE_URL=https://...   # Optional: LDS geocoding endpoint
+CARTO_LDS_API_KEY=your-key           # Optional: LDS API key
 ```
 
-### Frontend (`frontend-integration/angular/src/environments/environment.ts`)
+### Frontend — Angular (`frontend-integration/angular/src/environments/environment.ts`)
 ```typescript
 export const environment = {
   production: false,
@@ -160,4 +190,14 @@ export const environment = {
   httpApiUrl: 'http://localhost:3003/api/chat',
   useHttp: false,
 };
+```
+
+### Frontend — React (`frontend-integration/react/.env`)
+```
+VITE_API_BASE_URL=https://gcp-us-east1.api.carto.com
+VITE_API_ACCESS_TOKEN=YOUR_CARTO_TOKEN
+VITE_CONNECTION_NAME=carto_dw
+VITE_WS_URL=ws://localhost:3003/ws
+VITE_HTTP_API_URL=http://localhost:3003/api/chat
+VITE_USE_HTTP=false
 ```
