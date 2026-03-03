@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import MapView from './components/MapView.vue';
 import ChatUI from './components/ChatUI.vue';
 import ZoomControls from './components/ZoomControls.vue';
+import DrawTool from './components/DrawTool.vue';
 import LayerToggle from './components/LayerToggle.vue';
 import Snackbar from './components/Snackbar.vue';
 import { useMapAITools } from './composables/useMapAITools';
@@ -125,13 +126,17 @@ const sidebarFullOnMobile = computed(() => isMobile.value && sidebarState.value 
         <div :class="{ 'map-container': true, 'sidebar-full': sidebarFullOnMobile }">
           <MapView @view-state-change="handleViewStateChange" />
 
-          <div :class="{ 'layer-toggle-wrapper': true, 'below-sidebar': showMobileSidebar }">
+          <div :class="{ 'top-left-controls': true, 'below-sidebar': showMobileSidebar }">
             <LayerToggle
               :disabled="!aiTools.isConnected.value"
               :layers="aiTools.layers.value"
               @toggle="handleLayerToggle"
               @fly-to="handleLayerFlyTo"
             />
+
+            <div class="draw-tool-wrapper">
+              <DrawTool />
+            </div>
           </div>
 
           <div class="zoom-controls-wrapper">
@@ -251,11 +256,14 @@ const sidebarFullOnMobile = computed(() => isMobile.value && sidebarState.value 
   width: 450px;
 }
 
-.layer-toggle-wrapper {
+.top-left-controls {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .zoom-controls-wrapper {
@@ -299,14 +307,14 @@ const sidebarFullOnMobile = computed(() => isMobile.value && sidebarState.value 
     overflow: hidden;
   }
 
-  .layer-toggle-wrapper.below-sidebar {
+  .top-left-controls.below-sidebar {
     position: fixed;
     top: auto;
     bottom: calc(50vh + 10px);
     z-index: 1001;
   }
 
-  .map-container.sidebar-full .layer-toggle-wrapper.below-sidebar {
+  .map-container.sidebar-full .top-left-controls.below-sidebar {
     bottom: calc(100vh - 56px + 10px);
   }
 }

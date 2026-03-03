@@ -8,10 +8,12 @@
 
 import { watch } from 'vue';
 import { Deck, Layer } from '@deck.gl/core';
+import { MaskExtension } from '@deck.gl/extensions';
 import { log as lumaLog } from '@luma.gl/core';
 import { BASEMAP } from '@deck.gl/carto';
 import maplibregl from 'maplibre-gl';
 import { useDeckState, type Basemap, type DeckSpec, type DeckStateData, DEFAULT_VIEW_STATE } from './useDeckState';
+import { useMaskLayer, MASK_LAYER_ID } from './useMaskLayer';
 import { getJsonConverter } from '../config/deck-json-config';
 import { getTooltipContent } from '../utils/tooltip';
 import { environment } from '../config/environment';
@@ -38,11 +40,14 @@ let _instance: ReturnType<typeof createDeckMapComposable> | null = null;
 
 function createDeckMapComposable() {
   const deckState = useDeckState();
+  const maskLayer = useMaskLayer();
+  const maskExtension = new MaskExtension();
 
   let deck: Deck<any> | null = null;
   let map: maplibregl.Map | null = null;
   let unwatchState: (() => void) | null = null;
   let onViewStateChangeCallback: ((vs: ViewState) => void) | null = null;
+  let cachedConvertedLayers: any[] = [];
 
   /**
    * Initialize deck.gl and MapLibre instances
@@ -150,6 +155,19 @@ function createDeckMapComposable() {
       { deep: true }
     ));
 
+    // Watch mask layer state changes — use light render during drawing to avoid API calls
+    watchers.push(watch(
+      () => maskLayer.state,
+      () => {
+        if (maskLayer.state.isDrawing) {
+          updateMaskLayersOnly();
+        } else {
+          renderFromState(deckState.state as unknown as DeckStateData, ['layers']);
+        }
+      },
+      { deep: true }
+    ));
+
     unwatchState = () => watchers.forEach(unwatch => unwatch());
   }
 
@@ -192,9 +210,22 @@ function createDeckMapComposable() {
         // Convert the entire spec (initialViewState + layers + widgets + effects)
         const deckProps = jsonConverter.convert(spec);
 
+        // Cache raw converted layers BEFORE MaskExtension injection (for light render during drawing)
+        let convertedLayers = (deckProps as any).layers || [];
+        cachedConvertedLayers = convertedLayers;
+
+        // Always inject MaskExtension (pre-registers MaskEffect for first-polygon fix)
+        convertedLayers = maskLayer.injectMaskExtension(convertedLayers);
+
+        // Append mask layers (GeoJsonLayer + optional EditableGeoJsonLayer)
+        const maskLayers = maskLayer.getMaskLayers();
+        const allLayers = [...convertedLayers, ...maskLayers];
+
         // Set all props on deck with error handling
         deck.setProps({
           ...deckProps,
+          layers: allLayers,
+          controller: { dragPan: !maskLayer.state.isDrawing, doubleClickZoom: !maskLayer.state.isDrawing },
           onError: (error: Error, layer: Layer | null) => {
             console.error('[useDeckMap] Layer rendering error:', {
               error: error.message,
@@ -214,6 +245,27 @@ function createDeckMapComposable() {
         });
       }
     }
+  }
+
+  /**
+   * Light render path: update only mask layers without re-running JSONConverter.
+   * Used during active drawing to avoid triggering CARTO API calls on every vertex.
+   */
+  function updateMaskLayersOnly(): void {
+    if (!deck) return;
+
+    // Always inject MaskExtension with dynamic maskId
+    let dataLayers = maskLayer.injectMaskExtension(cachedConvertedLayers);
+
+    const maskLayers = maskLayer.getMaskLayers();
+    const allLayers = [...dataLayers, ...maskLayers];
+
+    deck.setProps({
+      layers: allLayers,
+      controller: { dragPan: false, doubleClickZoom: false },
+    });
+
+    scheduleRedraws();
   }
 
   /**

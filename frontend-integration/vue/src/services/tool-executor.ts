@@ -341,10 +341,50 @@ function executeSetMarker(actions: DeckStateActions, params: unknown): ToolResul
   }
 }
 
-export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
+export interface MaskLayerActions {
+  setMaskGeometry: (geojson: any) => void;
+  enableDrawMode: () => void;
+  clearMask: () => void;
+}
+
+function executeSetMaskLayer(maskActions: MaskLayerActions, params: unknown): ToolResult {
+  const { action, geometry } = params as {
+    action: 'set' | 'enable-draw' | 'clear';
+    geometry?: Record<string, unknown>;
+  };
+  try {
+    switch (action) {
+      case 'set':
+        if (!geometry) {
+          return { success: false, message: 'Geometry is required for action "set".' };
+        }
+        maskActions.setMaskGeometry(geometry);
+        return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+      case 'enable-draw':
+        maskActions.enableDrawMode();
+        return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
+      case 'clear':
+        maskActions.clearMask();
+        return { success: true, message: 'Mask cleared. All data layers are now fully visible.' };
+      default:
+        return { success: false, message: `Unknown mask action: ${action}` };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to set mask layer: ${error instanceof Error ? error.message : String(error)}`,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
+export function createToolExecutor(actions: DeckStateActions, maskActions?: MaskLayerActions): ExecuteToolFn {
   const executors: Record<string, ToolExecutorFn> = {
     [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
     [TOOL_NAMES.SET_MARKER]: (params) => executeSetMarker(actions, params),
+    ...(maskActions ? {
+      [TOOL_NAMES.SET_MASK_LAYER]: (params) => executeSetMaskLayer(maskActions, params),
+    } : {}),
   };
 
   return async (toolName, params) => {
