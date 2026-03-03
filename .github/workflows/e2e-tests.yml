@@ -36,8 +36,8 @@ jobs:
             model_name: 'vertex-claude-sonnet'
           # - model: 'ac_7xhfwyml::vertex::gemini-3-flash-preview'
           #   model_name: 'vertex-gemini-3-flash'
-          - model: 'ac_7xhfwyml::vertex::gemini-3-pro-preview'
-            model_name: 'vertex-gemini-3-pro'
+          # - model: 'ac_7xhfwyml::vertex::gemini-3-pro-preview'
+          #   model_name: 'vertex-gemini-3-pro'
           # - model: 'ac_7xhfwyml::databricks::databricks-gpt-5-2'
           #   model_name: 'databricks-gpt-5-2'
 
