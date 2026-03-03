@@ -37,4 +37,6 @@ jobs:
     needs: unit-tests
     if: github.event_name == 'push'
     uses: ./.github/workflows/e2e-tests.yml
+    with:
+      backend: openai-agents-sdk
     secrets: inherit
