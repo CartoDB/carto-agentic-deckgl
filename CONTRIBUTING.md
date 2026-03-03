@@ -126,10 +126,10 @@ map-ai-tools/src/
 
 ## Pull Request Process
 
-1. **Sync with master**:
+1. **Sync with main**:
    ```bash
    git fetch origin
-   git rebase origin/master
+   git rebase origin/main
    ```
 
 2. **Make your changes** following the code style guidelines
