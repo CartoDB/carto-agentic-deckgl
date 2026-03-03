@@ -12,7 +12,7 @@ vi.mock('../../../src/prompts/custom-prompt.js', () => ({
 }));
 
 // Mock the library's buildSystemPrompt to capture what options it receives
-vi.mock('@carto/maps-ai-tools', () => ({
+vi.mock('@carto/map-ai-tools', () => ({
   buildSystemPrompt: vi.fn((options: Record<string, unknown>) => {
     // Return a deterministic string so we can assert on the options passed in
     return `SYSTEM_PROMPT[tools=${JSON.stringify(options.toolNames)},semantic=${!!options.semanticContext},mcp=${JSON.stringify(options.mcpToolNames)},additional=${!!options.additionalPrompt}]`;
@@ -21,7 +21,7 @@ vi.mock('@carto/maps-ai-tools', () => ({
 
 import { buildSystemPrompt } from '../../../src/prompts/system-prompt.js';
 import { loadSemanticModel, renderSemanticModelAsMarkdown } from '../../../src/semantic/index.js';
-import { buildSystemPrompt as libBuildSystemPrompt } from '@carto/maps-ai-tools';
+import { buildSystemPrompt as libBuildSystemPrompt } from '@carto/map-ai-tools';
 
 const mockLoad = vi.mocked(loadSemanticModel);
 const mockRender = vi.mocked(renderSemanticModelAsMarkdown);

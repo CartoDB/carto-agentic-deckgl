@@ -1,7 +1,7 @@
 /**
  * System prompt builder for the backend
  *
- * Delegates to @carto/maps-ai-tools for core prompt generation,
+ * Delegates to @carto/map-ai-tools for core prompt generation,
  * while handling app-specific semantic model loading.
  */
 
@@ -11,7 +11,7 @@ import {
   buildSystemPrompt as libBuildSystemPrompt,
   type BuildSystemPromptOptions,
   type MapState,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 import { loadSemanticModel, renderSemanticModelAsMarkdown } from '../semantic/index.js';
 import { customPrompt } from './custom-prompt.js';
 

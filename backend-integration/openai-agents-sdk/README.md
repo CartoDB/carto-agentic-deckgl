@@ -1,6 +1,6 @@
-# @carto/map-ai-tools -- Vercel AI SDK Backend
+# @carto/map-ai-tools -- OpenAI Agents SDK Backend
 
-> Express + WebSocket server using Vercel AI SDK v6 for streaming AI responses and tool calling. Connects frontend applications to an OpenAI-compatible LLM endpoint with support for MCP tool servers and CARTO LDS geocoding.
+> Express + WebSocket server using the OpenAI Agents SDK (`@openai/agents`) for streaming AI responses and tool calling. This is the **default and recommended** backend. Connects frontend applications to an OpenAI-compatible LLM endpoint with support for MCP tool servers and CARTO LDS geocoding.
 
 ---
 
@@ -23,7 +23,7 @@
 
 ### Prerequisites
 
-- Node.js v18+
+- Node.js v22+
 - npm
 - A CARTO AI API key and endpoint (OpenAI-compatible)
 
@@ -48,7 +48,6 @@ Edit `.env`:
 CARTO_AI_API_BASE_URL=https://your-endpoint.example.com/v1
 CARTO_AI_API_KEY=your-api-key
 CARTO_AI_API_MODEL=gpt-4o
-CARTO_AI_API_TYPE=chat
 
 # Optional: server port (default: 3003)
 PORT=3003
@@ -70,19 +69,22 @@ CARTO_LDS_API_KEY=your-lds-api-key
 | `CARTO_AI_API_BASE_URL` | Yes | OpenAI-compatible LLM endpoint URL |
 | `CARTO_AI_API_KEY` | Yes | API key for the LLM endpoint |
 | `CARTO_AI_API_MODEL` | No | Model name (default: `gpt-4o`) |
-| `CARTO_AI_API_TYPE` | No | `chat` for LiteLLM proxies, `responses` for native OpenAI Agents API (default: `chat`) |
 | `PORT` | No | Server port (default: `3003`) |
 | `CARTO_MCP_URL` | No | MCP server URL for remote tools |
 | `CARTO_MCP_API_KEY` | No | MCP server API key |
 | `MCP_WHITELIST_CARTO` | No | Comma-separated list of MCP tools to include (all if unset) |
 | `CARTO_LDS_API_BASE_URL` | No | CARTO LDS geocoding endpoint |
 | `CARTO_LDS_API_KEY` | No | CARTO LDS API key |
+| `MCP_MOCK_MODE` | No | Use fixture-backed MCP tools for testing |
 
 ### Running
 
 ```bash
 # Development with hot reload
 npm run dev     # http://localhost:3003
+
+# Development with MCP mock mode (fixture-backed tools)
+npm run dev:mock-mcp
 
 # Production
 npm run build && npm start
@@ -91,11 +93,12 @@ npm run build && npm start
 ### Development Commands
 
 ```bash
-npm run dev        # Start with tsx watch (hot reload)
-npm run build      # Compile TypeScript to dist/
-npm start          # Run compiled production build
-npm run typecheck  # Type check without emitting
-npm test           # Run unit tests (Vitest)
+npm run dev          # Start with tsx watch (hot reload)
+npm run dev:mock-mcp # Start with MCP mock mode
+npm run build        # Compile TypeScript to dist/
+npm start            # Run compiled production build
+npm run typecheck    # Type check without emitting
+npm test             # Run unit tests (Vitest)
 ```
 
 ---
@@ -108,15 +111,17 @@ src/
 +-- server.ts                       # Express + WebSocket server, session management
 |
 +-- agent/
-|   +-- providers.ts                # LLM provider configuration (OpenAI-compatible)
-|   +-- tools.ts                    # Tool aggregation: local + custom + MCP
+|   +-- providers.ts                # OpenAI client + setDefaultOpenAIClient + OpenAIChatCompletionsModel
+|   +-- tools.ts                    # Tool aggregation: local + custom + MCP (with parseFrontendToolResult)
 |   +-- custom-tools.ts             # Backend-only tools (LDS geocoding)
-|   +-- mcp-tools.ts                # MCP server integration wrapper
+|   +-- mcp-tools.ts                # MCP server integration and tool conversion
+|   +-- mcp-mock-fixtures.ts        # MCP mock fixtures for testing
 |
 +-- services/
-|   +-- agent-runner.ts             # Vercel AI SDK ToolLoopAgent orchestration
+|   +-- agent-runner.ts             # Agent + run() orchestration with streaming
 |   +-- conversation-manager.ts     # Per-session conversation history (max 20 messages)
-|   +-- mcp-client.ts               # MCP client management and tool conversion
+|   +-- mcp-client.ts               # MCP client management
+|   +-- utils.ts                    # Sanitize malformed keys, strip credentials
 |
 +-- prompts/
 |   +-- system-prompt.ts            # System prompt builder (delegates to library + adds semantic)
@@ -136,9 +141,10 @@ src/
 
 tests/
 +-- unit/
-    +-- semantic/                   # Semantic model loading and validation tests
-    +-- services/                   # Agent runner, conversation manager, MCP client tests
+    +-- agent/                      # Provider and tool tests
+    +-- services/                   # Agent runner, conversation manager, MCP client, utils tests
     +-- prompts/                    # System prompt builder tests
+    +-- semantic/                   # Semantic model loading and validation tests
 ```
 
 ---
@@ -152,14 +158,14 @@ Client (WebSocket or HTTP)
     (Express + WS)
          |
     agent-runner.ts
-    (Vercel AI SDK streamText)
+    (Agent + run() streaming)
          |
     +-----------+-----------+
     |           |           |
 providers.ts  tools.ts   system-prompt.ts
-(LLM config)  (tool      (prompt builder)
-              aggregation)
-              |
+(OpenAI       (tool      (prompt builder)
+ client +      aggregation)
+ model)        |
     +---------+---------+
     |         |         |
   local    custom     MCP
@@ -174,8 +180,8 @@ providers.ts  tools.ts   system-prompt.ts
 2. **Server creates session** with a `ConversationManager` for history tracking
 3. **User sends message** with current map state (`initialState`)
 4. **Server builds system prompt** using `buildSystemPrompt()` from `@carto/map-ai-tools` plus semantic context and custom instructions
-5. **Agent runner** calls `streamText()` from Vercel AI SDK with the tool definitions
-6. **Streaming loop**: AI generates text chunks and tool calls
+5. **Agent runner** creates an `Agent` with tools and calls `run()` with streaming enabled
+6. **Streaming loop**: processes `RunItemStreamEvent` and `RunRawModelStreamEvent` events
    - Text chunks are streamed back to the client
    - `set-deck-state` tool calls are forwarded to the frontend for execution
    - Backend-only tools (geocoding) are executed server-side
@@ -187,14 +193,17 @@ providers.ts  tools.ts   system-prompt.ts
 
 ## Agent Runner
 
-The `AgentRunner` (`services/agent-runner.ts`) orchestrates the AI interaction loop using Vercel AI SDK's `streamText`:
+The agent runner (`services/agent-runner.ts`) orchestrates the AI interaction using the OpenAI Agents SDK's `Agent` + `run()`:
 
-- Builds the complete message history (system prompt + conversation)
-- Calls `streamText()` with all available tools
-- Streams text chunks and tool calls back to the client
+- Creates an `Agent` instance with the system prompt, model, and tools
+- Calls `run()` with streaming enabled to process the conversation
+- Processes two event types:
+  - `RunItemStreamEvent` -- handles `tool_called`, `tool_output`, and `message_output_created` events
+  - `RunRawModelStreamEvent` -- streams text deltas to the client
+- Handles non-streamed text via `message_output_created` fallback (for Chat Completions mode where deltas may not arrive)
+- Uses `parseFrontendToolResult()` to distinguish frontend tool outputs from backend-executed ones
 - Sanitizes malformed keys from certain AI providers (e.g., Gemini wraps `@@type` in quotes)
 - Strips CARTO credentials from tool call data before sending to the frontend
-- Tracks step count for the tool loop
 
 ---
 
@@ -204,7 +213,7 @@ Tools are aggregated from three sources in `agent/tools.ts`:
 
 ### Local Tools (from `@carto/map-ai-tools`)
 
-The consolidated `set-deck-state` tool is imported from the core library and converted to Vercel AI SDK format.
+The consolidated `set-deck-state` tool is imported from the core library and converted to OpenAI Agents SDK format using `getToolsForOpenAIAgents()`. A custom `zodV4ToJsonSchema()` converter is used because the SDK's built-in schema converter cannot handle `z.unknown()` used in flexible layer configs.
 
 ### Custom Tools (`agent/custom-tools.ts`)
 
@@ -214,9 +223,13 @@ Backend-only tools that execute server-side:
 
 ### MCP Tools (`agent/mcp-tools.ts`)
 
-Remote tools from MCP (Model Context Protocol) servers. Configured via environment variables. Tool definitions are fetched from the MCP server at startup and converted to Vercel AI SDK format.
+Remote tools from MCP (Model Context Protocol) servers. Configured via environment variables. Tool definitions are fetched from the MCP server at startup and converted to OpenAI Agents SDK format.
 
 The `MCP_WHITELIST_CARTO` variable filters which tools are available. MCP tool results are executed server-side and sent to the frontend via `mcp_tool_result` messages.
+
+### MCP Mock Mode (`agent/mcp-mock-fixtures.ts`)
+
+When `MCP_MOCK_MODE=true`, the backend uses fixture-backed tool responses instead of connecting to a real MCP server. Useful for testing and development without MCP credentials.
 
 ---
 
@@ -242,7 +255,7 @@ Application-specific instructions appended to the library prompt:
 - Security guardrails (spatial analysis only)
 - Agent behavior rules (no loops, no self-responses)
 - Layer styling guidance
-- Geocoding workflow sequence (`lds-geocode → set-deck-state → MCP tool`)
+- Geocoding workflow sequence (`lds-geocode -> set-deck-state -> MCP tool`)
 - Marker placement rules (when to use `set-marker` vs. navigation-only `set-deck-state`)
 - MCP workflow results with mandatory layer creation and automatic `set-marker` after completion
 - Response format rules (no JSON/code in chat text)
@@ -337,7 +350,8 @@ npm test    # Run all tests
 
 ```text
 tests/unit/
-+-- semantic/           # Semantic model loading and validation
-+-- services/           # Agent runner, conversation manager, MCP client
++-- agent/              # Provider configuration and tool aggregation
++-- services/           # Conversation manager, MCP client, utils
 +-- prompts/            # System prompt builder
++-- semantic/           # Semantic model loading and validation
 ```

@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@carto/api-client": "^0.5.24",
-    "@carto/maps-ai-tools": "file:../../map-ai-tools",
+    "@carto/map-ai-tools": "file:../../map-ai-tools",
     "@deck.gl/carto": "^9.2.2",
     "@deck.gl/core": "^9.2.2",
     "@deck.gl/extensions": "^9.2.6",

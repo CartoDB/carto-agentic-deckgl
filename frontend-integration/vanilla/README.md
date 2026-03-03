@@ -1,4 +1,4 @@
-# @carto/maps-ai-tools — Vanilla JS Integration
+# @carto/map-ai-tools — Vanilla JS Integration
 
 > Zero-framework implementation of the AI-powered map application using plain ES6 classes, a custom EventEmitter, and Vite.
 
