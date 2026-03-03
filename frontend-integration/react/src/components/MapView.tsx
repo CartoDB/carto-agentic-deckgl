@@ -15,13 +15,21 @@ const BASEMAP_URLS: Record<Basemap, string> = {
   'voyager': BASEMAP.VOYAGER,
 };
 
-interface MapViewProps {
-  onViewStateChange?: (viewState: { zoom: number }) => void;
+interface MaskLayerProps {
+  isMaskActive: boolean;
+  isDrawing: boolean;
+  getMaskLayers: () => any[];
+  injectMaskExtension: (layers: any[]) => any[];
 }
 
-export function MapView({ onViewStateChange }: MapViewProps) {
+interface MapViewProps {
+  onViewStateChange?: (viewState: { zoom: number }) => void;
+  maskLayer?: MaskLayerProps;
+}
+
+export function MapView({ onViewStateChange, maskLayer }: MapViewProps) {
   const deckState = useDeckState();
-  const deckProps = useDeckProps();
+  const deckProps = useDeckProps(maskLayer);
   const redrawTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const { basemap } = deckState.state;
@@ -67,7 +75,7 @@ export function MapView({ onViewStateChange }: MapViewProps) {
       <DeckGL
         {...deckProps}
         onViewStateChange={handleViewStateChange}
-        controller
+        controller={{ dragPan: !(maskLayer?.isDrawing ?? false), doubleClickZoom: !(maskLayer?.isDrawing ?? false) }}
         getTooltip={getTooltip}
       >
         <Map mapStyle={BASEMAP_URLS[basemap]} />
