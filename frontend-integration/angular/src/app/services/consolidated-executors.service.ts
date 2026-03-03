@@ -15,6 +15,7 @@ import { Injectable } from '@angular/core';
 import { TOOL_NAMES } from '@carto/maps-ai-tools';
 import { DeckStateService, Basemap, LayerSpec } from '../state/deck-state.service';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.utils';
+import { MaskLayerService } from './mask-layer.service';
 
 // ==================== MARKER CONSTANTS ====================
 
@@ -58,7 +59,10 @@ interface SetDeckStateParams {
 export class ConsolidatedExecutorsService {
   private executors: Record<string, ToolExecutor> = {};
 
-  constructor(private deckState: DeckStateService) {
+  constructor(
+    private deckState: DeckStateService,
+    private maskLayerService: MaskLayerService,
+  ) {
     this.executors = this.createExecutors();
   }
 
@@ -377,6 +381,41 @@ export class ConsolidatedExecutorsService {
           return {
             success: false,
             message: `Failed to set marker: ${error instanceof Error ? error.message : String(error)}`,
+            error: error instanceof Error ? error : new Error(String(error)),
+          };
+        }
+      },
+
+      // ==================== SET MASK LAYER ====================
+      [TOOL_NAMES.SET_MASK_LAYER]: (params: unknown): ToolResult => {
+        const { action, geometry } = params as {
+          action: 'set' | 'enable-draw' | 'clear';
+          geometry?: Record<string, unknown>;
+        };
+        try {
+          switch (action) {
+            case 'set':
+              if (!geometry) {
+                return { success: false, message: 'Geometry is required for action "set".' };
+              }
+              this.maskLayerService.setMaskGeometry(geometry);
+              return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+
+            case 'enable-draw':
+              this.maskLayerService.enableDrawMode();
+              return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
+
+            case 'clear':
+              this.maskLayerService.clearMask();
+              return { success: true, message: 'Mask cleared. All data layers are now fully visible.' };
+
+            default:
+              return { success: false, message: `Unknown mask action: ${action}` };
+          }
+        } catch (error) {
+          return {
+            success: false,
+            message: `Failed to set mask layer: ${error instanceof Error ? error.message : String(error)}`,
             error: error instanceof Error ? error : new Error(String(error)),
           };
         }
