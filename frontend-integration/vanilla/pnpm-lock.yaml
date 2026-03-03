@@ -11,7 +11,7 @@ importers:
       '@carto/api-client':
         specifier: ^0.5.24
         version: 0.5.24(@loaders.gl/core@4.3.4)
-      '@carto/maps-ai-tools':
+      '@carto/map-ai-tools':
         specifier: file:../../map-ai-tools
         version: file:../../map-ai-tools(@deck.gl/json@9.2.8(@deck.gl/core@9.2.8))(zod@4.3.6)
       '@deck.gl/carto':
@@ -135,7 +135,7 @@ packages:
   '@carto/api-client@0.5.24':
     resolution: {integrity: sha512-BeHxVxOZsQDZlh6mnPIwK0yMejSUtReNn877NDhJ+B0LRR8Apz0tNTpvKvWiy3WApjNGrelRplYcc4dS2iflYA==}
 
-  '@carto/maps-ai-tools@file:../../map-ai-tools':
+  '@carto/map-ai-tools@file:../../map-ai-tools':
     resolution: {directory: ../../map-ai-tools, type: directory}
     peerDependencies:
       '@deck.gl/json': ^9.2.0
@@ -1243,7 +1243,7 @@ snapshots:
     transitivePeerDependencies:
       - '@loaders.gl/core'
 
-  '@carto/maps-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.8(@deck.gl/core@9.2.8))(zod@4.3.6)':
+  '@carto/map-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.8(@deck.gl/core@9.2.8))(zod@4.3.6)':
     dependencies:
       '@deck.gl/core': 9.2.8
       '@deck.gl/json': 9.2.8(@deck.gl/core@9.2.8)

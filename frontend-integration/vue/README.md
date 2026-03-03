@@ -1,4 +1,4 @@
-# @carto/maps-ai-tools — Vue Integration
+# @carto/map-ai-tools — Vue Integration
 
 > Vue 3 implementation of the AI-powered map application using Composition API, singleton composables, and Vite.
 

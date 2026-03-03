@@ -16,7 +16,7 @@ import { MapAIToolsService } from './services/map-ai-tools.service';
 import { DeckMapService, ViewState } from './services/deck-map.service';
 import { DeckStateService } from './state/deck-state.service';
 import { ConsolidatedExecutorsService } from './services/consolidated-executors.service';
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
+import { TOOL_NAMES } from '@carto/map-ai-tools';
 import { environment } from '../environments/environment';
 import {
   Message,

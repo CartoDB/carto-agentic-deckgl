@@ -1,4 +1,4 @@
-# @carto/maps-ai-tools
+# @carto/map-ai-tools
 
 > AI-powered map control framework. Users interact with deck.gl maps through natural language chat. Messages are processed by an LLM that generates tool calls executed client-side to manipulate the map.
 
@@ -31,7 +31,7 @@ The AI generates deck.gl JSON specifications using 2 consolidated tools (`set-de
 ```text
 ps-frontend-tools-poc/
 |
-+-- map-ai-tools/                         # Core library (@carto/maps-ai-tools)
++-- map-ai-tools/                         # Core library (@carto/map-ai-tools)
 |   +-- src/
 |   |   +-- definitions/                  # Tool definitions (Zod schemas)
 |   |   +-- converters/                   # AI SDK adapters (Vercel, OpenAI, Google)
@@ -144,7 +144,7 @@ All backends speak the same WebSocket protocol, so any frontend works with any b
 
 ## Core Library (`map-ai-tools`)
 
-`@carto/maps-ai-tools` is a framework-agnostic TypeScript library that provides:
+`@carto/map-ai-tools` is a framework-agnostic TypeScript library that provides:
 
 - **Tool definitions** with Zod v4 validation schemas
 - **System prompt builder** with tool-specific instructions, map state context, and user context
@@ -157,7 +157,7 @@ import {
   getToolsRecordForVercelAI,
   buildSystemPrompt,
   validateToolParams,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 ```
 
 See [map-ai-tools/README.md](map-ai-tools/README.md) for the full API reference.
@@ -343,7 +343,7 @@ npm test                        # Run unit tests
 | [backend-integration/README.md](backend-integration/README.md) | Backend integrations overview |
 | [backend-integration/openai-agents-sdk/README.md](backend-integration/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
 | [backend-integration/vercel-ai-sdk/README.md](backend-integration/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
-| [backend-integration/google-adk/.env.example](backend-integration/google-adk/.env.example) | Google ADK environment variables |
+| [backend-integration/google-adk/README.md](backend-integration/google-adk/README.md) | Google ADK server documentation |
 | [frontend-integration/README.md](frontend-integration/README.md) | Frontend integrations overview |
 | [frontend-integration/angular/README.md](frontend-integration/angular/README.md) | Angular integration guide |
 | [frontend-integration/vue/README.md](frontend-integration/vue/README.md) | Vue integration guide |

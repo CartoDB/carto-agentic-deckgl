@@ -1,4 +1,4 @@
-# @carto/maps-ai-tools — React Integration
+# @carto/map-ai-tools — React Integration
 
 > React 19 implementation of the AI-powered map application using Hooks, Context API, and Vite.
 
