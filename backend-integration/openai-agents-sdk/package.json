@@ -8,13 +8,14 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:mock-mcp": "MCP_MOCK_MODE=true tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@carto/maps-ai-tools": "file:../../map-ai-tools",
+    "@carto/map-ai-tools": "file:../../map-ai-tools",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@openai/agents": "^0.4.15",
     "cors": "^2.8.6",

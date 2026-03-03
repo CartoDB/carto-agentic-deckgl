@@ -2,6 +2,12 @@ name: E2E Tests
 
 on:
   workflow_call:
+    inputs:
+      backend:
+        description: 'Backend SDK to test against (vercel-ai-sdk or openai-agents-sdk)'
+        type: string
+        required: false
+        default: 'openai-agents-sdk'
 
 jobs:
   e2e-tests:
@@ -30,8 +36,8 @@ jobs:
             model_name: 'vertex-claude-sonnet'
           # - model: 'ac_7xhfwyml::vertex::gemini-3-flash-preview'
           #   model_name: 'vertex-gemini-3-flash'
-          - model: 'ac_7xhfwyml::vertex::gemini-3-pro-preview'
-            model_name: 'vertex-gemini-3-pro'
+          # - model: 'ac_7xhfwyml::vertex::gemini-3-pro-preview'
+          #   model_name: 'vertex-gemini-3-pro'
           # - model: 'ac_7xhfwyml::databricks::databricks-gpt-5-2'
           #   model_name: 'databricks-gpt-5-2'
 
@@ -52,7 +58,7 @@ jobs:
 
       # Install backend
       - name: Install backend
-        run: cd backend-integration/vercel-ai-sdk && npm ci
+        run: cd backend-integration/${{ inputs.backend || 'openai-agents-sdk' }} && npm ci
 
       # Install frontend + Playwright
       - name: Install frontend
@@ -64,7 +70,7 @@ jobs:
       # Create environment files
       - name: Setup backend environment
         run: |
-          cat > backend-integration/vercel-ai-sdk/.env << 'EOF'
+          cat > backend-integration/${{ inputs.backend || 'openai-agents-sdk' }}/.env << 'EOF'
           CARTO_AI_API_BASE_URL=${{ secrets.CARTO_AI_API_BASE_URL }}
           CARTO_AI_API_KEY=${{ secrets.CARTO_AI_API_KEY }}
           CARTO_AI_API_MODEL=${{ matrix.model }}
@@ -93,6 +99,7 @@ jobs:
       - name: Run E2E tests
         env:
           TEST_MODEL: ${{ matrix.model }}
+          BACKEND_SDK: ${{ inputs.backend || 'openai-agents-sdk' }}
         run: cd frontend-integration/react && pnpm e2e
 
       # Upload results

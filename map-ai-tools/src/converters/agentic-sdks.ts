@@ -73,7 +73,7 @@ function createFrontendToolResult(toolName: string, data: unknown): FrontendTool
  * Usage with @openai/agents:
  * ```typescript
  * import { tool } from '@openai/agents';
- * import { getToolsForOpenAIAgents } from '@carto/maps-ai-tools';
+ * import { getToolsForOpenAIAgents } from '@carto/map-ai-tools';
  *
  * const toolDefs = getToolsForOpenAIAgents();
  * const agentTools = toolDefs.map(def => tool(def));
@@ -113,7 +113,7 @@ export function getToolsForOpenAIAgents(
  * Usage with @google/adk:
  * ```typescript
  * import { FunctionTool } from '@google/adk';
- * import { getToolsForGoogleADK } from '@carto/maps-ai-tools';
+ * import { getToolsForGoogleADK } from '@carto/map-ai-tools';
  *
  * const toolDefs = getToolsForGoogleADK();
  * const adkTools = toolDefs.map(def => new FunctionTool(def));
@@ -153,7 +153,7 @@ export function getToolsForGoogleADK(
  * Usage with Vercel AI SDK:
  * ```typescript
  * import { tool } from 'ai';
- * import { getToolsForVercelAI } from '@carto/maps-ai-tools';
+ * import { getToolsForVercelAI } from '@carto/map-ai-tools';
  *
  * const toolDefs = getToolsForVercelAI();
  * const vercelTools = Object.fromEntries(
@@ -196,7 +196,7 @@ export function getToolsForVercelAI(
  * Usage:
  * ```typescript
  * import { streamText } from 'ai';
- * import { getToolsRecordForVercelAI } from '@carto/maps-ai-tools';
+ * import { getToolsRecordForVercelAI } from '@carto/map-ai-tools';
  *
  * const result = await streamText({
  *   model,
