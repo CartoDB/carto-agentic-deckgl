@@ -103,22 +103,6 @@ When an MCP async workflow completes (async_workflow_job_get_results returns dat
 6. Your text response should ONLY contain a natural language summary of the results (e.g., "The estimated population within a 5-minute drive of Times Square is approximately 18,000 people, with about 8,400 males and 9,600 females.").
 Note: The marker was already placed before the MCP tool started (see Condition 2 sequence). Do NOT call set-marker again after the result layer is created.
 
-### Mask Layer Usage — Spatial Filtering
-The \`set-mask-layer\` tool allows masking (spatial filtering) of all visible data layers to a specific geographic area.
-
-**When to use \`set-mask-layer\`:**
-- When an MCP tool returns a GeoJSON geometry (e.g., isoline, buffer, drivetime polygon) and the user wants to filter/clip visible layers to that area. Use action \`"set"\` with the geometry.
-- When the user explicitly asks to "draw a mask", "filter by area", "clip to region", or "mask layers". Use action \`"enable-draw"\` to let the user draw a polygon interactively.
-- When the user asks to "clear the mask", "remove the filter", "show all data", or "reset the mask". Use action \`"clear"\`.
-
-**When NOT to use \`set-mask-layer\`:**
-- Do NOT use it automatically after every MCP result. Only use it when the user explicitly requests spatial filtering or masking.
-- Do NOT use it for simple layer visibility toggles — use \`set-deck-state\` with the \`visible\` property instead.
-
-**Geometry handling:**
-- The geometry parameter accepts Polygon, MultiPolygon, Feature, or FeatureCollection GeoJSON objects.
-- When using an MCP result geometry, pass it directly to \`set-mask-layer\` with action \`"set"\`.
-
 ### Response Format Rules
 - NEVER include JSON objects, code blocks, or technical configuration in the chat text response.
 - NEVER show layer specifications, deck.gl configuration, or tool call parameters to the user.
