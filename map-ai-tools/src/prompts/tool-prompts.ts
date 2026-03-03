@@ -662,6 +662,44 @@ Do NOT call set-marker for simple navigation/fly-to commands. If the user says "
 5. The marker layer is managed automatically - do NOT remove it with set-deck-state removeLayerIds.
 `,
   },
+
+  [TOOL_NAMES.SET_MASK_LAYER]: {
+    name: TOOL_NAMES.SET_MASK_LAYER,
+    prompt: `### 3. set-mask-layer
+Manage the editable mask layer: set a GeoJSON geometry to mask/filter layers, enable drawing mode, or clear the mask.
+
+**Parameters:**
+- \`action\` (required): \`"set"\` | \`"enable-draw"\` | \`"clear"\`
+- \`geometry\` (required for "set"): GeoJSON Polygon, MultiPolygon, Feature, or FeatureCollection
+
+**Examples:**
+Set mask from geometry: \`{ "action": "set", "geometry": { "type": "Polygon", "coordinates": [...] } }\`
+Enable drawing mode: \`{ "action": "enable-draw" }\`
+Clear mask: \`{ "action": "clear" }\`
+
+**WHEN TO CALL set-mask-layer:**
+- An MCP tool returns a geometry (drivetime isochrone, trade area, buffer) and the user wants to filter data to that area
+- The user explicitly asks to draw a mask, filter area, or region of interest
+- The user says "clear the mask", "remove the filter area", etc.
+- Use action "set" when you have a geometry from an MCP result
+- Use action "enable-draw" when the user wants to draw their own mask polygon
+- Use action "clear" to remove the mask and restore all layers
+
+**WHEN NOT TO CALL set-mask-layer:**
+- Simple navigation/fly-to requests — use set-deck-state
+- Adding/removing data layers — use set-deck-state
+- Changing basemap — use set-deck-state
+- Adding markers — use set-marker
+- The user has NOT mentioned masking, filtering by area, or drawing regions
+
+**CRITICAL RULES:**
+1. Only one mask can be active at a time — setting a new mask replaces the previous one.
+2. The mask layer is separate from data layers — do NOT try to create mask layers with set-deck-state.
+3. When mask is active, all data layers are visually masked (only rendered inside the mask geometry).
+4. For MCP workflows: after getting the geometry result, call set-mask-layer with action "set" and the geometry.
+5. The mask layer is managed automatically — do NOT remove it with set-deck-state removeLayerIds.
+`,
+  },
 };
 
 /**

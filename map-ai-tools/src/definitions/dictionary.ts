@@ -5,6 +5,7 @@
 export const TOOL_NAMES = {
   SET_DECK_STATE: 'set-deck-state',
   SET_MARKER: 'set-marker',
+  SET_MASK_LAYER: 'set-mask-layer',
 } as const;
 
 /**
