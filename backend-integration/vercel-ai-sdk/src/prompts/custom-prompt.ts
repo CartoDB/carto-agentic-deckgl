@@ -3,7 +3,7 @@
  *
  * Add app-specific instructions here that will be appended to the system prompt.
  * This allows you to customize the agent's behavior without modifying the
- * @carto/maps-ai-tools library.
+ * @carto/map-ai-tools library.
  *
  * The content you add here will be appended at the end of the system prompt,
  * after the semantic layer context.

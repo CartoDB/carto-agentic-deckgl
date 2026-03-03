@@ -18,7 +18,7 @@ import { Snackbar } from './components/snackbar.js';
 import { ConfirmationDialog } from './components/confirmation-dialog.js';
 import { DrawTool } from './components/draw-tool.js';
 import { MaskLayerManager } from './services/mask-layer.js';
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
+import { TOOL_NAMES } from '@carto/map-ai-tools';
 
 // ==================== STATE ====================
 

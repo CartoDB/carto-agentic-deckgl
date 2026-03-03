@@ -4,29 +4,54 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI-powered map control framework using `@carto/maps-ai-tools`. Users interact with a deck.gl map through natural language chat. Messages are processed by an LLM (via Vercel AI SDK) that generates tool calls executed client-side to manipulate the map.
+AI-powered map control framework using `@carto/map-ai-tools`. Users interact with a deck.gl map through natural language chat. Messages are processed by an LLM (via multiple AI SDK backends) that generates tool calls executed client-side to manipulate the map.
 
 **Tech Stack:**
-- Core Library: `@carto/maps-ai-tools` (TypeScript, Zod, framework-agnostic)
-- Backend: Node.js + TypeScript, Express, WebSocket, Vercel AI SDK v6
-- Frontend: Angular 20, deck.gl, MapLibre GL, CARTO
+- Core Library: `@carto/map-ai-tools` (TypeScript, Zod, framework-agnostic)
+- Backends: Node.js + TypeScript, Express, WebSocket — OpenAI Agents SDK (default), Vercel AI SDK v6, or Google ADK
+- Frontends: Angular 20, React 19, Vue 3, Vanilla JS — all with deck.gl, MapLibre GL, CARTO
 
 ## Project Structure
 
 ```
 ps-frontend-tools-poc/
-├── map-ai-tools/                    # Core library (@carto/maps-ai-tools)
+├── map-ai-tools/                    # Core library (@carto/map-ai-tools)
 ├── backend-integration/
-│   └── vercel-ai-sdk/               # Backend server (Express + WebSocket)
+│   ├── openai-agents-sdk/           # Backend server — OpenAI Agents SDK (default)
+│   ├── vercel-ai-sdk/               # Backend server — Vercel AI SDK
+│   └── google-adk/                  # Backend server — Google ADK
 └── frontend-integration/
-    └── angular/                     # Angular 20 frontend
+    ├── angular/                     # Angular 20 frontend
+    ├── react/                       # React 19 frontend (+ E2E tests)
+    ├── vue/                         # Vue 3 frontend
+    └── vanilla/                     # Vanilla JS frontend
 ```
 
 ## Development Commands
 
+### Backend (OpenAI Agents SDK — default)
+```bash
+cd backend-integration/openai-agents-sdk
+npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
+npm run dev:mock-mcp # Start with MCP mock mode (fixture-backed tools)
+npm run build        # Compile TypeScript to dist/
+npm start            # Run production build
+npm run typecheck    # Type check without emitting
+```
+
 ### Backend (Vercel AI SDK)
 ```bash
 cd backend-integration/vercel-ai-sdk
+npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
+npm run build        # Compile TypeScript to dist/
+npm start            # Run production build
+npm run typecheck    # Type check without emitting
+```
+
+### Backend (Google ADK)
+```bash
+cd backend-integration/google-adk
+npm install --force  # --force needed for peer dependency conflicts
 npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
 npm run build        # Compile TypeScript to dist/
 npm start            # Run production build
@@ -39,7 +64,15 @@ cd frontend-integration/angular
 pnpm install         # Install dependencies
 pnpm start           # Start dev server (http://localhost:4200)
 pnpm build           # Build for production
-npx ng build         # Alternative build command
+```
+
+### Frontend (React)
+```bash
+cd frontend-integration/react
+pnpm install         # Install dependencies
+pnpm dev             # Start dev server (http://localhost:5173)
+pnpm build           # Build for production
+pnpm test            # Run unit tests
 ```
 
 ### Core Library
@@ -49,43 +82,63 @@ npm install
 npm run build        # Build ESM + CJS outputs to dist/
 ```
 
+### E2E Tests (React)
+```bash
+cd frontend-integration/react
+npx playwright install chromium                     # One-time browser install
+pnpm e2e                                            # Headless (default: openai-agents-sdk backend)
+pnpm e2e:headed                                     # Headed mode (watch in browser)
+pnpm e2e:ui                                         # Interactive UI mode
+pnpm e2e -- --grep "Counties"                       # Run a single test by name
+BACKEND_SDK=vercel-ai-sdk pnpm e2e                  # Run against Vercel AI SDK backend
+pnpm e2e:update-snapshots                           # Update screenshot baselines
+pnpm e2e:report                                     # View HTML report
+pnpm e2e:matrix                                     # Run full model matrix (default backend)
+pnpm e2e:matrix --backend vercel-ai-sdk             # Run matrix against Vercel backend
+pnpm e2e:matrix --backend openai-agents-sdk --current  # Run matrix with current model
+```
+
 ### Running the Application
 1. Build core library: `cd map-ai-tools && npm run build`
-2. Start backend: `cd backend-integration/vercel-ai-sdk && npm run dev` (runs on http://localhost:3003)
-3. Start frontend: `cd frontend-integration/angular && pnpm start` (runs on http://localhost:4200)
+2. Start backend: `cd backend-integration/openai-agents-sdk && npm run dev` (runs on http://localhost:3003)
+3. Start frontend: `cd frontend-integration/angular && pnpm start` (http://localhost:4200) or `cd frontend-integration/react && pnpm dev` (http://localhost:5173)
 
 ## Architecture
 
 ### Communication Flow
 ```
-User Message → Angular WebSocket → Backend (Express)
-                                       ↓
-                          Vercel AI SDK (streaming + tool calling)
-                                       ↓
+User Message → Frontend WebSocket → Backend (Express)
+                                         ↓
+                            AI SDK (streaming + tool calling)
+                                         ↓
 Backend streams back: text chunks + tool_call messages
-                                       ↓
-Angular: Display text + Execute tool_calls via ConsolidatedExecutorsService
-                                       ↓
-                          DeckStateService updates deck.gl
+                                         ↓
+Frontend: Display text + Execute tool_calls
+                                         ↓
+                            deck.gl state update
 ```
 
-### Consolidated Tool (1 frontend-executed tool)
+### Consolidated Tools (2 frontend-executed tools)
 
 | Tool             | Purpose                                                                                               |
 |------------------|-------------------------------------------------------------------------------------------------------|
 | `set-deck-state` | Navigate (initialViewState), change basemap (mapStyle), add/update/remove layers, widgets, and effects |
+| `set-marker`     | Place, remove, or clear location marker pins at specified coordinates                                  |
 
-### Key Files — Backend (`backend-integration/vercel-ai-sdk/src/`)
+### Key Files — Backend (`backend-integration/<sdk>/src/`)
+
+All three backends share the same directory structure with SDK-specific differences:
 
 - `server.ts` — Express + WebSocket server, session management
-- `services/agent-runner.ts` — ToolLoopAgent orchestration, streaming handler
+- `services/agent-runner.ts` — AI orchestration (Vercel: `streamText`, OpenAI: `Agent` + `run()`, ADK: `LlmAgent` + `InMemoryRunner`)
 - `services/conversation-manager.ts` — Per-session conversation history (max 20 messages)
-- `agent/providers.ts` — CARTO AI provider configuration
+- `agent/providers.ts` — LLM provider configuration (SDK-specific)
 - `agent/tools.ts` — Tool aggregation (local + custom + MCP tools)
 - `agent/custom-tools.ts` — Backend-only tools (e.g., LDS geocode)
 - `agent/mcp-tools.ts` — MCP server integration
 - `prompts/system-prompt.ts` — System prompt builder
 - `prompts/custom-prompt.ts` — App-specific AI instructions
+- `models/carto-litellm.ts` — (Google ADK only) BaseLlm bridge for OpenAI-compatible endpoints
 
 ### Key Files — Angular Frontend (`frontend-integration/angular/src/app/`)
 
@@ -141,15 +194,24 @@ The AI generates JSON specs using special prefixes resolved by JSONConverter:
 
 ## Environment Variables
 
-### Backend (`backend-integration/vercel-ai-sdk/.env`)
+### Backend (`backend-integration/<sdk>/.env`)
+
+All three backends use the same environment variables:
+
 ```
 CARTO_AI_API_BASE_URL=https://...    # Required: LLM API endpoint
 CARTO_AI_API_KEY=your-key            # Required: LLM API key
 CARTO_AI_API_MODEL=gpt-4o            # Optional: defaults to gpt-4o
 PORT=3003                            # Optional: defaults to 3003
+CARTO_MCP_URL=https://...            # Optional: MCP server URL
+CARTO_MCP_API_KEY=your-key           # Optional: MCP API key
+MCP_WHITELIST_CARTO=tool1,tool2      # Optional: comma-separated MCP tool whitelist
+CARTO_LDS_API_BASE_URL=https://...   # Optional: LDS geocoding endpoint
+CARTO_LDS_API_KEY=your-key           # Optional: LDS API key
+MCP_MOCK_MODE=true                   # Optional: use fixture-backed MCP tools (for testing)
 ```
 
-### Frontend (`frontend-integration/angular/src/environments/environment.ts`)
+### Frontend — Angular (`frontend-integration/angular/src/environments/environment.ts`)
 ```typescript
 export const environment = {
   production: false,
@@ -160,4 +222,14 @@ export const environment = {
   httpApiUrl: 'http://localhost:3003/api/chat',
   useHttp: false,
 };
+```
+
+### Frontend — React (`frontend-integration/react/.env`)
+```
+VITE_API_BASE_URL=https://gcp-us-east1.api.carto.com
+VITE_API_ACCESS_TOKEN=YOUR_CARTO_TOKEN
+VITE_CONNECTION_NAME=carto_dw
+VITE_WS_URL=ws://localhost:3003/ws
+VITE_HTTP_API_URL=http://localhost:3003/api/chat
+VITE_USE_HTTP=false
 ```
