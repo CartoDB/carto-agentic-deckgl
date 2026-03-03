@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { MapView } from './components/MapView';
 import { ChatUI } from './components/ChatUI';
 import { ZoomControls } from './components/ZoomControls';
@@ -24,6 +24,15 @@ export default function App() {
   >('closed');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarConfig>({ message: null, type: 'error' });
+
+  // Register mask layer actions with the tool executor
+  useEffect(() => {
+    aiTools.registerMaskActions({
+      setMaskGeometry: maskLayer.setMaskGeometry,
+      enableDrawMode: maskLayer.enableDrawMode,
+      clearMask: maskLayer.clearMask,
+    });
+  }, [aiTools, maskLayer]);
 
   const handleViewStateChange = useCallback((viewState: { zoom: number }) => {
     setZoomLevel(viewState.zoom);

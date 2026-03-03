@@ -16,6 +16,7 @@ import type {
 } from '../types/models';
 import { useDeckState } from './useDeckState';
 import { useWebSocket } from './useWebSocket';
+import { useMaskLayer } from './useMaskLayer';
 import { createToolExecutor, type ExecuteToolFn } from '../services/tool-executor';
 import { extractLegendFromLayer } from '../utils/legend';
 import { environment } from '../config/environment';
@@ -64,15 +65,23 @@ function flushPendingToolMessages() {
 function createMapAIToolsComposable(): MapAIToolsComposable {
   const deckState = useDeckState();
   const ws = useWebSocket();
+  const maskLayer = useMaskLayer();
 
   // Create tool executor
-  const toolExecutor: ExecuteToolFn = createToolExecutor({
-    setInitialViewState: (vs) => deckState.setInitialViewState(vs),
-    setBasemap: (b) => deckState.setBasemap(b),
-    setDeckLayers: (c) => deckState.setDeckLayers(c),
-    setActiveLayerId: (id) => deckState.setActiveLayerId(id),
-    getDeckSpec: () => deckState.getDeckSpec(),
-  });
+  const toolExecutor: ExecuteToolFn = createToolExecutor(
+    {
+      setInitialViewState: (vs) => deckState.setInitialViewState(vs),
+      setBasemap: (b) => deckState.setBasemap(b),
+      setDeckLayers: (c) => deckState.setDeckLayers(c),
+      setActiveLayerId: (id) => deckState.setActiveLayerId(id),
+      getDeckSpec: () => deckState.getDeckSpec(),
+    },
+    {
+      setMaskGeometry: (g: any) => maskLayer.setMaskGeometry(g),
+      enableDrawMode: () => maskLayer.enableDrawMode(),
+      clearMask: () => maskLayer.clearMask(),
+    }
+  );
 
   // Derive layers from deckSpec
   const layers = computed<LayerConfig[]>(() => {

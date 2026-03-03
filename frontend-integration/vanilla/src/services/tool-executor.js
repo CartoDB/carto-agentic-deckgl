@@ -39,7 +39,7 @@ export class ToolExecutor {
   }
 
   _createExecutors() {
-    return {
+    const executors = {
       [TOOL_NAMES.SET_DECK_STATE]: (params) => {
         const updatedParts = [];
         try {
