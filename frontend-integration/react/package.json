@@ -19,6 +19,7 @@
   "dependencies": {
     "@carto/api-client": "^0.5.24",
     "@carto/maps-ai-tools": "file:../../map-ai-tools",
+    "@deck.gl-community/editable-layers": "^9.2.8",
     "@deck.gl/carto": "^9.2.2",
     "@deck.gl/core": "^9.2.2",
     "@deck.gl/extensions": "^9.2.6",
@@ -61,10 +62,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "playwright": "^1.52.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.5.2",
+    "playwright": "^1.52.0",
     "typescript": "~5.8.3",
     "vite": "^6.0.0",
     "vitest": "^4.0.18"
