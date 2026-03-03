@@ -7,8 +7,10 @@
 | Integration | SDK | Directory | Documentation |
 | ----------- | --- | --------- | ------------- |
 | Vercel AI SDK | v6 | [vercel-ai-sdk/](vercel-ai-sdk/) | [README](vercel-ai-sdk/README.md) |
+| OpenAI Agents SDK | @openai/agents | [openai-agents-sdk/](openai-agents-sdk/) | [.env.example](openai-agents-sdk/.env.example) |
+| Google ADK | @google/adk | [google-adk/](google-adk/) | [.env.example](google-adk/.env.example) |
 
-Additional backend integrations (e.g., OpenAI Agents SDK, Google ADK) can be added as new directories following the same pattern.
+All three backends speak the same WebSocket protocol, so any frontend works with any backend without changes.
 
 ---
 
