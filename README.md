@@ -7,7 +7,7 @@
 This monorepo contains three layers that work together:
 
 1. **Core Library** (`map-ai-tools/`) -- Framework-agnostic TypeScript library that defines the AI tool schema, system prompt builder, deck.gl JSON validation, and SDK converters.
-2. **Backend Integrations** (`backend-integration/`) -- Server implementations that connect frontends to AI models. Includes OpenAI Agents SDK (default) and Vercel AI SDK, both with Express + WebSocket.
+2. **Backend Integrations** (`backend-integration/`) -- Server implementations that connect frontends to AI models. Includes OpenAI Agents SDK (default), Vercel AI SDK, and Google ADK backends, all with Express + WebSocket.
 3. **Frontend Integrations** (`frontend-integration/`) -- Reference implementations in Angular, Vue, React, and Vanilla JS showing how to build the chat-to-map experience.
 
 ## Architecture
@@ -53,14 +53,14 @@ ps-frontend-tools-poc/
 |   |   |   +-- semantic/                 # YAML data catalog (GeoCubes)
 |   |   +-- tests/                        # Unit tests (Vitest)
 |   +-- vercel-ai-sdk/                    # Vercel AI SDK v6 backend
+|   +-- google-adk/                       # Google ADK backend
 |   |   +-- src/
 |   |   |   +-- server.ts                 # Express + WebSocket server
 |   |   |   +-- agent/                    # Tool aggregation, providers, MCP
+|   |   |   +-- models/                   # CartoLiteLlm (BaseLlm bridge)
 |   |   |   +-- services/                 # Agent runner, conversation manager
 |   |   |   +-- prompts/                  # System prompt, custom instructions
 |   |   |   +-- semantic/                 # YAML data catalog (GeoCubes)
-|   |   +-- tests/                        # Unit tests (Vitest)
-|   |   +-- README.md                     # Backend server documentation
 |   +-- README.md                         # Backend integrations overview
 |
 +-- frontend-integration/
@@ -80,23 +80,26 @@ cd map-ai-tools
 npm install && npm run build
 ```
 
-### 2. Configure and start the backend
+### 2. Configure and start a backend (pick one)
 
 ```bash
-# OpenAI Agents SDK (default)
+# Option A: OpenAI Agents SDK (default)
 cd backend-integration/openai-agents-sdk
-npm install
-cp .env.example .env   # Edit with your CARTO AI credentials
-npm run dev             # http://localhost:3003
 
-# Or: Vercel AI SDK
+# Option B: Vercel AI SDK
 cd backend-integration/vercel-ai-sdk
-npm install
-cp .env.example .env
-npm run dev
+
+# Option C: Google ADK
+cd backend-integration/google-adk
 ```
 
-See [backend-integration/README.md](backend-integration/README.md) for environment variable details.
+```bash
+npm install              # (use --force for google-adk)
+cp .env.example .env     # Edit with your CARTO AI credentials
+npm run dev              # http://localhost:3003
+```
+
+All backends use the same `.env` variables and run on port 3003. See [backend-integration/README.md](backend-integration/README.md) for details.
 
 ### 3. Pick a frontend and start it
 
@@ -131,10 +134,13 @@ The backend connects frontends to AI models via WebSocket (or HTTP SSE). It hand
 
 Currently available:
 
-- **OpenAI Agents SDK** (default) -- Express + WebSocket server using OpenAI Agents SDK. Supports MCP tool servers (with mock mode for testing) and CARTO LDS geocoding.
-- **Vercel AI SDK** -- Express + WebSocket server using Vercel AI SDK v6 with OpenAI-compatible endpoints. Supports MCP tool servers (with mock mode for testing) and CARTO LDS geocoding.
+| Backend | SDK | Directory |
+|---------|-----|-----------|
+| OpenAI Agents SDK (default) | @openai/agents | [openai-agents-sdk/](backend-integration/openai-agents-sdk/) |
+| Vercel AI SDK | v6 | [vercel-ai-sdk/](backend-integration/vercel-ai-sdk/) |
+| Google ADK | @google/adk | [google-adk/](backend-integration/google-adk/) |
 
-See [backend-integration/README.md](backend-integration/README.md) for the backend architecture overview.
+All backends speak the same WebSocket protocol, so any frontend works with any backend. See [backend-integration/README.md](backend-integration/README.md) for the architecture overview.
 
 ## Core Library (`map-ai-tools`)
 
@@ -281,14 +287,22 @@ npm run typecheck               # Type check
 npm test                        # Run unit tests
 ```
 
-### Backend (Vercel AI SDK)
+### Backend (Vercel AI SDK & Google ADK)
 
 ```bash
+# Vercel AI SDK
 cd backend-integration/vercel-ai-sdk
 npm run dev                     # Dev server with hot reload (port 3003)
-npm run build                   # Compile TypeScript to dist/
-npm run typecheck               # Type check
 npm test                        # Run unit tests
+
+# OpenAI Agents SDK
+cd backend-integration/openai-agents-sdk
+npm run dev                     # Dev server with hot reload (port 3003)
+
+# Google ADK
+cd backend-integration/google-adk
+npm install --force             # --force needed for peer dep conflicts
+npm run dev                     # Dev server with hot reload (port 3003)
 ```
 
 ### Frontend (any framework)
@@ -329,6 +343,7 @@ npm test                        # Run unit tests
 | [backend-integration/README.md](backend-integration/README.md) | Backend integrations overview |
 | [backend-integration/openai-agents-sdk/README.md](backend-integration/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
 | [backend-integration/vercel-ai-sdk/README.md](backend-integration/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
+| [backend-integration/google-adk/.env.example](backend-integration/google-adk/.env.example) | Google ADK environment variables |
 | [frontend-integration/README.md](frontend-integration/README.md) | Frontend integrations overview |
 | [frontend-integration/angular/README.md](frontend-integration/angular/README.md) | Angular integration guide |
 | [frontend-integration/vue/README.md](frontend-integration/vue/README.md) | Vue integration guide |
