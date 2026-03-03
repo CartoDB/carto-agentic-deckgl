@@ -11,6 +11,7 @@ import { MapView } from './components/map-view/map-view';
 import { ChatUi } from './components/chat-ui/chat-ui';
 import { ZoomControls } from './components/zoom-controls/zoom-controls';
 import { LayerToggle } from './components/layer-toggle/layer-toggle';
+import { DrawTool } from './components/draw-tool/draw-tool';
 import { SnackbarComponent } from './components/snackbar/snackbar';
 import { MapAIToolsService } from './services/map-ai-tools.service';
 import { DeckMapService, ViewState } from './services/deck-map.service';
@@ -29,7 +30,7 @@ import {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [MapView, ChatUi, ZoomControls, LayerToggle, SnackbarComponent],
+  imports: [MapView, ChatUi, ZoomControls, LayerToggle, DrawTool, SnackbarComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
