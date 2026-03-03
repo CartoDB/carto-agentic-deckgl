@@ -16,7 +16,7 @@ import { LayerToggle } from './components/layer-toggle.js';
 import { ZoomControls } from './components/zoom-controls.js';
 import { Snackbar } from './components/snackbar.js';
 import { ConfirmationDialog } from './components/confirmation-dialog.js';
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
+import { TOOL_NAMES } from '@carto/map-ai-tools';
 
 // ==================== STATE ====================
 

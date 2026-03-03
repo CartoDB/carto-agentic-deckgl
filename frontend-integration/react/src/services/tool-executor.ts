@@ -5,7 +5,7 @@
  * Pure function with no React dependencies — used inside MapAIToolsContext.
  */
 
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
+import { TOOL_NAMES } from '@carto/map-ai-tools';
 import type { LayerSpec } from '../utils/layer-merge';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge';
 

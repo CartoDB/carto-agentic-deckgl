@@ -14,7 +14,7 @@ import {
   isFrontendToolResult,
   type VercelAIToolDef,
   type ToolName,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 import { getMCPTools, getMCPToolNames } from './mcp-tools.js';
 import { getCustomTools, getCustomToolNames } from './custom-tools.js';
 

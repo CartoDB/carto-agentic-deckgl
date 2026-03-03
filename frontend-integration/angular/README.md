@@ -1,4 +1,4 @@
-# @carto/maps-ai-tools — Angular Integration
+# @carto/map-ai-tools — Angular Integration
 
 > Angular 20 implementation of the AI-powered map application using standalone components, RxJS, and dependency injection.
 
