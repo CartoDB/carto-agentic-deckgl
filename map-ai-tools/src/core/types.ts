@@ -1,9 +1,47 @@
 import type { Deck } from '@deck.gl/core';
+import { z } from 'zod';
+import { tools } from '../definitions/tools';
 
 /**
  * Deck.gl instance type re-export for convenience
  */
 export type { Deck } from '@deck.gl/core';
+
+// ============================================================================
+// Re-export @deck.gl/json spec types
+// ============================================================================
+
+export type {
+  DeckGLJsonSpec,
+  ViewStateSpec,
+  LayerSpec,
+  LayerOperation,
+} from '../schemas/deckgl-json';
+
+export type {
+  InitialState,
+  DataSourceMetadata,
+  LayerStateMetadata,
+} from '../schemas/initial-state';
+
+export type {
+  SupportedLayerType,
+  AnyLayerSpec,
+} from '../schemas/layer-specs';
+
+// ============================================================================
+// Zod-inferred parameter types (auto-generated from tool schemas)
+// ============================================================================
+
+/**
+ * Parameters for set-deck-state tool
+ */
+export type SetDeckStateParams = z.infer<typeof tools['set-deck-state']['schema']>;
+
+/**
+ * Union type of all tool parameter types
+ */
+export type ToolParams = SetDeckStateParams
 
 /**
  * OpenAI function calling tool definition
@@ -41,10 +79,16 @@ export interface ViewState {
 }
 
 /**
+ * MapLibre map instance type (using any to avoid dependency)
+ */
+export type MapInstance = any;
+
+/**
  * Context passed to tool executors
  */
 export interface ExecutionContext {
   deck: Deck;
+  map?: MapInstance;
   metadata?: Record<string, any>;
 }
 
@@ -81,6 +125,7 @@ export interface ToolInterceptors {
  */
 export interface MapToolsConfig {
   deck: Deck;
+  map?: MapInstance;  // Optional MapLibre map instance for view sync
   tools?: string[];  // Tool names to include (default: all)
   customTools?: CustomToolDefinition[];
   toolInterceptors?: ToolInterceptors;

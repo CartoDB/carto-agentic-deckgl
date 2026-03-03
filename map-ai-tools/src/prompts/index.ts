@@ -1,28 +1,27 @@
-export { BASE_SYSTEM_PROMPT } from './base-prompt';
-export { generateToolDescriptions } from './tool-descriptions';
-import { BASE_SYSTEM_PROMPT } from './base-prompt';
-import { generateToolDescriptions } from './tool-descriptions';
-import { ToolDefinition, PromptConfig } from '../core/types';
-
 /**
- * Build complete system prompt with tool descriptions
+ * Prompts module - System prompt generation for map AI agents
  */
-export function getSystemPrompt(tools: ToolDefinition[], config?: PromptConfig): string {
-  const sections: string[] = [BASE_SYSTEM_PROMPT];
 
-  // Add tool descriptions
-  if (tools.length > 0) {
-    sections.push(generateToolDescriptions(tools));
-  }
+// Re-export types
+export type {
+  ToolPromptConfig,
+  MapViewState,
+  LayerState,
+  MapState,
+  ProximityWeight,
+  UserContext,
+  BuildSystemPromptOptions,
+} from './types.js';
 
-  // Add optional context
-  if (config?.additionalContext) {
-    sections.push(`\n${config.additionalContext}`);
-  }
+// Re-export tool prompts
+export { toolPrompts, getToolPrompt, getToolPrompts } from './tool-prompts.js';
 
-  if (config?.customInstructions) {
-    sections.push(`\n${config.customInstructions}`);
-  }
+// Re-export shared sections
+export { sharedSections, getSharedSection } from './shared-sections.js';
 
-  return sections.join('\n');
-}
+// Re-export builder functions
+export {
+  buildSystemPrompt,
+  buildMapStateSection,
+  buildUserContextSection,
+} from './builder.js';

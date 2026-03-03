@@ -1,53 +1,140 @@
 // Re-export types
 export * from './core/types';
 
-// Re-export definitions
+// Re-export Zod-based definitions (primary API)
 export {
-  BUILTIN_TOOLS,
-  getToolDefinitions,
-  ZOOM_MAP_TOOL,
-  FLY_TO_LOCATION_TOOL,
-  TOGGLE_LAYER_TOOL
+  tools,
+  getToolNames,
+  getTool,
+  getToolDefinition,
+  getAllToolDefinitions,
+  getToolDefinitionsByNames,
+  validateToolParams,
+  isSpecTool,
+  isDataTool,
+  getSpecTools,
+  getDataTools,
+  // Consolidated tool pattern (1 tool)
+  consolidatedToolNames,
+  getConsolidatedToolDefinitions,
 } from './definitions';
 
-// Re-export executors
+// Re-export backwards compatibility exports
 export {
-  BUILTIN_EXECUTORS,
-  executeZoom,
-  executeFlyTo,
-  executeToggleLayer
-} from './executors';
+  BUILTIN_TOOLS,
+  TOOL_NAMES,
+  getToolDefinitions,
+  type ToolNameValue,
+} from './definitions';
 
-// Re-export prompts
+export type { ToolName } from './definitions';
+
+// Re-export utilities (response parsing)
 export {
-  BASE_SYSTEM_PROMPT,
-  getSystemPrompt,
-  generateToolDescriptions
+  parseToolResponse,
+  isSuccessResponse,
+  isErrorResponse,
+  type ToolResponse,
+  type ToolError,
+  type ParsedToolResponse,
+} from './utils';
+
+// Re-export prompts module
+export {
+  // Types
+  type ToolPromptConfig,
+  type MapViewState,
+  type LayerState,
+  type MapState,
+  type ProximityWeight,
+  type UserContext,
+  type BuildSystemPromptOptions,
+  // Tool prompts
+  toolPrompts,
+  getToolPrompt,
+  getToolPrompts,
+  // Shared sections
+  sharedSections,
+  getSharedSection,
+  // Builder functions
+  buildSystemPrompt,
+  buildMapStateSection,
+  buildUserContextSection,
 } from './prompts';
 
-// Re-export core classes
-export { ToolRegistry } from './core/tool-registry';
-export { MapToolsExecutor } from './core/executor-factory';
-export { validateParameters } from './core/validation';
+// Re-export executors utilities (response formatting and error codes)
+export {
+  ErrorCodes,
+  createError,
+  successResponse,
+  errorResponse,
+  formatToolResponse,
+  type ErrorCode,
+} from './executors';
 
-// Main factory function
-import { MapToolsConfig } from './core/types';
-import { MapToolsExecutor } from './core/executor-factory';
+// Re-export core validation
+export { validateWithZod, type ValidationResult } from './core/validation';
 
-/**
- * Create a map tools executor instance
- *
- * @example
- * ```typescript
- * const mapTools = createMapTools({
- *   deck: deckInstance,
- *   tools: ['zoom_map', 'fly_to_location', 'toggle_layer']
- * });
- *
- * await mapTools.execute('zoom_map', { direction: 'in', levels: 2 });
- * await mapTools.execute('fly_to_location', { coordinates: [-74.006, 40.7128], zoom: 12 });
- * ```
- */
-export function createMapTools(config: MapToolsConfig): MapToolsExecutor {
-  return new MapToolsExecutor(config);
-}
+// ============================================================================
+// @deck.gl/json Schema Exports
+// ============================================================================
+
+// Schema types and validators
+export {
+  // Core schemas
+  deckGLJsonSpecSchema,
+  viewStateSpecSchema,
+  layerSpecSchema,
+  layerOperationSchema,
+  // Utility functions
+  isSpecialPrefix,
+  isFunctionRef,
+  isConstantRef,
+  isExpression,
+  createFunctionRef,
+  createConstantRef,
+  createExpression,
+} from './schemas';
+
+// Layer-specific schemas
+export {
+  supportedLayerTypes,
+  layerTypeSchema,
+  getLayerSpecSchema,
+  anyLayerSpecSchema,
+  geoJsonLayerSpecSchema,
+  rasterTileLayerSpecSchema,
+  scatterplotLayerSpecSchema,
+} from './schemas';
+
+// Initial state
+export {
+  initialStateSchema,
+  createSystemPromptWithState,
+  parseInitialState,
+  validateInitialState,
+  createMinimalInitialState,
+} from './schemas';
+
+// ============================================================================
+// Spec Generator Exports
+// ============================================================================
+
+export {
+  // Utilities
+  mergeSpecs,
+  hasViewStateChanges,
+  hasLayerChanges,
+  getAffectedLayerIds,
+  // Agentic SDK converters
+  getToolsForOpenAIAgents,
+  getToolsForGoogleADK,
+  getToolsForVercelAI,
+  getToolsRecordForVercelAI,
+  isFrontendToolResult,
+  parseFrontendToolResult,
+  type OpenAIAgentToolDef,
+  type GoogleADKToolDef,
+  type VercelAIToolDef,
+  type FrontendToolResult,
+} from './converters';

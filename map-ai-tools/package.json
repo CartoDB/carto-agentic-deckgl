@@ -1,6 +1,6 @@
 {
-  "name": "@map-tools/ai-tools",
-  "version": "1.0.0",
+  "name": "@carto/map-ai-tools",
+  "version": "2.0.0",
   "description": "Isomorphic JavaScript library for AI-powered map controls using OpenAI function calling",
   "type": "module",
   "main": "./dist/cjs/index.js",
@@ -25,6 +25,14 @@
       "import": "./dist/esm/executors/index.js",
       "require": "./dist/cjs/executors/index.js"
     },
+    "./schemas": {
+      "import": "./dist/esm/schemas/index.js",
+      "require": "./dist/cjs/schemas/index.js"
+    },
+    "./converters": {
+      "import": "./dist/esm/converters/index.js",
+      "require": "./dist/cjs/converters/index.js"
+    },
     "./prompts": {
       "import": "./dist/esm/prompts/index.js",
       "require": "./dist/cjs/prompts/index.js"
@@ -38,6 +46,7 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c --watch",
+    "test": "vitest run",
     "type-check": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
@@ -55,14 +64,25 @@
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^12.1.0",
     "@types/node": "^24.10.0",
-    "rollup": "^4.29.2",
-    "typescript": "^5.9.3"
+    "rollup": "^4.55.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@deck.gl/core": "^9.2.2",
     "tslib": "^2.8.1"
+  },
+  "peerDependencies": {
+    "@deck.gl/json": "^9.2.0",
+    "zod": "^4.3.6"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": false
+    }
   }
 }

@@ -1,0 +1,102 @@
+name: Security - Secret Scanning
+
+on:
+  workflow_call:
+  push:
+    branches-ignore:
+      - dev
+      - stg
+      - pro
+      - main
+
+concurrency:
+  group: security-scan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-24.04
+    name: Gitleaks Secret Scan
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout PS github-actions
+        uses: actions/checkout@v4
+        with:
+          repository: CartoDB/carto-ps-github-actions
+          token: ${{ secrets.X_GITHUB_SUPERCARTOFANTE_CARTO_PS_GITHUB_ACTIONS }}
+          path: carto-ps-github-actions
+          ref: v2
+
+      - name: Run security scan
+        id: security-scan
+        uses: "./carto-ps-github-actions/.github/actions/security-scan"
+        with:
+          base-ref: ${{ github.event.pull_request && format('origin/{0}', github.base_ref) || 'origin/dev' }}
+          head-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fail-on-secrets: 'true'
+
+      - name: Notify on failure
+        if: failure() && steps.security-scan.outputs.secrets-found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `${{ steps.security-scan.outputs.scan-summary }}`;
+            const isPR = context.eventName === 'pull_request';
+            const branch = context.ref.replace('refs/heads/', '');
+            const sha = context.sha.substring(0, 7);
+
+            const location = isPR
+              ? 'in this pull request'
+              : `in commit \`${context.sha}\` on branch \`${branch}\``;
+
+            const references = isPR ? '' : `
+            ### References
+            - Commit: ${context.sha}
+            - Branch: \`${branch}\`
+            - Pusher: @${context.actor}
+            - [View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            `;
+
+            const body = `## :rotating_light: Security Scan Failed
+
+            Gitleaks detected potential secrets ${location}.
+
+            ### Affected Files
+            \`\`\`
+            ${summary}
+            \`\`\`
+
+            ### Required Actions
+            1. **Rotate** any exposed credentials immediately
+            2. **Remove** the secrets from git history (use \`git filter-branch\` or BFG Repo-Cleaner)
+            3. **Add** sensitive files to \`.gitignore\`
+            ${references}
+            > :warning: Even if you remove secrets in a new commit, they remain in git history unless properly cleaned.`;
+
+            if (isPR) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            } else {
+              const title = `:rotating_light: Security: Potential secrets detected in ${branch} (${sha})`;
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                labels: ['security', 'secrets-detected'],
+                body: body
+              });
+            }
