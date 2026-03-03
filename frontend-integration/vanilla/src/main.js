@@ -16,17 +16,20 @@ import { LayerToggle } from './components/layer-toggle.js';
 import { ZoomControls } from './components/zoom-controls.js';
 import { Snackbar } from './components/snackbar.js';
 import { ConfirmationDialog } from './components/confirmation-dialog.js';
+import { DrawTool } from './components/draw-tool.js';
+import { MaskLayerManager } from './services/mask-layer.js';
 import { TOOL_NAMES } from '@carto/maps-ai-tools';
 
 // ==================== STATE ====================
 
 const deckState = new DeckState();
+const maskLayerManager = new MaskLayerManager();
 
 // ==================== SERVICES ====================
 
 const wsClient = new WebSocketClient();
-const toolExecutor = new ToolExecutor(deckState);
-const deckMapManager = new DeckMapManager(deckState, environment);
+const toolExecutor = new ToolExecutor(deckState, maskLayerManager);
+const deckMapManager = new DeckMapManager(deckState, environment, maskLayerManager);
 const orchestrator = new MapAIToolsOrchestrator(wsClient, toolExecutor, deckState, environment);
 
 // ==================== UI STATE ====================
@@ -113,6 +116,8 @@ const zoomControls = new ZoomControls(document.getElementById('zoom-controls-wra
   },
 });
 
+const drawTool = new DrawTool(document.getElementById('draw-tool-wrapper'), maskLayerManager);
+
 // ==================== FAB BUTTON ====================
 
 const fabButton = document.getElementById('fab-button');
@@ -166,7 +171,7 @@ function updateLayout() {
   const mainLayout = document.getElementById('main-layout');
   const sidebarColumn = document.getElementById('sidebar-column');
   const mapContainerWrapper = document.getElementById('map-container-wrapper');
-  const layerToggleWrapper = document.getElementById('layer-toggle-wrapper');
+  const topLeftControls = document.getElementById('top-left-controls');
 
   // Desktop sidebar
   if (!isMobileViewport) {
@@ -181,7 +186,7 @@ function updateLayout() {
 
   // Mobile states
   mapContainerWrapper.classList.toggle('sidebar-full', isMobileViewport && sidebarState === 'full');
-  layerToggleWrapper.classList.toggle(
+  topLeftControls.classList.toggle(
     'below-sidebar',
     isMobileViewport && sidebarState === 'full'
   );
