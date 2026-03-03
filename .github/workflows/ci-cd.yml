@@ -31,10 +31,11 @@ jobs:
     uses: ./.github/workflows/unit-tests.yml
     secrets: inherit
 
-  # E2E tests run after unit tests pass
+  # E2E tests only run on push to main/dev (i.e., after PR merge) to avoid extra consumption
   e2e-tests:
     name: E2E Tests
     needs: unit-tests
+    if: github.event_name == 'push'
     uses: ./.github/workflows/e2e-tests.yml
     with:
       backend: openai-agents-sdk
