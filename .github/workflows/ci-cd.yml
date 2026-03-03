@@ -1,0 +1,42 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ['**']
+
+jobs:
+  # Security scan runs first — blocks everything if secrets found
+  security-scan:
+    name: Gitleaks Secret Scan
+    uses: ./.github/workflows/security-scan.yml
+    secrets: inherit
+
+  # Linting runs after security scan passes
+  lint:
+    name: Code Quality (Lint)
+    needs: security-scan
+    if: always() && (needs.security-scan.result == 'success' || needs.security-scan.result == 'skipped')
+    uses: ./.github/workflows/lint.yml
+    secrets: inherit
+
+  # Unit tests run after linting passes
+  unit-tests:
+    name: Unit Tests
+    needs: lint
+    uses: ./.github/workflows/unit-tests.yml
+    secrets: inherit
+
+  # E2E tests only run on push to main/dev (i.e., after PR merge) to avoid extra consumption
+  e2e-tests:
+    name: E2E Tests
+    needs: unit-tests
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/e2e-tests.yml
+    with:
+      backend: openai-agents-sdk
+    secrets: inherit
