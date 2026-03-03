@@ -1,11 +1,11 @@
-# @carto/maps-ai-tools
+# @carto/map-ai-tools
 
 Isomorphic JavaScript library for AI-powered map controls using OpenAI function calling and deck.gl.
 
 ## Installation
 
 ```bash
-npm install @carto/maps-ai-tools
+npm install @carto/map-ai-tools
 ```
 
 ## Features
@@ -20,14 +20,14 @@ npm install @carto/maps-ai-tools
 
 ```typescript
 // Main entry - all exports
-import { ... } from '@carto/maps-ai-tools';
+import { ... } from '@carto/map-ai-tools';
 
 // Specific modules
-import { ... } from '@carto/maps-ai-tools/definitions';
-import { ... } from '@carto/maps-ai-tools/prompts';
-import { ... } from '@carto/maps-ai-tools/schemas';
-import { ... } from '@carto/maps-ai-tools/executors';
-import { ... } from '@carto/maps-ai-tools/converters';
+import { ... } from '@carto/map-ai-tools/definitions';
+import { ... } from '@carto/map-ai-tools/prompts';
+import { ... } from '@carto/map-ai-tools/schemas';
+import { ... } from '@carto/map-ai-tools/executors';
+import { ... } from '@carto/map-ai-tools/converters';
 ```
 
 ## Quick Start
@@ -39,7 +39,7 @@ import {
   getConsolidatedToolDefinitions,
   buildSystemPrompt,
   TOOL_NAMES,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 
 // Get tool definitions for OpenAI
 const tools = getConsolidatedToolDefinitions();
@@ -75,7 +75,7 @@ const response = await openai.chat.completions.create({
 ### Frontend (Browser)
 
 ```typescript
-import { parseToolResponse, isSuccessResponse } from '@carto/maps-ai-tools';
+import { parseToolResponse, isSuccessResponse } from '@carto/map-ai-tools';
 
 // Execute tools from WebSocket
 websocket.on('tool_call', async (message) => {
@@ -100,7 +100,7 @@ The library provides 2 consolidated tools for complete map control:
 ### Tool Names
 
 ```typescript
-import { TOOL_NAMES } from '@carto/maps-ai-tools';
+import { TOOL_NAMES } from '@carto/map-ai-tools';
 
 TOOL_NAMES.SET_DECK_STATE // 'set-deck-state'
 TOOL_NAMES.SET_MARKER     // 'set-marker'
@@ -116,7 +116,7 @@ The prompts module provides system prompt generation for AI agents controlling d
 import {
   buildSystemPrompt,
   type BuildSystemPromptOptions,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 
 const options: BuildSystemPromptOptions = {
   // Required: list of available tool names
@@ -160,7 +160,7 @@ import {
   toolPrompts,
   getToolPrompt,
   getToolPrompts,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 
 // Get a single tool's prompt
 const deckStatePrompt = getToolPrompt('set-deck-state');
@@ -176,7 +176,7 @@ console.log(Object.keys(toolPrompts));
 ### Shared Sections
 
 ```typescript
-import { sharedSections, getSharedSection } from '@carto/maps-ai-tools';
+import { sharedSections, getSharedSection } from '@carto/map-ai-tools';
 
 // Access specific sections
 const workflows = getSharedSection('workflowPatterns');
@@ -196,7 +196,7 @@ console.log(Object.keys(sharedSections));
 import {
   buildMapStateSection,
   buildUserContextSection,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 
 // Build just the map state section
 const mapSection = buildMapStateSection({
@@ -219,7 +219,7 @@ import {
   validateToolParams,
   deckGLJsonSpecSchema,
   layerSpecSchema,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 
 // Validate tool parameters
 const result = validateToolParams('set-map-view', {
@@ -244,7 +244,7 @@ import {
   getToolsForOpenAIAgents,
   getToolsForVercelAI,
   getToolsForGoogleADK,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 
 // For OpenAI Agents SDK
 const openaiTools = getToolsForOpenAIAgents();
@@ -275,13 +275,13 @@ import type {
   // Response types
   ToolResponse,
   ParsedToolResponse,
-} from '@carto/maps-ai-tools';
+} from '@carto/map-ai-tools';
 ```
 
 ## Architecture
 
 ```
-@carto/maps-ai-tools/
+@carto/map-ai-tools/
 ├── definitions/     # Tool definitions with Zod schemas
 ├── prompts/         # System prompt generation
 │   ├── types.ts     # Type definitions
