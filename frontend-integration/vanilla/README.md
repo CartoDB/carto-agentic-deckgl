@@ -359,6 +359,13 @@ export class ToolExecutor {
         // Adds a pin to the marker layer, accumulating markers; skips duplicate coordinates
         return { success: true, message: `Marker placed at [...]` };
       },
+
+      // set-mask-layer: manages the editable mask layer for spatial filtering
+      [TOOL_NAMES.SET_MASK_LAYER]: (params) => {
+        // Delegates to MaskLayerManager — set geometry, enable draw mode, or clear
+        // Produces GeoJsonLayer (mask) + EditableGeoJsonLayer (drawing)
+        // MaskExtension is injected into all data layers when active
+      },
     };
   }
 }
