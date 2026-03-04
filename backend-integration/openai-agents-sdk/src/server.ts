@@ -60,6 +60,7 @@ wss.on('connection', (ws) => {
           sid,
           history,
           message.initialState,
+          (msg) => conversationManager.addMessage(sid, msg),
         );
 
         if (response) {

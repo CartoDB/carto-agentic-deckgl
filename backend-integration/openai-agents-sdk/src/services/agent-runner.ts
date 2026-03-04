@@ -97,6 +97,45 @@ function extractCoordinatesFromMcpResult(output: unknown): { latitude: number; l
 }
 
 /**
+ * Extract GeoJSON geometry from MCP result data.
+ * Searches multiple possible locations in the response.
+ */
+function extractGeometryFromMcpResult(output: unknown): unknown | null {
+  if (!output || typeof output !== 'object') return null;
+  const obj = output as Record<string, unknown>;
+
+  // 1. Direct top-level geometry field
+  if (obj.geometry && typeof obj.geometry === 'object') {
+    return obj.geometry;
+  }
+
+  // 2. Geometry in data.rows[0] columns (geom, geometry, the_geom, shape)
+  if (typeof obj.data === 'object' && obj.data !== null) {
+    const data = obj.data as Record<string, unknown>;
+    if (Array.isArray(data.rows) && data.rows.length > 0) {
+      const row = data.rows[0] as Record<string, unknown>;
+      for (const key of ['geom', 'geometry', 'the_geom', 'shape']) {
+        const val = row[key];
+        if (val && typeof val === 'object') return val;
+        if (typeof val === 'string') {
+          try { return JSON.parse(val); } catch { /* not GeoJSON string */ }
+        }
+      }
+    }
+  }
+
+  // 3. Text-wrapped result (MCP returns text instead of parsed JSON)
+  if (typeof obj.text === 'string') {
+    try {
+      const parsed = JSON.parse(obj.text);
+      return extractGeometryFromMcpResult(parsed);
+    } catch { /* not parseable */ }
+  }
+
+  return null;
+}
+
+/**
  * Run the map agent and stream results via WebSocket
  */
 export async function runMapAgent(
@@ -105,6 +144,7 @@ export async function runMapAgent(
   sessionId: string,
   conversationHistory: ConversationMessage[],
   initialState?: InitialState,
+  onConversationMessage?: (message: ConversationMessage) => void,
 ): Promise<ConversationMessage | null> {
   const messageId = `msg_${Date.now()}`;
 
@@ -304,6 +344,22 @@ export async function runMapAgent(
                   if (coords) {
                     mcpResultCoordinates = coords;
                     console.log(`[Agent] Extracted coordinates from MCP result: lat=${coords.latitude}, lng=${coords.longitude}`);
+                  }
+
+                  // Store MCP geometry in conversation history for follow-up mask requests
+                  const geom = extractGeometryFromMcpResult(resultForCoords);
+                  if (geom && onConversationMessage) {
+                    onConversationMessage({
+                      role: 'assistant',
+                      content: `[MCP Result Geometry Available] The MCP workflow result table "${pendingMcpTableName}" returned a geometry for spatial filtering. Use this EXACT geometry with set-mask-layer when the user asks to filter. Geometry: ${JSON.stringify(geom)}`,
+                    });
+                    console.log(`[Agent] Stored MCP geometry in conversation history for mask layer use`);
+                  } else if (!geom && onConversationMessage) {
+                    onConversationMessage({
+                      role: 'assistant',
+                      content: `[MCP Result — No Geometry Available] The MCP workflow result is stored in table "${pendingMcpTableName}" but no extractable geometry was found in the response. If the user asks to filter by this area, suggest using the draw tool instead.`,
+                    });
+                    console.log(`[Agent] No geometry found in MCP result, stored fallback message`);
                   }
                 }
               }
