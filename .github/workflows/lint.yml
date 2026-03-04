@@ -32,13 +32,31 @@ jobs:
         working-directory: ./map-ai-tools
         run: npm run build
 
-      # Backend typecheck
-      - name: Install backend dependencies
+      # Backend typecheck (Vercel AI SDK)
+      - name: Install Vercel AI SDK dependencies
         working-directory: ./backend-integration/vercel-ai-sdk
         run: npm ci
 
-      - name: Typecheck backend
+      - name: Typecheck Vercel AI SDK
         working-directory: ./backend-integration/vercel-ai-sdk
+        run: npm run typecheck
+
+      # Backend typecheck (OpenAI Agents SDK)
+      - name: Install OpenAI Agents SDK dependencies
+        working-directory: ./backend-integration/openai-agents-sdk
+        run: npm ci
+
+      - name: Typecheck OpenAI Agents SDK
+        working-directory: ./backend-integration/openai-agents-sdk
+        run: npm run typecheck
+
+      # Backend typecheck (Google ADK)
+      - name: Install Google ADK dependencies
+        working-directory: ./backend-integration/google-adk
+        run: npm install --force
+
+      - name: Typecheck Google ADK
+        working-directory: ./backend-integration/google-adk
         run: npm run typecheck
 
       # map-ai-tools typecheck
