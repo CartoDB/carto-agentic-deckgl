@@ -276,6 +276,7 @@ export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
   const executors: Record<string, ToolExecutorFn> = {
     [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
     [TOOL_NAMES.SET_MARKER]: (params) => executeSetMarker(actions, params),
+    [TOOL_NAMES.SET_MASK_LAYER]: (params) => executeSetMaskLayer(maskActions, params),
   };
 
   return async (toolName, params) => {
@@ -293,7 +294,12 @@ export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
 
 // executeSetMarker:
 // Adds a pin to the IconLayer (__location-marker__), accumulating markers; skips duplicate coordinates
+
+// executeSetMaskLayer:
+// Delegates to useMaskLayer hook — set geometry, enable draw mode, or clear the mask
 ```
+
+The `set-mask-layer` tool delegates to the `useMaskLayer` hook which manages the editable mask layer state. Three actions are supported: `set` (applies a GeoJSON geometry and enters edit mode), `enable-draw` (activates `DrawPolygonMode`), and `clear` (removes the mask). The hook produces `GeoJsonLayer` (mask) + `EditableGeoJsonLayer` (drawing) layers and injects `MaskExtension` into all data layers when a mask is active.
 
 ### Instantiation in MapAIToolsContext
 

@@ -118,12 +118,13 @@ Frontend: Display text + Execute tool_calls
                             deck.gl state update
 ```
 
-### Consolidated Tools (2 frontend-executed tools)
+### Consolidated Tools (3 frontend-executed tools)
 
 | Tool             | Purpose                                                                                               |
 |------------------|-------------------------------------------------------------------------------------------------------|
 | `set-deck-state` | Navigate (initialViewState), change basemap (mapStyle), add/update/remove layers, widgets, and effects |
 | `set-marker`     | Place, remove, or clear location marker pins at specified coordinates                                  |
+| `set-mask-layer` | Editable mask layer for spatial filtering (set geometry, draw mode, or clear). Uses MaskExtension.     |
 
 ### Key Files — Backend (`backend-integration/<sdk>/src/`)
 
