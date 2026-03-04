@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       backend:
-        description: 'Backend SDK to test against (vercel-ai-sdk or openai-agents-sdk)'
+        description: 'Backend SDK to test against (openai-agents-sdk, vercel-ai-sdk, or google-adk)'
         type: string
         required: false
         default: 'openai-agents-sdk'
