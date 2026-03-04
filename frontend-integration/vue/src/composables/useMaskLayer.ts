@@ -55,8 +55,9 @@ function createMaskLayerComposable() {
   function setMaskGeometry(geojson: any): void {
     const geometry = normalizeToFeatureCollection(geojson);
     state.geometry = geometry;
-    state.isDrawing = false;
-    state.currentMode = 'draw';
+    state.isDrawing = true;
+    state.currentMode = 'edit';
+    state.selectedFeatureIndexes = geometry.features.length > 0 ? [0] : [];
   }
 
   function enableDrawMode(): void {

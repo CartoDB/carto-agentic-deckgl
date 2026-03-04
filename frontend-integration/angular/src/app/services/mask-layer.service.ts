@@ -66,8 +66,9 @@ export class MaskLayerService {
     this.maskState.next({
       ...this.maskState.getValue(),
       geometry,
-      isDrawing: false,
-      mode: ViewMode,
+      isDrawing: true,
+      mode: new CompositeMode([new TranslateMode(), new ModifyMode()]),
+      selectedFeatureIndexes: geometry.features.length > 0 ? [0] : [],
     });
   }
 
