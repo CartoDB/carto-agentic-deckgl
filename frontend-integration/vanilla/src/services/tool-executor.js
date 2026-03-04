@@ -15,8 +15,9 @@ const LOCATION_MARKER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="48" 
 const LOCATION_MARKER_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(LOCATION_MARKER_SVG)}`;
 
 export class ToolExecutor {
-  constructor(deckState) {
+  constructor(deckState, maskLayerManager) {
     this._deckState = deckState;
+    this._maskLayerManager = maskLayerManager || null;
     this._executors = this._createExecutors();
   }
 
@@ -38,7 +39,7 @@ export class ToolExecutor {
   }
 
   _createExecutors() {
-    return {
+    const executors = {
       [TOOL_NAMES.SET_DECK_STATE]: (params) => {
         const updatedParts = [];
         try {
@@ -317,5 +318,38 @@ export class ToolExecutor {
         }
       },
     };
+
+    // Add mask layer executor if maskLayerManager is provided
+    if (this._maskLayerManager) {
+      executors[TOOL_NAMES.SET_MASK_LAYER] = (params) => {
+        const { action, geometry } = params;
+        try {
+          switch (action) {
+            case 'set':
+              if (!geometry) {
+                return { success: false, message: 'Geometry is required for action "set".' };
+              }
+              this._maskLayerManager.setMaskGeometry(geometry);
+              return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+            case 'enable-draw':
+              this._maskLayerManager.enableDrawMode();
+              return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
+            case 'clear':
+              this._maskLayerManager.clearMask();
+              return { success: true, message: 'Mask cleared. All data layers are now fully visible.' };
+            default:
+              return { success: false, message: `Unknown mask action: ${action}` };
+          }
+        } catch (error) {
+          return {
+            success: false,
+            message: `Failed to set mask layer: ${error instanceof Error ? error.message : String(error)}`,
+            error: error instanceof Error ? error : new Error(String(error)),
+          };
+        }
+      };
+    }
+
+    return executors;
   }
 }

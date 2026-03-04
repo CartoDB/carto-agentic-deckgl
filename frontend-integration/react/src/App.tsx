@@ -1,11 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { MapView } from './components/MapView';
 import { ChatUI } from './components/ChatUI';
 import { ZoomControls } from './components/ZoomControls';
 import { LayerToggle } from './components/LayerToggle';
 import { Snackbar } from './components/Snackbar';
+import { DrawTool } from './components/DrawTool';
 import { useMapAITools } from './hooks/useMapAITools';
 import { useDeckState } from './hooks/useDeckState';
+import { useMaskLayer } from './hooks/useMaskLayer';
 import { useIsMobile } from './hooks/useIsMobile';
 import type { SnackbarConfig } from './types/models';
 import './App.css';
@@ -13,6 +15,7 @@ import './App.css';
 export default function App() {
   const deckState = useDeckState();
   const aiTools = useMapAITools();
+  const maskLayer = useMaskLayer();
   const isMobile = useIsMobile();
 
   const [zoomLevel, setZoomLevel] = useState(3);
@@ -21,6 +24,15 @@ export default function App() {
   >('closed');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarConfig>({ message: null, type: 'error' });
+
+  // Register mask layer actions with the tool executor
+  useEffect(() => {
+    aiTools.registerMaskActions({
+      setMaskGeometry: maskLayer.setMaskGeometry,
+      enableDrawMode: maskLayer.enableDrawMode,
+      clearMask: maskLayer.clearMask,
+    });
+  }, [aiTools, maskLayer]);
 
   const handleViewStateChange = useCallback((viewState: { zoom: number }) => {
     setZoomLevel(viewState.zoom);
@@ -140,10 +152,18 @@ export default function App() {
           </header>
 
           <div className={`map-container${sidebarFullOnMobile ? ' sidebar-full' : ''}`}>
-            <MapView onViewStateChange={handleViewStateChange} />
+            <MapView
+              onViewStateChange={handleViewStateChange}
+              maskLayer={{
+                isMaskActive: maskLayer.isMaskActive,
+                isDrawing: maskLayer.maskState.isDrawing,
+                getMaskLayers: maskLayer.getMaskLayers,
+                injectMaskExtension: maskLayer.injectMaskExtension,
+              }}
+            />
 
             <div
-              className={`layer-toggle-wrapper${
+              className={`top-left-controls${
                 showMobileSidebar ? ' below-sidebar' : ''
               }`}
             >
@@ -153,6 +173,17 @@ export default function App() {
                 onToggle={handleLayerToggle}
                 onFlyTo={handleLayerFlyTo}
               />
+
+              <div className="draw-tool-wrapper">
+                <DrawTool
+                  hasMask={maskLayer.isMaskActive}
+                  isDrawing={maskLayer.maskState.isDrawing}
+                  currentMode={maskLayer.maskState.currentMode}
+                  onToggleDraw={() => maskLayer.maskState.isDrawing ? maskLayer.disableDrawMode() : maskLayer.enableDrawMode()}
+                  onSetMode={maskLayer.setDrawMode}
+                  onClear={maskLayer.clearMask}
+                />
+              </div>
             </div>
 
             <div className="zoom-controls-wrapper">
