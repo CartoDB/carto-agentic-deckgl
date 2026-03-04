@@ -53,8 +53,9 @@ export function useMaskLayer() {
     setState((prev) => ({
       ...prev,
       geometry,
-      isDrawing: false,
-      currentMode: 'draw',
+      isDrawing: true,
+      currentMode: 'edit',
+      selectedFeatureIndexes: geometry.features.length > 0 ? [0] : [],
     }));
   }, []);
 
