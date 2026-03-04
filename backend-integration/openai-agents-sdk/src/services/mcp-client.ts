@@ -1,5 +1,5 @@
 /**
- * MCP Client for Vercel AI SDK v6
+ * MCP Client for OpenAI Agents SDK
  *
  * Connects to remote MCP servers and provides tools with whitelist filtering.
  * Uses Streamable HTTP transport and Zod 4 for schema conversion.
@@ -10,7 +10,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
-// Tool definition compatible with Vercel AI SDK
+// Tool definition compatible with OpenAI Agents SDK
 export interface MCPToolDefinition {
   name: string;
   description: string;
@@ -36,7 +36,7 @@ export function sanitizeMCPToolName(name: string): string {
 
 /**
  * Convert JSON Schema to Zod schema
- * Uses manual conversion to ensure compatibility with Vercel AI SDK
+ * Uses manual conversion to ensure compatibility with OpenAI Agents SDK
  */
 export function convertJsonSchemaToZod(jsonSchema: unknown): z.ZodObject<Record<string, z.ZodType>> {
   const schema = jsonSchema as Record<string, unknown>;
@@ -139,7 +139,7 @@ export class MCPClient {
       // Create MCP client
       this.client = new Client(
         {
-          name: `vercel-ai-mcp-client-${this.serverName}`,
+          name: `openai-agents-mcp-client-${this.serverName}`,
           version: '1.0.0',
         },
         {
@@ -246,7 +246,7 @@ export class MCPClient {
 
   /**
    * Convert JSON Schema to Zod schema
-   * Uses manual conversion to ensure compatibility with Vercel AI SDK
+   * Uses manual conversion to ensure compatibility with OpenAI Agents SDK
    */
   private jsonSchemaToZod(jsonSchema: unknown): z.ZodObject<Record<string, z.ZodType>> {
     return convertJsonSchemaToZod(jsonSchema);
