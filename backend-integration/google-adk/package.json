@@ -9,9 +9,11 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:mock-mcp": "MCP_MOCK_MODE=true tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "poc": "npx tsx poc/test-adk-litellm.ts",
     "poc:stream": "npx tsx poc/test-adk-litellm-stream.ts"
   },
@@ -35,6 +37,7 @@
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }
