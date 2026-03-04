@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@carto/maps-ai-tools':
+      '@carto/map-ai-tools':
         specifier: file:../../map-ai-tools
         version: file:../../map-ai-tools(@deck.gl/json@9.2.10(@deck.gl/core@9.2.10))(zod@4.3.6)
       '@google/adk':
@@ -152,7 +152,7 @@ packages:
     resolution: {integrity: sha512-+f1VrJH1iI517t4zgmuhqORja0bL6LDQXfBqkjuMmfTYXTQQnh1EvwwxO3UbKLT05N0obF72SRHFrC1RBDv5Gg==}
     engines: {node: '>=16'}
 
-  '@carto/maps-ai-tools@file:../../map-ai-tools':
+  '@carto/map-ai-tools@file:../../map-ai-tools':
     resolution: {directory: ../../map-ai-tools, type: directory}
     peerDependencies:
       '@deck.gl/json': ^9.2.0
@@ -2751,7 +2751,7 @@ snapshots:
       jsonwebtoken: 9.0.3
       uuid: 8.3.2
 
-  '@carto/maps-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.10(@deck.gl/core@9.2.10))(zod@4.3.6)':
+  '@carto/map-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.10(@deck.gl/core@9.2.10))(zod@4.3.6)':
     dependencies:
       '@deck.gl/core': 9.2.10
       '@deck.gl/json': 9.2.10(@deck.gl/core@9.2.10)
