@@ -67,6 +67,22 @@ export const tools = {
     }),
   },
 
+  [TOOL_NAMES.SET_MASK_LAYER]: {
+    name: TOOL_NAMES.SET_MASK_LAYER,
+    description: 'Manage the editable mask layer: set a GeoJSON geometry to mask/filter layers, enable drawing mode, or clear the mask.',
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      action: z.enum(['set', 'enable-draw', 'clear']).describe(
+        '"set" applies a GeoJSON geometry as the mask, "enable-draw" activates user drawing mode, "clear" removes the mask.'
+      ),
+      geometry: z.object({
+        type: z.enum(['Polygon', 'MultiPolygon', 'Feature', 'FeatureCollection']),
+      }).passthrough().optional().describe(
+        'GeoJSON geometry to use as mask. Required when action is "set". Supports Polygon, MultiPolygon, Feature, or FeatureCollection.'
+      ),
+    }),
+  },
+
 } as const;
 
 /**
@@ -160,6 +176,7 @@ export function getDataTools(): ToolName[] {
 export const consolidatedToolNames: ToolName[] = [
   TOOL_NAMES.SET_DECK_STATE,
   TOOL_NAMES.SET_MARKER,
+  TOOL_NAMES.SET_MASK_LAYER,
 ];
 
 /**

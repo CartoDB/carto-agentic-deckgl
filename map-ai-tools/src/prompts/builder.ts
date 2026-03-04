@@ -13,6 +13,7 @@ import type { BuildSystemPromptOptions, MapState, UserContext } from './types.js
 const ORDERED_TOOLS = [
   TOOL_NAMES.SET_DECK_STATE,
   TOOL_NAMES.SET_MARKER,
+  TOOL_NAMES.SET_MASK_LAYER,
 ];
 
 /**
@@ -34,7 +35,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 
 ## AVAILABLE TOOLS
 
-You have 2 consolidated tools for complete map control:
+You have 3 consolidated tools for complete map control:
 
 `;
 

@@ -13,9 +13,9 @@
         >
         </app-map-view>
 
-        <!-- Layer Toggle - top left -->
+        <!-- Layer Toggle + Draw Tool - top left -->
         <div
-          class="layer-toggle-wrapper"
+          class="top-left-controls"
           [class.below-sidebar]="isMobile() && sidebarState === 'full'"
         >
           <app-layer-toggle
@@ -25,6 +25,10 @@
             (flyTo)="handleLayerFlyTo($event)"
           >
           </app-layer-toggle>
+
+          <div class="draw-tool-wrapper">
+            <app-draw-tool></app-draw-tool>
+          </div>
         </div>
 
         <!-- Zoom Controls - bottom left -->
