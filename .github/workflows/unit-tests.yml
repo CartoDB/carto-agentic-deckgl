@@ -37,13 +37,31 @@ jobs:
         working-directory: ./map-ai-tools
         run: npm test
 
-      # Run backend tests
-      - name: Install backend dependencies
+      # Run backend tests (Vercel AI SDK)
+      - name: Install Vercel AI SDK dependencies
         working-directory: ./backend-integration/vercel-ai-sdk
         run: npm ci
 
-      - name: Test backend
+      - name: Test Vercel AI SDK
         working-directory: ./backend-integration/vercel-ai-sdk
+        run: npm test
+
+      # Run backend tests (OpenAI Agents SDK)
+      - name: Install OpenAI Agents SDK dependencies
+        working-directory: ./backend-integration/openai-agents-sdk
+        run: npm ci
+
+      - name: Test OpenAI Agents SDK
+        working-directory: ./backend-integration/openai-agents-sdk
+        run: npm test
+
+      # Run backend tests (Google ADK)
+      - name: Install Google ADK dependencies
+        working-directory: ./backend-integration/google-adk
+        run: npm install --force
+
+      - name: Test Google ADK
+        working-directory: ./backend-integration/google-adk
         run: npm test
 
       # Run Angular tests
