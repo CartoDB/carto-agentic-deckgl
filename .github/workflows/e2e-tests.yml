@@ -100,7 +100,7 @@ jobs:
         env:
           TEST_MODEL: ${{ matrix.model }}
           BACKEND_SDK: ${{ inputs.backend || 'openai-agents-sdk' }}
-          PLAYWRIGHT_JSON_OUTPUT_NAME: e2e/test-results/results.json
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
         run: cd frontend-integration/react && pnpm e2e --reporter=list,json
 
       # Upload results
@@ -133,9 +133,9 @@ jobs:
             model=$(basename "$dir" | sed 's/e2e-results-//')
             json="$dir/results.json"
             if [ -f "$json" ]; then
-              passed=$(jq '[.suites[].specs[].tests[] | select(.status == "expected")] | length' "$json")
-              failed=$(jq '[.suites[].specs[].tests[] | select(.status == "unexpected")] | length' "$json")
-              skipped=$(jq '[.suites[].specs[].tests[] | select(.status == "skipped")] | length' "$json")
+              passed=$(jq '.stats.expected' "$json")
+              failed=$(jq '.stats.unexpected' "$json")
+              skipped=$(jq '.stats.skipped' "$json")
               duration_ms=$(jq '.stats.duration' "$json")
               duration_s=$(echo "scale=1; $duration_ms / 1000" | bc)
               status_icon=$( [ "$failed" -gt 0 ] && echo "❌" || echo "✅" )
@@ -156,7 +156,7 @@ jobs:
               echo "| Status | Suite | Test | Duration |" >> comparison.md
               echo "|--------|-------|------|----------|" >> comparison.md
               jq -r '
-                .suites[] |
+                .. | .suites? // empty | .[] | select(.specs | length > 0) |
                 .title as $suite |
                 .specs[] |
                 .title as $test |
