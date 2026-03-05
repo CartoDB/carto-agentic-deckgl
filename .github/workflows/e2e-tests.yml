@@ -145,18 +145,29 @@ jobs:
             fi
           done
           echo "" >> comparison.md
-          # Per-test breakdown for failures
+          # Per-test detail for each model
           for dir in all-results/e2e-results-*/; do
+            model=$(basename "$dir" | sed 's/e2e-results-//')
             json="$dir/test-results/results.json"
             if [ -f "$json" ]; then
-              failed=$(jq '[.suites[].specs[].tests[] | select(.status == "unexpected")] | length' "$json")
-              if [ "$failed" -gt 0 ]; then
-                model=$(basename "$dir" | sed 's/e2e-results-//')
-                echo "### ❌ Failed tests — $model" >> comparison.md
-                echo "" >> comparison.md
-                jq -r '.suites[].specs[] | select(.tests[].status == "unexpected") | "- \(.title)"' "$json" >> comparison.md
-                echo "" >> comparison.md
-              fi
+              echo "<details>" >> comparison.md
+              echo "<summary><b>$model</b> — test details</summary>" >> comparison.md
+              echo "" >> comparison.md
+              echo "| Status | Suite | Test | Duration |" >> comparison.md
+              echo "|--------|-------|------|----------|" >> comparison.md
+              jq -r '
+                .suites[] |
+                .title as $suite |
+                .specs[] |
+                .title as $test |
+                .tests[] |
+                (if .status == "expected" then "✅" elif .status == "unexpected" then "❌" else "⏭️" end) as $icon |
+                (.results[0].duration // 0 | . / 1000 | tostring + "s") as $dur |
+                "| \($icon) | \($suite) | \($test) | \($dur) |"
+              ' "$json" >> comparison.md
+              echo "" >> comparison.md
+              echo "</details>" >> comparison.md
+              echo "" >> comparison.md
             fi
           done
 
