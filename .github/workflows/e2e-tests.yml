@@ -131,7 +131,7 @@ jobs:
           echo "|-------|--------|--------|---------|----------|" >> comparison.md
           for dir in all-results/e2e-results-*/; do
             model=$(basename "$dir" | sed 's/e2e-results-//')
-            json="$dir/test-results/results.json"
+            json="$dir/results.json"
             if [ -f "$json" ]; then
               passed=$(jq '[.suites[].specs[].tests[] | select(.status == "expected")] | length' "$json")
               failed=$(jq '[.suites[].specs[].tests[] | select(.status == "unexpected")] | length' "$json")
@@ -148,7 +148,7 @@ jobs:
           # Per-test detail for each model
           for dir in all-results/e2e-results-*/; do
             model=$(basename "$dir" | sed 's/e2e-results-//')
-            json="$dir/test-results/results.json"
+            json="$dir/results.json"
             if [ -f "$json" ]; then
               echo "<details>" >> comparison.md
               echo "<summary><b>$model</b> — test details</summary>" >> comparison.md
