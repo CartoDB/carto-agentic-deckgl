@@ -13,6 +13,7 @@ jobs:
   # Security scan runs first — blocks everything if secrets found
   security-scan:
     name: Gitleaks Secret Scan
+    if: github.actor != 'dependabot[bot]'
     uses: ./.github/workflows/security-scan.yml
     secrets: inherit
 
@@ -20,7 +21,7 @@ jobs:
   lint:
     name: Code Quality (Lint)
     needs: security-scan
-    if: always() && (needs.security-scan.result == 'success' || needs.security-scan.result == 'skipped')
+    if: needs.security-scan.result == 'success'
     uses: ./.github/workflows/lint.yml
     secrets: inherit
 

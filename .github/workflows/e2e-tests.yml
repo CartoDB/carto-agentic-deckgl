@@ -141,6 +141,9 @@ jobs:
             echo "" >> comparison.md
           done
 
+      - name: Write summary
+        run: cat comparison.md >> $GITHUB_STEP_SUMMARY
+
       - uses: actions/upload-artifact@v4
         with:
           name: e2e-comparison-report
