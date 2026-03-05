@@ -100,17 +100,15 @@ jobs:
         env:
           TEST_MODEL: ${{ matrix.model }}
           BACKEND_SDK: ${{ inputs.backend || 'openai-agents-sdk' }}
-        run: cd frontend-integration/react && pnpm e2e
+          PLAYWRIGHT_JSON_OUTPUT_NAME: e2e/test-results/results.json
+        run: cd frontend-integration/react && pnpm e2e --reporter=list,json
 
       # Upload results
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e2e-results-${{ matrix.model_name }}
-          path: |
-            frontend-integration/react/e2e/test-results/
-            frontend-integration/react/e2e/playwright-report/
-            frontend-integration/react/e2e/screenshots/
+          path: frontend-integration/react/e2e/test-results/
           retention-days: 30
 
   # Comparison report job
@@ -129,16 +127,48 @@ jobs:
         run: |
           echo "## E2E Model Comparison Report" > comparison.md
           echo "" >> comparison.md
+          echo "| Model | Passed | Failed | Skipped | Duration |" >> comparison.md
+          echo "|-------|--------|--------|---------|----------|" >> comparison.md
           for dir in all-results/e2e-results-*/; do
             model=$(basename "$dir" | sed 's/e2e-results-//')
-            echo "### $model" >> comparison.md
-            if [ -d "$dir/playwright-report" ]; then
-              echo "- Playwright report available in artifacts" >> comparison.md
+            json="$dir/test-results/results.json"
+            if [ -f "$json" ]; then
+              passed=$(jq '[.suites[].specs[].tests[] | select(.status == "expected")] | length' "$json")
+              failed=$(jq '[.suites[].specs[].tests[] | select(.status == "unexpected")] | length' "$json")
+              skipped=$(jq '[.suites[].specs[].tests[] | select(.status == "skipped")] | length' "$json")
+              duration_ms=$(jq '.stats.duration' "$json")
+              duration_s=$(echo "scale=1; $duration_ms / 1000" | bc)
+              status_icon=$( [ "$failed" -gt 0 ] && echo "❌" || echo "✅" )
+              echo "| $status_icon $model | $passed | $failed | $skipped | ${duration_s}s |" >> comparison.md
+            else
+              echo "| ⚠️ $model | — | — | — | — |" >> comparison.md
             fi
-            # Count screenshots
-            screenshot_count=$(find "$dir/screenshots/" -name "*.png" 2>/dev/null | wc -l)
-            echo "- Screenshots captured: $screenshot_count" >> comparison.md
-            echo "" >> comparison.md
+          done
+          echo "" >> comparison.md
+          # Per-test detail for each model
+          for dir in all-results/e2e-results-*/; do
+            model=$(basename "$dir" | sed 's/e2e-results-//')
+            json="$dir/test-results/results.json"
+            if [ -f "$json" ]; then
+              echo "<details>" >> comparison.md
+              echo "<summary><b>$model</b> — test details</summary>" >> comparison.md
+              echo "" >> comparison.md
+              echo "| Status | Suite | Test | Duration |" >> comparison.md
+              echo "|--------|-------|------|----------|" >> comparison.md
+              jq -r '
+                .suites[] |
+                .title as $suite |
+                .specs[] |
+                .title as $test |
+                .tests[] |
+                (if .status == "expected" then "✅" elif .status == "unexpected" then "❌" else "⏭️" end) as $icon |
+                (.results[0].duration // 0 | . / 1000 | tostring + "s") as $dur |
+                "| \($icon) | \($suite) | \($test) | \($dur) |"
+              ' "$json" >> comparison.md
+              echo "" >> comparison.md
+              echo "</details>" >> comparison.md
+              echo "" >> comparison.md
+            fi
           done
 
       - name: Write summary
