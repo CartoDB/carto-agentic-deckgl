@@ -20,7 +20,7 @@ const CARTO_LDS_API_KEY = process.env.CARTO_LDS_API_KEY;
 const geocodeSchema = z.object({
   address: z.string().optional().describe('Full address or street address to geocode'),
   city: z.string().optional().describe('City name to geocode'),
-  country: z.string().describe('Country name or ISO code (e.g., "ES" for Spain, "US" for United States). Required.'),
+  country: z.string().describe('ISO 3166-1 alpha-2 country code (e.g., "ES", "US", "FR", "DE"). Must be a 2-letter code, not a full country name. Required.'),
 });
 
 const ldsGeocodeTool = new FunctionTool({
