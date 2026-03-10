@@ -362,7 +362,7 @@ export class ToolExecutor {
 
       // set-mask-layer: manages the editable mask layer for spatial filtering
       [TOOL_NAMES.SET_MASK_LAYER]: (params) => {
-        // Delegates to MaskLayerManager — set geometry, enable draw mode, or clear
+        // Delegates to MaskLayerManager — set geometry or table name, enable draw mode, or clear
         // Produces GeoJsonLayer (mask) + EditableGeoJsonLayer (drawing)
         // MaskExtension is injected into all data layers when active
       },
