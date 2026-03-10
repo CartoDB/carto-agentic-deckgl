@@ -336,7 +336,7 @@ Places an `IconLayer` with ID `__location-marker__` at the specified coordinates
 
 Delegates to `MaskLayerService` which manages the editable mask layer state. Three actions are supported:
 
-- **`set`** -- Applies a GeoJSON geometry as the mask via `setMaskGeometry()`. The mask enters edit mode (translate + modify) so the user can adjust it.
+- **`set`** -- Applies a GeoJSON geometry or CARTO table name as the mask via `setMaskGeometry()`. When a `tableName` is provided, geometry is fetched from the CARTO table. The mask enters edit mode (translate + modify) so the user can adjust it.
 - **`enable-draw`** -- Activates `DrawPolygonMode` via `enableDrawMode()` so the user can draw a mask polygon on the map.
 - **`clear`** -- Removes the mask and disables drawing via `clearMask()`.
 

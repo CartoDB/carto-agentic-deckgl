@@ -97,7 +97,7 @@ The library provides 3 consolidated tools for complete map control:
 | --- | --- |
 | `set-deck-state` | Full deck.gl state control (navigation, basemap, layers, widgets, effects) |
 | `set-marker` | Place a location marker pin at specified coordinates |
-| `set-mask-layer` | Editable mask layer for spatial filtering (set geometry, draw mode, or clear) |
+| `set-mask-layer` | Editable mask layer for spatial filtering (set geometry or table name, draw mode, or clear) |
 
 ### Tool Names
 
