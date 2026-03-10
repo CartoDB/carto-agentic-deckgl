@@ -52,9 +52,11 @@ export class MaskLayerManager extends EventEmitter {
   }
 
   setMaskGeometry(geojson) {
-    this._state.geometry = normalizeToFeatureCollection(geojson);
-    this._state.isDrawing = false;
-    this._state.currentMode = 'draw';
+    const geometry = normalizeToFeatureCollection(geojson);
+    this._state.geometry = geometry;
+    this._state.isDrawing = true;
+    this._state.currentMode = 'edit';
+    this._state.selectedFeatureIndexes = geometry.features.length > 0 ? [0] : [];
     this._emitChange();
   }
 

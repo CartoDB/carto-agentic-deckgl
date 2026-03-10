@@ -49,6 +49,7 @@ wss.on('connection', (ws) => {
       if (rawMessage.type === 'chat_message') {
         const message = rawMessage as ChatMessage;
         const history = conversationManager.getHistory(sid);
+
         conversationManager.addMessage(sid, {
           role: 'user',
           content: message.content,
@@ -60,6 +61,7 @@ wss.on('connection', (ws) => {
           sid,
           history,
           message.initialState,
+          (msg) => conversationManager.addMessage(sid, msg),
         );
 
         if (response) {

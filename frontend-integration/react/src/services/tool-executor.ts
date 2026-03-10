@@ -6,8 +6,10 @@
  */
 
 import { TOOL_NAMES } from '@carto/map-ai-tools';
+import { vectorTableSource } from '@deck.gl/carto';
 import type { LayerSpec } from '../utils/layer-merge';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge';
+import { environment } from '../config/environment';
 
 export interface ToolResult {
   success: boolean;
@@ -64,7 +66,7 @@ const LOCATION_MARKER_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(LOCATION_
 
 export type ExecuteToolFn = (toolName: string, params: unknown) => Promise<ToolResult>;
 
-type ToolExecutorFn = (params: unknown) => ToolResult;
+type ToolExecutorFn = (params: unknown) => ToolResult | Promise<ToolResult>;
 
 function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolResult {
   const paramsObj = params as SetDeckStateParams;
@@ -347,19 +349,56 @@ export interface MaskLayerActions {
   clearMask: () => void;
 }
 
-function executeSetMaskLayer(maskActions: MaskLayerActions, params: unknown): ToolResult {
-  const { action, geometry } = params as {
+// Update with your geom column name(s) if different
+const GEOM_COLUMNS = ["geom"];
+
+async function fetchGeometryFromTable(tableName: string): Promise<Record<string, unknown>> {
+  const source = await vectorTableSource({
+    apiBaseUrl: environment.apiBaseUrl,
+    accessToken: environment.accessToken,
+    connectionName: environment.connectionName,
+    tableName,
+    columns: GEOM_COLUMNS,
+  });
+
+  const { rows } = await source.widgetSource.getTable({
+    columns: GEOM_COLUMNS,
+    limit: 1,
+  });
+
+  if (rows.length > 0) {
+    for (const col of GEOM_COLUMNS) {
+      const val = rows[0][col];
+      if (val) {
+        return typeof val === 'string' ? JSON.parse(val) : val as unknown as Record<string, unknown>;
+      }
+    }
+  }
+
+  throw new Error(`No geometry found in table "${tableName}"`);
+}
+
+async function executeSetMaskLayer(maskActions: MaskLayerActions, params: unknown): Promise<ToolResult> {
+  const { action, geometry, tableName } = params as {
     action: 'set' | 'enable-draw' | 'clear';
     geometry?: Record<string, unknown>;
+    tableName?: string;
   };
   try {
     switch (action) {
-      case 'set':
-        if (!geometry) {
-          return { success: false, message: 'Geometry is required for action "set".' };
+      case 'set': {
+        let resolvedGeometry = geometry;
+
+        if (!resolvedGeometry && tableName) {
+          resolvedGeometry = await fetchGeometryFromTable(tableName);
         }
-        maskActions.setMaskGeometry(geometry);
+
+        if (!resolvedGeometry) {
+          return { success: false, message: 'Either geometry or tableName is required for action "set".' };
+        }
+        maskActions.setMaskGeometry(resolvedGeometry);
         return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+      }
       case 'enable-draw':
         maskActions.enableDrawMode();
         return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
@@ -379,6 +418,7 @@ function executeSetMaskLayer(maskActions: MaskLayerActions, params: unknown): To
 }
 
 export function createToolExecutor(actions: DeckStateActions, maskActions?: MaskLayerActions): ExecuteToolFn {
+  console.log('Creating tool executor with actions:', actions, 'and maskActions:', maskActions);
   const executors: Record<string, ToolExecutorFn> = {
     [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
     [TOOL_NAMES.SET_MARKER]: (params) => executeSetMarker(actions, params),
@@ -393,8 +433,10 @@ export function createToolExecutor(actions: DeckStateActions, maskActions?: Mask
       return { success: false, message: `Unknown tool: ${toolName}` };
     }
 
+    console.log(`Executing tool: ${toolName} with params:`, params);
+
     try {
-      return executor(params);
+      return await executor(params);
     } catch (error) {
       return {
         success: false,

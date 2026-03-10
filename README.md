@@ -24,7 +24,7 @@ User Message --> Frontend (WebSocket) --> Backend Server
                               deck.gl state update --> Map renders
 ```
 
-The AI generates deck.gl JSON specifications using 2 consolidated tools (`set-deck-state` for map state and `set-marker` for location pins). The frontend executes these through `JSONConverter` to render layers, update the camera, and change the basemap.
+The AI generates deck.gl JSON specifications using 3 consolidated tools (`set-deck-state` for map state, `set-marker` for location pins, and `set-mask-layer` for spatial filtering). The frontend executes these through `JSONConverter` to render layers, update the camera, and change the basemap.
 
 ## Project Structure
 
@@ -168,14 +168,15 @@ See [map-ai-tools/README.md](map-ai-tools/README.md) for the full API reference.
 
 ### Consolidated Tools
 
-The AI controls the map through 2 frontend-executed tools:
+The AI controls the map through 3 frontend-executed tools:
 
-| Tool             | Description                                                                                                                                                          |
-|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Tool | Description |
+| --- | --- |
 | `set-deck-state` | Full deck.gl state control: navigation, basemap, layers, widgets, and effects. Layer updates are deep-merged by ID, so partial updates preserve existing properties. |
-| `set-marker`     | Places a location marker pin at specified coordinates. Markers accumulate across calls; duplicates at the same position are skipped.                                 |
+| `set-marker` | Places a location marker pin at specified coordinates. Markers accumulate across calls; duplicates at the same position are skipped. |
+| `set-mask-layer` | Editable mask layer for spatial filtering. Set a GeoJSON geometry, enable draw mode, or clear. When active, all data layers are clipped to the mask area via `MaskExtension`. |
 
-System layers (IDs prefixed with `__`, such as the marker layer) are automatically hidden from the UI layer toggle, excluded from AI state context, and always rendered on top of user layers.
+System layers (IDs prefixed with `__`, such as `__location-marker__`, `__mask-layer__`, and `__editable-mask__`) are automatically hidden from the UI layer toggle, excluded from AI state context, and always rendered on top of user layers.
 
 ### deck.gl JSON Spec
 
