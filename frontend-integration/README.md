@@ -37,7 +37,7 @@ Each framework implements 4 core services (as Angular services, Vue composables,
 | **State** | Centralized reactive state for the unified `DeckSpec` (viewState, layers, widgets, effects) plus basemap and active layer tracking |
 | **WebSocket** | WebSocket client with auto-reconnect |
 | **Orchestrator** | Coordinates messages, routes WebSocket events, executes tool calls, manages chat history and loader state |
-| **Tool Executor** | Handles `set-deck-state` and `set-marker` tools. System layers (`__` prefix) are hidden from UI and AI context |
+| **Tool Executor** | Handles `set-deck-state`, `set-marker`, and `set-mask-layer` tools. System layers (`__` prefix) are hidden from UI and AI context |
 
 ### Configuration Files
 
@@ -91,7 +91,7 @@ Three pure utility modules are duplicated across frameworks (see [rationale](../
 
 ## Tool Execution Pipeline
 
-All frameworks handle 2 tools:
+All frameworks handle 3 tools:
 
 ### `set-deck-state` -- Three-Phase Pipeline
 
@@ -110,9 +110,27 @@ All frameworks handle 2 tools:
 
 Places an `IconLayer` with ID `__location-marker__` at the specified coordinates. Markers accumulate across calls -- each new position is added to the existing set. If a marker already exists at the exact same coordinates, it is not duplicated. The marker layer is a system layer (hidden from UI toggle and AI state context).
 
+### `set-mask-layer` -- Spatial Mask Filter
+
+Manages an editable mask layer for spatial filtering. Three actions are supported:
+
+| Action | Behavior |
+| --- | --- |
+| `set` | Applies a GeoJSON geometry as the mask. All data layers are visually clipped to the mask area. The mask enters edit mode so the user can modify it. |
+| `enable-draw` | Activates drawing mode. The user draws a polygon on the map to define the mask area. |
+| `clear` | Removes the mask. All data layers return to full visibility. |
+
+The mask layer uses a three-layer composition:
+
+1. **`GeoJsonLayer`** (`__mask-layer__`) with `operation: 'mask'` -- defines the GPU-accelerated mask geometry
+2. **`EditableGeoJsonLayer`** (`__editable-mask__`) -- user interaction layer for drawing and editing polygons
+3. **`MaskExtension`** -- injected into all data layers when a mask is active, linking them to the mask geometry
+
+Both mask layers are system layers (`__` prefix) -- hidden from the UI layer toggle and AI state context.
+
 ### System Layers
 
-Layers with IDs prefixed by `__` (e.g., `__location-marker__`) are treated as system layers:
+Layers with IDs prefixed by `__` (e.g., `__location-marker__`, `__mask-layer__`, `__editable-mask__`) are treated as system layers:
 
 - **Rendering**: Always placed on top of user layers in the layer stack
 - **UI**: Filtered out of the layer toggle panel

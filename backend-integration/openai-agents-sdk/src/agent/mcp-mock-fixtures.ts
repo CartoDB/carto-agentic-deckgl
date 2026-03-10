@@ -86,6 +86,23 @@ export const MCP_MOCK_FIXTURES: MCPMockFixtures = {
         total_rows: 1,
       },
       workflowOutputTableName: 'carto-dw-ac-7xhfwyml.shared.mock_mcp_result',
+      // Geometry representing the ~5-minute drivetime area around Times Square
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-73.9935, 40.753],
+            [-73.978, 40.753],
+            [-73.975, 40.758],
+            [-73.975, 40.763],
+            [-73.978, 40.768],
+            [-73.9935, 40.768],
+            [-73.996, 40.763],
+            [-73.996, 40.758],
+            [-73.9935, 40.753],
+          ],
+        ],
+      },
     },
   },
 };

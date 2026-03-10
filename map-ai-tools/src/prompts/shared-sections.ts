@@ -177,7 +177,11 @@ MCP tools from the CARTO server can be either **synchronous** or **asynchronous*
 
 6. After adding a layer, if the user asks to style it:
    - Use set-deck-state with updated layer styling
-   - Do NOT call MCP tools again - the data already exists on the map`,
+   - Do NOT call MCP tools again - the data already exists on the map
+
+7. If the MCP result includes a geometry and the user asks to filter or mask by that area:
+   - Call set-mask-layer with action "set" and the geometry from the result
+   - Do NOT apply mask automatically — only when the user explicitly requests it`,
 
   mcpAsyncUnavailable: `(Async workflow tools not available - async MCP tools cannot be processed)`,
 

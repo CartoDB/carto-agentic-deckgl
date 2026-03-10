@@ -311,7 +311,7 @@ export class ConsolidatedExecutorsService {
 }
 ```
 
-The service handles 2 tools:
+The service handles 3 tools:
 
 ### `set-deck-state`
 
@@ -331,6 +331,16 @@ Follows the three-phase pipeline described in the [global guide](../README.md#se
 ### `set-marker`
 
 Places an `IconLayer` with ID `__location-marker__` at the specified coordinates. Markers accumulate -- each call adds a new pin without removing previous ones. Duplicates at the same coordinates are skipped. The marker is a system layer -- hidden from the layer toggle UI and AI state context.
+
+### `set-mask-layer`
+
+Delegates to `MaskLayerService` which manages the editable mask layer state. Three actions are supported:
+
+- **`set`** -- Applies a GeoJSON geometry as the mask via `setMaskGeometry()`. The mask enters edit mode (translate + modify) so the user can adjust it.
+- **`enable-draw`** -- Activates `DrawPolygonMode` via `enableDrawMode()` so the user can draw a mask polygon on the map.
+- **`clear`** -- Removes the mask and disables drawing via `clearMask()`.
+
+The service produces two deck.gl layers via `getMaskLayers()`: a `GeoJsonLayer` with `operation: 'mask'` and an `EditableGeoJsonLayer` for user interaction. The `DeckMapService` injects `MaskExtension` into all data layers when a mask is active.
 
 ---
 

@@ -214,6 +214,18 @@ The agent runner (`services/agent-runner.ts`) orchestrates the AI interaction us
   - **Conversation history as context prefix** -- Conversation history is embedded as a context prefix in the user message
 - Sanitizes malformed keys and strips credentials before forwarding to the frontend
 
+### MCP Geometry Caching
+
+When an MCP async workflow completes, the agent runner extracts geometry from the result using `extractGeometryFromMcpResult()`. This function searches multiple locations in the MCP response:
+
+1. Top-level `geometry` field
+2. Row columns (`geom`, `geometry`, `the_geom`, `shape`) in `data.rows[0]`
+3. Text-wrapped JSON responses (recursive parsing)
+
+If geometry is found, it is stored in the conversation history with a `[MCP Result Geometry Available]` marker containing the exact GeoJSON. When the user later asks to "filter by this area" or "mask the map to this region", the AI retrieves the cached geometry and calls `set-mask-layer { action: "set", geometry: <cached> }` -- ensuring the mask matches the exact MCP result boundary.
+
+If no geometry is found, a `[MCP Result — No Geometry Available]` fallback is stored, and the AI suggests using draw mode instead.
+
 ---
 
 ## Tool System
@@ -222,7 +234,7 @@ Tools are aggregated from three sources in `agent/tools.ts`:
 
 ### Local Tools (from `@carto/map-ai-tools`)
 
-The consolidated `set-deck-state` tool is imported from the core library and converted to Google ADK format using `getToolsForGoogleADK()`. Unlike the OpenAI Agents SDK backend, no `zodV4ToJsonSchema()` workaround is needed -- ADK handles Zod schemas natively.
+The consolidated tools (`set-deck-state`, `set-marker`, `set-mask-layer`) are imported from the core library and converted to Google ADK format using `getToolsForGoogleADK()`. Unlike the OpenAI Agents SDK backend, no `zodV4ToJsonSchema()` workaround is needed -- ADK handles Zod schemas natively.
 
 ### Custom Tools (`agent/custom-tools.ts`)
 
@@ -246,10 +258,11 @@ The system prompt is built in two layers:
 
 `buildSystemPrompt()` generates the base prompt with:
 
-- Tool-specific instructions (how to use `set-deck-state` and `set-marker`)
+- Tool-specific instructions (how to use `set-deck-state`, `set-marker`, and `set-mask-layer`)
 - Current map state (camera position, active layers)
 - User context (country, business type)
 - MCP instructions (if MCP tools are available)
+- Mask layer instructions (geometry caching, trigger phrases, no-fabrication rules)
 
 ### Custom Prompt (`prompts/custom-prompt.ts`)
 
@@ -261,9 +274,6 @@ Application-specific instructions appended to the library prompt:
 - Agent behavior rules (no loops, no self-responses)
 - Layer styling guidance
 - Geocoding workflow sequence (`lds-geocode -> set-deck-state -> MCP tool`)
-- Marker placement rules (when to use `set-marker` vs. navigation-only `set-deck-state`)
-- MCP workflow results with mandatory layer creation and automatic `set-marker` after completion
-- Response format rules (no JSON/code in chat text)
 
 ---
 

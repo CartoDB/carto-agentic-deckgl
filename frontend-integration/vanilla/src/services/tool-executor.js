@@ -6,7 +6,9 @@
  */
 
 import { TOOL_NAMES } from '@carto/map-ai-tools';
+import { vectorTableSource } from '@deck.gl/carto';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.js';
+import { environment } from '../config/environment.js';
 
 // ==================== MARKER CONSTANTS ====================
 
@@ -321,21 +323,53 @@ export class ToolExecutor {
 
     // Add mask layer executor if maskLayerManager is provided
     if (this._maskLayerManager) {
-      executors[TOOL_NAMES.SET_MASK_LAYER] = (params) => {
-        const { action, geometry } = params;
+      const maskManager = this._maskLayerManager;
+      executors[TOOL_NAMES.SET_MASK_LAYER] = async (params) => {
+        const { action, geometry, tableName } = params;
         try {
           switch (action) {
-            case 'set':
-              if (!geometry) {
-                return { success: false, message: 'Geometry is required for action "set".' };
+            case 'set': {
+              let resolvedGeometry = geometry;
+
+              if (!resolvedGeometry && tableName) {
+                // Update with your geom column name(s) if different
+                const geomColumns = ['geom'];
+                const source = await vectorTableSource({
+                  apiBaseUrl: environment.apiBaseUrl,
+                  accessToken: environment.accessToken,
+                  connectionName: environment.connectionName,
+                  tableName,
+                  columns: geomColumns,
+                });
+                const { rows } = await source.widgetSource.getTable({
+                  columns: geomColumns,
+                  limit: 1,
+                });
+                if (rows.length > 0) {
+                  for (const col of geomColumns) {
+                    const val = rows[0][col];
+                    if (val) {
+                      resolvedGeometry = typeof val === 'string' ? JSON.parse(val) : val;
+                      break;
+                    }
+                  }
+                }
+                if (!resolvedGeometry) {
+                  return { success: false, message: `No geometry found in table "${tableName}".` };
+                }
               }
-              this._maskLayerManager.setMaskGeometry(geometry);
+
+              if (!resolvedGeometry) {
+                return { success: false, message: 'Either geometry or tableName is required for action "set".' };
+              }
+              maskManager.setMaskGeometry(resolvedGeometry);
               return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+            }
             case 'enable-draw':
-              this._maskLayerManager.enableDrawMode();
+              maskManager.enableDrawMode();
               return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
             case 'clear':
-              this._maskLayerManager.clearMask();
+              maskManager.clearMask();
               return { success: true, message: 'Mask cleared. All data layers are now fully visible.' };
             default:
               return { success: false, message: `Unknown mask action: ${action}` };

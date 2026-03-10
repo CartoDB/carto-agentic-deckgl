@@ -670,20 +670,29 @@ Manage the editable mask layer: set a GeoJSON geometry to mask/filter layers, en
 
 **Parameters:**
 - \`action\` (required): \`"set"\` | \`"enable-draw"\` | \`"clear"\`
-- \`geometry\` (required for "set"): GeoJSON Polygon, MultiPolygon, Feature, or FeatureCollection
+- \`geometry\` (optional, for "set"): GeoJSON Polygon, MultiPolygon, Feature, or FeatureCollection. Use when geometry is already available.
+- \`tableName\` (optional, for "set"): CARTO table name containing mask geometry (from MCP workflow result). The frontend fetches geometry directly. Mutually exclusive with geometry.
 
 **Examples:**
+Set mask from MCP result table: \`{ "action": "set", "tableName": "carto-demo-data.demo_tables.buffer_result" }\`
 Set mask from geometry: \`{ "action": "set", "geometry": { "type": "Polygon", "coordinates": [...] } }\`
 Enable drawing mode: \`{ "action": "enable-draw" }\`
 Clear mask: \`{ "action": "clear" }\`
 
 **WHEN TO CALL set-mask-layer:**
-- An MCP tool returns a geometry (drivetime isochrone, trade area, buffer) and the user wants to filter data to that area
-- The user explicitly asks to draw a mask, filter area, or region of interest
-- The user says "clear the mask", "remove the filter area", etc.
-- Use action "set" when you have a geometry from an MCP result
-- Use action "enable-draw" when the user wants to draw their own mask polygon
-- Use action "clear" to remove the mask and restore all layers
+- The user explicitly asks to draw a mask, filter area, or region of interest → use "enable-draw"
+- The user explicitly asks to filter or mask using an MCP result → use "set" with tableName from the [MCP Result Table Available] message
+- The user says "clear the mask", "remove the filter area", etc. → use "clear"
+
+**MCP Result → Mask (USER-INITIATED ONLY):**
+When the user asks to filter by an MCP result area:
+1. Find the [MCP Result Table Available] message in conversation history.
+2. Use the table name from that message with the tableName parameter.
+3. Call set-mask-layer { action: "set", tableName: "<table name from message>" }
+If no [MCP Result Table Available] message exists, use: set-mask-layer { action: "enable-draw" }
+Do NOT automatically apply a mask when an MCP workflow completes — only when the user explicitly requests it.
+
+Trigger phrases: "Filter by this area", "Mask the map to this region", "Use this as a spatial filter", "Only show data inside the drivetime area", "Clip the layers to the buffer zone"
 
 **WHEN NOT TO CALL set-mask-layer:**
 - Simple navigation/fly-to requests — use set-deck-state
@@ -691,13 +700,14 @@ Clear mask: \`{ "action": "clear" }\`
 - Changing basemap — use set-deck-state
 - Adding markers — use set-marker
 - The user has NOT mentioned masking, filtering by area, or drawing regions
+- An MCP workflow just completed but the user did NOT ask to mask or filter
 
 **CRITICAL RULES:**
 1. Only one mask can be active at a time — setting a new mask replaces the previous one.
 2. The mask layer is separate from data layers — do NOT try to create mask layers with set-deck-state.
 3. When mask is active, all data layers are visually masked (only rendered inside the mask geometry).
-4. For MCP workflows: after getting the geometry result, call set-mask-layer with action "set" and the geometry.
-5. The mask layer is managed automatically — do NOT remove it with set-deck-state removeLayerIds.
+4. The mask layer is managed automatically — do NOT remove it with set-deck-state removeLayerIds.
+5. Do NOT auto-apply mask after MCP results — only when the user explicitly requests it.
 `,
   },
 };
