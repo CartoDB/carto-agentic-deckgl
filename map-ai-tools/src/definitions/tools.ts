@@ -73,12 +73,15 @@ export const tools = {
     outputType: 'spec' as ToolOutputType,
     schema: z.object({
       action: z.enum(['set', 'enable-draw', 'clear']).describe(
-        '"set" applies a GeoJSON geometry as the mask, "enable-draw" activates user drawing mode, "clear" removes the mask.'
+        '"set" applies a mask from geometry or table, "enable-draw" activates user drawing mode, "clear" removes the mask.'
       ),
       geometry: z.object({
         type: z.enum(['Polygon', 'MultiPolygon', 'Feature', 'FeatureCollection']),
       }).passthrough().optional().describe(
-        'GeoJSON geometry to use as mask. Required when action is "set". Supports Polygon, MultiPolygon, Feature, or FeatureCollection.'
+        'GeoJSON geometry for mask. Use when geometry is already available (e.g., draw mode). Mutually exclusive with tableName.'
+      ),
+      tableName: z.string().optional().describe(
+        'CARTO table name containing mask geometry (from MCP workflow result). Frontend fetches geometry directly via vectorTableSource. Mutually exclusive with geometry.'
       ),
     }),
   },
