@@ -299,7 +299,7 @@ export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
 // Delegates to useMaskLayer hook — set geometry, enable draw mode, or clear the mask
 ```
 
-The `set-mask-layer` tool delegates to the `useMaskLayer` hook which manages the editable mask layer state. Three actions are supported: `set` (applies a GeoJSON geometry and enters edit mode), `enable-draw` (activates `DrawPolygonMode`), and `clear` (removes the mask). The hook produces `GeoJsonLayer` (mask) + `EditableGeoJsonLayer` (drawing) layers and injects `MaskExtension` into all data layers when a mask is active.
+The `set-mask-layer` tool delegates to the `useMaskLayer` hook which manages the editable mask layer state. Three actions are supported: `set` (applies a GeoJSON geometry or CARTO table name and enters edit mode), `enable-draw` (activates `DrawPolygonMode`), and `clear` (removes the mask). When a `tableName` is provided, geometry is fetched from the CARTO table via `vectorTableSource`. The hook produces `GeoJsonLayer` (mask) + `EditableGeoJsonLayer` (drawing) layers and injects `MaskExtension` into all data layers when a mask is active.
 
 ### Instantiation in MapAIToolsContext
 
