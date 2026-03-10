@@ -214,17 +214,16 @@ The agent runner (`services/agent-runner.ts`) orchestrates the AI interaction us
   - **Conversation history as context prefix** -- Conversation history is embedded as a context prefix in the user message
 - Sanitizes malformed keys and strips credentials before forwarding to the frontend
 
-### MCP Geometry Caching
+### MCP Table Name Caching
 
-When an MCP async workflow completes, the agent runner extracts geometry from the result using `extractGeometryFromMcpResult()`. This function searches multiple locations in the MCP response:
+When an MCP async workflow completes (`async_workflow_job_get_results`), the agent runner extracts the `workflowOutputTableName` from the tool call input parameters. This table name identifies where the MCP workflow stored its output in CARTO.
 
-1. Top-level `geometry` field
-2. Row columns (`geom`, `geometry`, `the_geom`, `shape`) in `data.rows[0]`
-3. Text-wrapped JSON responses (recursive parsing)
+The table name is stored in conversation history with a `[MCP Result Table Available]` marker:
+> `[MCP Result Table Available] The MCP workflow result is stored in table "<table>". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "<table>" }.`
 
-If geometry is found, it is stored in the conversation history with a `[MCP Result Geometry Available]` marker containing the exact GeoJSON. When the user later asks to "filter by this area" or "mask the map to this region", the AI retrieves the cached geometry and calls `set-mask-layer { action: "set", geometry: <cached> }` -- ensuring the mask matches the exact MCP result boundary.
+When the user later asks to "filter by this area" or "mask the map to this region", the AI retrieves the cached table name and calls `set-mask-layer { action: "set", tableName: "<table>" }`. The frontend fetches the geometry directly from the CARTO table via `vectorTableSource`.
 
-If no geometry is found, a `[MCP Result — No Geometry Available]` fallback is stored, and the AI suggests using draw mode instead.
+The agent runner also extracts coordinates from the MCP result (via `extractCoordinatesFromMcpResult()`) for centering the map. If the LLM fails to add a layer with the MCP table, a fallback `VectorTileLayer` is auto-injected.
 
 ---
 

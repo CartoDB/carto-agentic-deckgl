@@ -116,7 +116,7 @@ Manages an editable mask layer for spatial filtering. Three actions are supporte
 
 | Action | Behavior |
 | --- | --- |
-| `set` | Applies a GeoJSON geometry as the mask. All data layers are visually clipped to the mask area. The mask enters edit mode so the user can modify it. |
+| `set` | Applies a GeoJSON geometry or CARTO table name as the mask. All data layers are visually clipped to the mask area. The mask enters edit mode so the user can modify it. |
 | `enable-draw` | Activates drawing mode. The user draws a polygon on the map to define the mask area. |
 | `clear` | Removes the mask. All data layers return to full visibility. |
 

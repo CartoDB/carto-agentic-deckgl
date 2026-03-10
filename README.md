@@ -174,7 +174,7 @@ The AI controls the map through 3 frontend-executed tools:
 | --- | --- |
 | `set-deck-state` | Full deck.gl state control: navigation, basemap, layers, widgets, and effects. Layer updates are deep-merged by ID, so partial updates preserve existing properties. |
 | `set-marker` | Places a location marker pin at specified coordinates. Markers accumulate across calls; duplicates at the same position are skipped. |
-| `set-mask-layer` | Editable mask layer for spatial filtering. Set a GeoJSON geometry, enable draw mode, or clear. When active, all data layers are clipped to the mask area via `MaskExtension`. |
+| `set-mask-layer` | Editable mask layer for spatial filtering. Set a GeoJSON geometry or CARTO table name, enable draw mode, or clear. When active, all data layers are clipped to the mask area via `MaskExtension`. |
 
 System layers (IDs prefixed with `__`, such as `__location-marker__`, `__mask-layer__`, and `__editable-mask__`) are automatically hidden from the UI layer toggle, excluded from AI state context, and always rendered on top of user layers.
 
