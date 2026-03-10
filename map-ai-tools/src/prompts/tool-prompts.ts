@@ -670,27 +670,27 @@ Manage the editable mask layer: set a GeoJSON geometry to mask/filter layers, en
 
 **Parameters:**
 - \`action\` (required): \`"set"\` | \`"enable-draw"\` | \`"clear"\`
-- \`geometry\` (required for "set"): GeoJSON Polygon, MultiPolygon, Feature, or FeatureCollection
+- \`geometry\` (optional, for "set"): GeoJSON Polygon, MultiPolygon, Feature, or FeatureCollection. Use when geometry is already available.
+- \`tableName\` (optional, for "set"): CARTO table name containing mask geometry (from MCP workflow result). The frontend fetches geometry directly. Mutually exclusive with geometry.
 
 **Examples:**
+Set mask from MCP result table: \`{ "action": "set", "tableName": "carto-demo-data.demo_tables.buffer_result" }\`
 Set mask from geometry: \`{ "action": "set", "geometry": { "type": "Polygon", "coordinates": [...] } }\`
 Enable drawing mode: \`{ "action": "enable-draw" }\`
 Clear mask: \`{ "action": "clear" }\`
 
 **WHEN TO CALL set-mask-layer:**
 - The user explicitly asks to draw a mask, filter area, or region of interest → use "enable-draw"
-- The user explicitly asks to filter or mask using an MCP result geometry → use "set" with the geometry from the MCP result
+- The user explicitly asks to filter or mask using an MCP result → use "set" with tableName from the [MCP Result Table Available] message
 - The user says "clear the mask", "remove the filter area", etc. → use "clear"
 
 **MCP Result → Mask (USER-INITIATED ONLY):**
 When the user asks to filter by an MCP result area:
-1. Find the [MCP Result Geometry Available] message in conversation history.
-2. Extract the EXACT geometry JSON from that message. Do NOT modify, simplify, or regenerate the geometry — use it verbatim.
-3. Call set-mask-layer { action: "set", geometry: <exact geometry from history> }
-If no [MCP Result Geometry Available] message exists, use: set-mask-layer { action: "enable-draw" }
+1. Find the [MCP Result Table Available] message in conversation history.
+2. Use the table name from that message with the tableName parameter.
+3. Call set-mask-layer { action: "set", tableName: "<table name from message>" }
+If no [MCP Result Table Available] message exists, use: set-mask-layer { action: "enable-draw" }
 Do NOT automatically apply a mask when an MCP workflow completes — only when the user explicitly requests it.
-
-CRITICAL: Do NOT fabricate, approximate, or generate a new polygon from coordinates. Use ONLY the exact geometry from the [MCP Result Geometry Available] message.
 
 Trigger phrases: "Filter by this area", "Mask the map to this region", "Use this as a spatial filter", "Only show data inside the drivetime area", "Clip the layers to the buffer zone"
 
