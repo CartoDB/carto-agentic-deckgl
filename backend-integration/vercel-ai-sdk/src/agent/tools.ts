@@ -1,7 +1,7 @@
 /**
  * Tool definitions for Vercel AI SDK v6
  *
- * Uses map-ai-tools converters for Vercel AI SDK format
+ * Uses @carto/agentic-deckgl converters for Vercel AI SDK format
  * Combines local map tools with remote MCP server tools
  *
  * CONSOLIDATED PATTERN: Uses 3 tools instead of 40+
@@ -14,7 +14,7 @@ import {
   isFrontendToolResult,
   type VercelAIToolDef,
   type ToolName,
-} from '@carto/map-ai-tools';
+} from '@carto/agentic-deckgl';
 import { getMCPTools, getMCPToolNames } from './mcp-tools.js';
 import { getCustomTools, getCustomToolNames } from './custom-tools.js';
 
