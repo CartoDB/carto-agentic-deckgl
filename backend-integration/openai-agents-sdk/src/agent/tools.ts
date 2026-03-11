@@ -1,7 +1,7 @@
 /**
  * Tool definitions for OpenAI Agents SDK
  *
- * Uses map-ai-tools converters for OpenAI Agents SDK format.
+ * Uses @carto/agentic-deckgl converters for OpenAI Agents SDK format.
  * Combines local map tools with custom tools and remote MCP server tools.
  *
  * CONSOLIDATED PATTERN: Uses 1 frontend tool instead of 40+
@@ -15,7 +15,7 @@ import {
   parseFrontendToolResult,
   type OpenAIAgentToolDef,
   type ToolName,
-} from '@carto/map-ai-tools';
+} from '@carto/agentic-deckgl';
 import { getMCPTools, getMCPToolNames } from './mcp-tools.js';
 import { getCustomTools, getCustomToolNames } from './custom-tools.js';
 

@@ -1,8 +1,8 @@
-# Gitleaks configuration for ps-frontend-tools-poc
+# Gitleaks configuration for carto-agentic-deckgl
 # Strategy: Allow public keys only (based on carto-ps-project-template Option A)
 # https://github.com/gitleaks/gitleaks#configuration
 
-title = "ps-frontend-tools-poc - Gitleaks Config"
+title = "carto-agentic-deckgl - Gitleaks Config"
 
 # Extend default gitleaks rules (required to keep built-in detection)
 [extend]

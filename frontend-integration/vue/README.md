@@ -1,4 +1,4 @@
-# @carto/map-ai-tools — Vue Integration
+# @carto/agentic-deckgl — Vue Integration
 
 > Vue 3 implementation of the AI-powered map application using Composition API, singleton composables, and Vite.
 
@@ -60,7 +60,7 @@ VITE_USE_HTTP=false
 
 ```bash
 # 1. Build the core library (if not already built)
-cd ../../map-ai-tools && npm run build && cd -
+cd ../../agentic-deckgl && npm run build && cd -
 
 # 2. Start the backend
 cd ../../backend-integration/vercel-ai-sdk && npm run dev &

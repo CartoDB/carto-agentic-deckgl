@@ -11,7 +11,7 @@ import { getCustomToolNames } from '../agent/custom-tools.js';
 import { getProvider } from '../agent/providers.js';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
 import type { InitialState, ConversationMessage } from '../types/messages.js';
-import type { FrontendToolResult } from '@carto/map-ai-tools';
+import type { FrontendToolResult } from '@carto/agentic-deckgl';
 
 /**
  * Credential fields to strip from data sent to frontend
