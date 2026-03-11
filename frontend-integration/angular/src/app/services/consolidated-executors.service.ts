@@ -12,8 +12,8 @@
  */
 
 import { Injectable } from '@angular/core';
-import { TOOL_NAMES } from '@carto/map-ai-tools';
 import { vectorTableSource } from '@deck.gl/carto';
+import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import { DeckStateService, Basemap, LayerSpec } from '../state/deck-state.service';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.utils';
 import { MaskLayerService } from './mask-layer.service';
