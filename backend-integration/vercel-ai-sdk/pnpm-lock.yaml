@@ -11,9 +11,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.30
         version: 3.0.30(zod@4.3.6)
-      '@carto/map-ai-tools':
-        specifier: file:../../map-ai-tools
-        version: file:../../map-ai-tools(@deck.gl/json@9.2.6(@deck.gl/core@9.2.6))(zod@4.3.6)
+      '@carto/agentic-deckgl':
+        specifier: file:../../agentic-deckgl
+        version: file:../../agentic-deckgl(@deck.gl/json@9.2.6(@deck.gl/core@9.2.6))(zod@4.3.6)
       '@modelcontextprotocol/sdk':
         specifier: ^1.26.0
         version: 1.26.0(zod@4.3.6)
@@ -88,8 +88,8 @@ packages:
     resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
     engines: {node: '>=18'}
 
-  '@carto/map-ai-tools@file:../../map-ai-tools':
-    resolution: {directory: ../../map-ai-tools, type: directory}
+  '@carto/agentic-deckgl@file:../../agentic-deckgl':
+    resolution: {directory: ../../agentic-deckgl, type: directory}
     peerDependencies:
       '@deck.gl/json': ^9.2.0
       zod: ^4.3.6
@@ -1288,7 +1288,7 @@ snapshots:
     dependencies:
       json-schema: 0.4.0
 
-  '@carto/map-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.6(@deck.gl/core@9.2.6))(zod@4.3.6)':
+  '@carto/agentic-deckgl@file:../../agentic-deckgl(@deck.gl/json@9.2.6(@deck.gl/core@9.2.6))(zod@4.3.6)':
     dependencies:
       '@deck.gl/core': 9.2.6
       '@deck.gl/json': 9.2.6(@deck.gl/core@9.2.6)
