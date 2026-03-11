@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.30",
-    "@carto/map-ai-tools": "file:../../map-ai-tools",
+    "@carto/agentic-deckgl": "file:../../agentic-deckgl",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "ai": "^6.0.94",
     "cors": "^2.8.6",

@@ -1,4 +1,4 @@
-# Contributing to @carto/map-ai-tools
+# Contributing to @carto/agentic-deckgl
 
 Thank you for your interest in contributing! This document covers the essentials for getting started. For detailed project structure, architecture, and development commands, see the [main README](README.md).
 
@@ -12,8 +12,8 @@ Thank you for your interest in contributing! This document covers the essentials
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/CartoDB/ps-frontend-tools-poc.git
-   cd ps-frontend-tools-poc
+   git clone https://github.com/CartoDB/carto-agentic-deckgl.git
+   cd carto-agentic-deckgl
    ```
 
 2. **Create a feature branch**:
@@ -29,7 +29,7 @@ Thank you for your interest in contributing! This document covers the essentials
 
 You'll need three terminals:
 
-1. **Library** (if making changes): `cd map-ai-tools && npm run dev`
+1. **Library** (if making changes): `cd agentic-deckgl && npm run dev`
 2. **Backend** (pick one):
    - `cd backend-integration/openai-agents-sdk && npm run dev` (default)
    - `cd backend-integration/vercel-ai-sdk && npm run dev`
@@ -75,7 +75,7 @@ See [Development Commands](README.md#development-commands) in the main README fo
 2. **Make your changes** following the code style guidelines
 
 3. **Test your changes**:
-   - Build the library: `cd map-ai-tools && npm run build`
+   - Build the library: `cd agentic-deckgl && npm run build`
    - Run type checks: `npm run typecheck`
    - Run unit tests: `npm test`
    - Test with at least one frontend integration
@@ -92,14 +92,14 @@ See [Development Commands](README.md#development-commands) in the main README fo
 
 ## Adding New Tools
 
-The tool system is defined in `map-ai-tools/` (core library) and consumed by backends and frontends. See [Core Library](README.md#core-library-map-ai-tools) and [Consolidated Tools](README.md#consolidated-tools) in the main README for the architecture overview.
+The tool system is defined in `agentic-deckgl/` (core library) and consumed by backends and frontends. See [Core Library](README.md#core-library-agentic-deckgl) and [Consolidated Tools](README.md#consolidated-tools) in the main README for the architecture overview.
 
 To add a new tool:
 
-1. **Define the Zod schema** in `map-ai-tools/src/definitions/tools.ts`
-2. **Add the tool name** to `map-ai-tools/src/definitions/dictionary.ts`
-3. **Add prompt instructions** in `map-ai-tools/src/prompts/`
-4. **Add SDK converter support** in `map-ai-tools/src/converters/`
+1. **Define the Zod schema** in `agentic-deckgl/src/definitions/tools.ts`
+2. **Add the tool name** to `agentic-deckgl/src/definitions/dictionary.ts`
+3. **Add prompt instructions** in `agentic-deckgl/src/prompts/`
+4. **Add SDK converter support** in `agentic-deckgl/src/converters/`
 5. **Implement the frontend executor** in each frontend integration
 6. **Add backend handling** in `backend-integration/<sdk>/src/agent/tools.ts` if server-side execution is needed
 

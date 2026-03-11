@@ -1,6 +1,6 @@
 # Backend Integrations
 
-> Server implementations that connect frontend applications to AI models using `@carto/map-ai-tools`. Each backend handles WebSocket/HTTP communication, tool orchestration, session management, and semantic context injection.
+> Server implementations that connect frontend applications to AI models using `@carto/agentic-deckgl`. Each backend handles WebSocket/HTTP communication, tool orchestration, session management, and semantic context injection.
 
 ## Available Integrations
 
@@ -26,7 +26,7 @@ Every backend integration must handle the following:
 
 ### Tool Orchestration
 
-- Import tool definitions from `@carto/map-ai-tools`
+- Import tool definitions from `@carto/agentic-deckgl`
 - Configure an AI provider (OpenAI-compatible endpoint)
 - Run a tool-calling loop: send messages to the AI, receive tool calls, forward them to the frontend, collect results, and continue the loop
 - Optionally add backend-only tools (e.g., geocoding) that execute server-side
@@ -39,7 +39,7 @@ Every backend integration must handle the following:
 
 ### System Prompt
 
-- Use `buildSystemPrompt()` from `@carto/map-ai-tools` to generate the base prompt
+- Use `buildSystemPrompt()` from `@carto/agentic-deckgl` to generate the base prompt
 - Inject semantic context (data catalog) describing available tables and columns
 - Add application-specific instructions and guardrails
 
@@ -89,17 +89,17 @@ All backend integrations use the same message protocol for frontend communicatio
 To add a new backend integration:
 
 1. Create a new directory under `backend-integration/` (e.g., `backend-integration/openai-agents-sdk/`)
-2. Import tools from `@carto/map-ai-tools` using the appropriate converter:
+2. Import tools from `@carto/agentic-deckgl` using the appropriate converter:
 
    ```typescript
    // Vercel AI SDK
-   import { getToolsRecordForVercelAI } from '@carto/map-ai-tools';
+   import { getToolsRecordForVercelAI } from '@carto/agentic-deckgl';
 
    // OpenAI Agents SDK
-   import { getToolsForOpenAIAgents } from '@carto/map-ai-tools';
+   import { getToolsForOpenAIAgents } from '@carto/agentic-deckgl';
 
    // Google ADK
-   import { getToolsForGoogleADK } from '@carto/map-ai-tools';
+   import { getToolsForGoogleADK } from '@carto/agentic-deckgl';
    ```
 
 3. Implement the WebSocket message protocol described above

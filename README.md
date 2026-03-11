@@ -1,4 +1,4 @@
-# @carto/map-ai-tools
+# @carto/agentic-deckgl
 
 > AI-powered map control framework. Users interact with deck.gl maps through natural language chat. Messages are processed by an LLM that generates tool calls executed client-side to manipulate the map.
 
@@ -6,7 +6,7 @@
 
 This monorepo contains three layers that work together:
 
-1. **Core Library** (`map-ai-tools/`) -- Framework-agnostic TypeScript library that defines the AI tool schema, system prompt builder, deck.gl JSON validation, and SDK converters.
+1. **Core Library** (`agentic-deckgl/`) -- Framework-agnostic TypeScript library that defines the AI tool schema, system prompt builder, deck.gl JSON validation, and SDK converters.
 2. **Backend Integrations** (`backend-integration/`) -- Server implementations that connect frontends to AI models. Includes OpenAI Agents SDK (default), Vercel AI SDK, and Google ADK backends, all with Express + WebSocket.
 3. **Frontend Integrations** (`frontend-integration/`) -- Reference implementations in Angular, Vue, React, and Vanilla JS showing how to build the chat-to-map experience.
 
@@ -29,9 +29,9 @@ The AI generates deck.gl JSON specifications using 2 consolidated tools (`set-de
 ## Project Structure
 
 ```text
-ps-frontend-tools-poc/
+carto-agentic-deckgl/
 |
-+-- map-ai-tools/                         # Core library (@carto/map-ai-tools)
++-- agentic-deckgl/                       # Core library (@carto/agentic-deckgl)
 |   +-- src/
 |   |   +-- definitions/                  # Tool definitions (Zod schemas)
 |   |   +-- converters/                   # AI SDK adapters (Vercel, OpenAI, Google)
@@ -76,7 +76,7 @@ ps-frontend-tools-poc/
 ### 1. Build the core library
 
 ```bash
-cd map-ai-tools
+cd agentic-deckgl
 npm install && npm run build
 ```
 
@@ -142,9 +142,9 @@ Currently available:
 
 All backends speak the same WebSocket protocol, so any frontend works with any backend. See [backend-integration/README.md](backend-integration/README.md) for the architecture overview.
 
-## Core Library (`map-ai-tools`)
+## Core Library (`agentic-deckgl`)
 
-`@carto/map-ai-tools` is a framework-agnostic TypeScript library that provides:
+`@carto/agentic-deckgl` is a framework-agnostic TypeScript library that provides:
 
 - **Tool definitions** with Zod v4 validation schemas
 - **System prompt builder** with tool-specific instructions, map state context, and user context
@@ -157,10 +157,10 @@ import {
   getToolsRecordForVercelAI,
   buildSystemPrompt,
   validateToolParams,
-} from '@carto/map-ai-tools';
+} from '@carto/agentic-deckgl';
 ```
 
-See [map-ai-tools/README.md](map-ai-tools/README.md) for the full API reference.
+See [agentic-deckgl/README.md](agentic-deckgl/README.md) for the full API reference.
 
 ---
 
@@ -216,7 +216,7 @@ The backend loads YAML-based data catalogs (GeoCubes) that describe available ta
 
 ```bash
 # Core library
-cd map-ai-tools && npm test
+cd agentic-deckgl && npm test
 
 # Backend
 cd backend-integration/vercel-ai-sdk && npm test
@@ -269,7 +269,7 @@ See [frontend-integration/react/e2e/README.md](frontend-integration/react/e2e/RE
 ### Core Library
 
 ```bash
-cd map-ai-tools
+cd agentic-deckgl
 npm install && npm run build    # Build ESM + CJS to dist/
 npm run dev                     # Watch mode
 npm run type-check              # Type check without emitting
@@ -339,7 +339,7 @@ npm test                        # Run unit tests
 
 | Document | Description |
 |----------|-------------|
-| [map-ai-tools/README.md](map-ai-tools/README.md) | Core library API reference |
+| [agentic-deckgl/README.md](agentic-deckgl/README.md) | Core library API reference |
 | [backend-integration/README.md](backend-integration/README.md) | Backend integrations overview |
 | [backend-integration/openai-agents-sdk/README.md](backend-integration/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
 | [backend-integration/vercel-ai-sdk/README.md](backend-integration/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |

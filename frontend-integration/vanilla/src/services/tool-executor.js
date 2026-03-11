@@ -5,7 +5,7 @@
  * Port of Angular's ConsolidatedExecutorsService.
  */
 
-import { TOOL_NAMES } from '@carto/map-ai-tools';
+import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.js';
 
 // ==================== MARKER CONSTANTS ====================

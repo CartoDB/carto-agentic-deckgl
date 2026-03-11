@@ -31,7 +31,7 @@ import { extractLegendFromLayer } from '../utils/legend.utils';
 @Injectable({
   providedIn: 'root',
 })
-export class MapAIToolsService implements OnDestroy {
+export class AgenticDeckGLService implements OnDestroy {
   // State observables
   private messagesSubject = new BehaviorSubject<Message[]>([]);
   private loaderStateSubject = new BehaviorSubject<LoaderState>(null);
@@ -354,7 +354,7 @@ export class MapAIToolsService implements OnDestroy {
     const toolName = data.toolName || data.tool || 'tool';
 
     if (data.error) {
-      console.error('[MapAIToolsService] MCP tool error:', data.error);
+      console.error('[AgenticDeckGLService] MCP tool error:', data.error);
     }
 
     this.setLoaderState('mcp_processing', `Processing ${toolName} result...`);
