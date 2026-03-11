@@ -23,18 +23,18 @@ jobs:
         with:
           version: 10
 
-      # Install and build map-ai-tools first (dependency for frontend components)
-      - name: Install map-ai-tools dependencies
-        working-directory: ./map-ai-tools
+      # Install and build agentic-deckgl first (dependency for frontend components)
+      - name: Install agentic-deckgl dependencies
+        working-directory: ./agentic-deckgl
         run: npm ci
 
-      - name: Build map-ai-tools
-        working-directory: ./map-ai-tools
+      - name: Build agentic-deckgl
+        working-directory: ./agentic-deckgl
         run: npm run build
 
-      # Run map-ai-tools tests
-      - name: Test map-ai-tools
-        working-directory: ./map-ai-tools
+      # Run agentic-deckgl tests
+      - name: Test agentic-deckgl
+        working-directory: ./agentic-deckgl
         run: npm test
 
       # Run backend tests

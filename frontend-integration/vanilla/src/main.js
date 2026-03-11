@@ -10,13 +10,13 @@ import { DeckState } from './state/deck-state.js';
 import { WebSocketClient } from './services/websocket.js';
 import { ToolExecutor } from './services/tool-executor.js';
 import { DeckMapManager } from './services/deck-map.js';
-import { MapAIToolsOrchestrator } from './services/map-ai-tools.js';
+import { MapAIToolsOrchestrator } from './services/agentic-deckgl.js';
 import { ChatUI } from './components/chat-ui.js';
 import { LayerToggle } from './components/layer-toggle.js';
 import { ZoomControls } from './components/zoom-controls.js';
 import { Snackbar } from './components/snackbar.js';
 import { ConfirmationDialog } from './components/confirmation-dialog.js';
-import { TOOL_NAMES } from '@carto/map-ai-tools';
+import { TOOL_NAMES } from '@carto/agentic-deckgl';
 
 // ==================== STATE ====================
 
