@@ -3,7 +3,7 @@
  *
  * Add app-specific instructions here that will be appended to the system prompt.
  * This allows you to customize the agent's behavior without modifying the
- * @carto/map-ai-tools library.
+ * @carto/agentic-deckgl library.
  *
  * The content you add here will be appended at the end of the system prompt,
  * after the semantic layer context.

@@ -5,8 +5,8 @@
  * Pure function with no React dependencies — used inside MapAIToolsContext.
  */
 
-import { TOOL_NAMES } from '@carto/map-ai-tools';
 import { vectorTableSource } from '@deck.gl/carto';
+import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import type { LayerSpec } from '../utils/layer-merge';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge';
 import { environment } from '../config/environment';

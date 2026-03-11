@@ -4,64 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  # ── Core library + backends (run in parallel with frontends) ──
-  backends:
-    name: Core & Backends
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      # Build map-ai-tools (dependency for all backends)
-      - name: Install map-ai-tools dependencies
-        working-directory: ./map-ai-tools
-        run: npm ci
-
-      - name: Build map-ai-tools
-        working-directory: ./map-ai-tools
-        run: npm run build
-
-      - name: Test map-ai-tools
-        working-directory: ./map-ai-tools
-        run: npm test
-
-      # Vercel AI SDK
-      - name: Install Vercel AI SDK dependencies
-        working-directory: ./backend-integration/vercel-ai-sdk
-        run: npm ci
-
-      - name: Test Vercel AI SDK
-        working-directory: ./backend-integration/vercel-ai-sdk
-        run: npm test
-
-      # OpenAI Agents SDK
-      - name: Install OpenAI Agents SDK dependencies
-        working-directory: ./backend-integration/openai-agents-sdk
-        run: npm ci
-
-      - name: Test OpenAI Agents SDK
-        working-directory: ./backend-integration/openai-agents-sdk
-        run: npm test
-
-      # Google ADK
-      - name: Install Google ADK dependencies
-        working-directory: ./backend-integration/google-adk
-        run: npm install --force
-
-      - name: Test Google ADK
-        working-directory: ./backend-integration/google-adk
-        run: npm test
-
-  # ── Frontends (run in parallel with backends) ──
-  frontends:
-    name: Frontends
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -79,16 +23,30 @@ jobs:
         with:
           version: 10
 
-      # Build map-ai-tools (dependency for all frontends)
-      - name: Install map-ai-tools dependencies
-        working-directory: ./map-ai-tools
+      # Install and build agentic-deckgl first (dependency for frontend components)
+      - name: Install agentic-deckgl dependencies
+        working-directory: ./agentic-deckgl
         run: npm ci
 
-      - name: Build map-ai-tools
-        working-directory: ./map-ai-tools
+      - name: Build agentic-deckgl
+        working-directory: ./agentic-deckgl
         run: npm run build
 
-      # Angular
+      # Run agentic-deckgl tests
+      - name: Test agentic-deckgl
+        working-directory: ./agentic-deckgl
+        run: npm test
+
+      # Run backend tests
+      - name: Install backend dependencies
+        working-directory: ./backend-integration/vercel-ai-sdk
+        run: npm ci
+
+      - name: Test backend
+        working-directory: ./backend-integration/vercel-ai-sdk
+        run: npm test
+
+      # Run Angular tests
       - name: Install Angular dependencies
         working-directory: ./frontend-integration/angular
         run: pnpm install --frozen-lockfile
@@ -97,7 +55,7 @@ jobs:
         working-directory: ./frontend-integration/angular
         run: pnpm test
 
-      # React
+      # Run React tests
       - name: Install React dependencies
         working-directory: ./frontend-integration/react
         run: pnpm install --frozen-lockfile
@@ -106,7 +64,7 @@ jobs:
         working-directory: ./frontend-integration/react
         run: pnpm test
 
-      # Vanilla
+      # Run Vanilla tests
       - name: Install Vanilla dependencies
         working-directory: ./frontend-integration/vanilla
         run: pnpm install --frozen-lockfile
@@ -115,7 +73,7 @@ jobs:
         working-directory: ./frontend-integration/vanilla
         run: pnpm test
 
-      # Vue
+      # Run Vue tests
       - name: Install Vue dependencies
         working-directory: ./frontend-integration/vue
         run: pnpm install --frozen-lockfile

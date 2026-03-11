@@ -53,8 +53,8 @@ jobs:
           version: 10
 
       # Build core library
-      - name: Build map-ai-tools
-        run: cd map-ai-tools && npm ci && npm run build
+      - name: Build agentic-deckgl
+        run: cd agentic-deckgl && npm ci && npm run build
 
       # Install backend
       - name: Install backend

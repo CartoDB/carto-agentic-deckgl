@@ -8,12 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@carto/agentic-deckgl':
+        specifier: file:../../agentic-deckgl
+        version: file:../../agentic-deckgl(@deck.gl/json@9.2.8(@deck.gl/core@9.2.8))(zod@4.3.6)
       '@carto/api-client':
         specifier: ^0.5.24
         version: 0.5.24(@loaders.gl/core@4.3.4)
-      '@carto/map-ai-tools':
-        specifier: file:../../map-ai-tools
-        version: file:../../map-ai-tools(@deck.gl/json@9.2.8(@deck.gl/core@9.2.8))(zod@4.3.6)
       '@deck.gl-community/editable-layers':
         specifier: ^9.2.8
         version: 9.2.8(fe9b80c90e0f6c717841db0d5e6ec41c)
@@ -135,14 +135,14 @@ importers:
 
 packages:
 
-  '@carto/api-client@0.5.24':
-    resolution: {integrity: sha512-BeHxVxOZsQDZlh6mnPIwK0yMejSUtReNn877NDhJ+B0LRR8Apz0tNTpvKvWiy3WApjNGrelRplYcc4dS2iflYA==}
-
-  '@carto/map-ai-tools@file:../../map-ai-tools':
-    resolution: {directory: ../../map-ai-tools, type: directory}
+  '@carto/agentic-deckgl@file:../../agentic-deckgl':
+    resolution: {directory: ../../agentic-deckgl, type: directory}
     peerDependencies:
       '@deck.gl/json': ^9.2.0
       zod: ^4.3.6
+
+  '@carto/api-client@0.5.24':
+    resolution: {integrity: sha512-BeHxVxOZsQDZlh6mnPIwK0yMejSUtReNn877NDhJ+B0LRR8Apz0tNTpvKvWiy3WApjNGrelRplYcc4dS2iflYA==}
 
   '@deck.gl-community/editable-layers@9.2.8':
     resolution: {integrity: sha512-E9i4LwstJ+d/BqF46afhKVNHZuQt4gwdWL6jqsD4lfzr0IdWJMGmg+r8xtwHYK+nhbraHfX+ddDNUR03bPvswg==}
@@ -1224,8 +1224,8 @@ packages:
   potpack@2.1.0:
     resolution: {integrity: sha512-pcaShQc1Shq0y+E7GqJqvZj8DTthWV1KeHGdi0Z6IAin2Oi3JnLCOfwnCo84qc+HAp52wT9nK9H7FAJp5a44GQ==}
 
-  preact@10.28.4:
-    resolution: {integrity: sha512-uKFfOHWuSNpRFVTnljsCluEFq57OKT+0QdOiQo8XWnQ/pSvg7OpX5eNOejELXJMWy+BwM2nobz0FkvzmnpCNsQ==}
+  preact@10.29.0:
+    resolution: {integrity: sha512-wSAGyk2bYR1c7t3SZ3jHcM6xy0lcBcDel6lODcs9ME6Th++Dx2KU+6D3HD8wMMKGA8Wpw7OMd3/4RGzYRpzwRg==}
 
   process-nextick-args@2.0.1:
     resolution: {integrity: sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==}
@@ -1431,6 +1431,13 @@ packages:
 
 snapshots:
 
+  '@carto/agentic-deckgl@file:../../agentic-deckgl(@deck.gl/json@9.2.8(@deck.gl/core@9.2.8))(zod@4.3.6)':
+    dependencies:
+      '@deck.gl/core': 9.2.8
+      '@deck.gl/json': 9.2.8(@deck.gl/core@9.2.8)
+      tslib: 2.8.1
+      zod: 4.3.6
+
   '@carto/api-client@0.5.24(@loaders.gl/core@4.3.4)':
     dependencies:
       '@loaders.gl/schema': 4.3.4(@loaders.gl/core@4.3.4)
@@ -1442,13 +1449,6 @@ snapshots:
       quadbin: 0.4.2
     transitivePeerDependencies:
       - '@loaders.gl/core'
-
-  '@carto/map-ai-tools@file:../../map-ai-tools(@deck.gl/json@9.2.8(@deck.gl/core@9.2.8))(zod@4.3.6)':
-    dependencies:
-      '@deck.gl/core': 9.2.8
-      '@deck.gl/json': 9.2.8(@deck.gl/core@9.2.8)
-      tslib: 2.8.1
-      zod: 4.3.6
 
   '@deck.gl-community/editable-layers@9.2.8(fe9b80c90e0f6c717841db0d5e6ec41c)':
     dependencies:
@@ -1501,7 +1501,7 @@ snapshots:
       eventemitter3: 5.0.4
       lodash.omit: 4.5.0
       lodash.throttle: 4.1.1
-      preact: 10.28.4
+      preact: 10.29.0
       uuid: 9.0.0
 
   '@deck.gl-community/layers@9.2.8(@loaders.gl/core@4.3.4)(@luma.gl/gltf@9.2.6(@luma.gl/constants@9.2.6)(@luma.gl/core@9.2.6)(@luma.gl/engine@9.2.6(@luma.gl/core@9.2.6)(@luma.gl/shadertools@9.2.6(@luma.gl/core@9.2.6)))(@luma.gl/shadertools@9.2.6(@luma.gl/core@9.2.6)))':
@@ -2854,7 +2854,7 @@ snapshots:
 
   potpack@2.1.0: {}
 
-  preact@10.28.4: {}
+  preact@10.29.0: {}
 
   process-nextick-args@2.0.1: {}
 
