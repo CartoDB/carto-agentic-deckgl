@@ -5,8 +5,8 @@
  * Port of Angular's ConsolidatedExecutorsService.
  */
 
-import { TOOL_NAMES } from '@carto/map-ai-tools';
 import { vectorTableSource } from '@deck.gl/carto';
+import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.js';
 import { environment } from '../config/environment.js';
 

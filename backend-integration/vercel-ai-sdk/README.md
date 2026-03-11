@@ -1,4 +1,4 @@
-# @carto/map-ai-tools -- Vercel AI SDK Backend
+# @carto/agentic-deckgl -- Vercel AI SDK Backend
 
 > Express + WebSocket server using Vercel AI SDK v6 for streaming AI responses and tool calling. Connects frontend applications to an OpenAI-compatible LLM endpoint with support for MCP tool servers and CARTO LDS geocoding.
 
@@ -173,7 +173,7 @@ providers.ts  tools.ts   system-prompt.ts
 1. **Client connects** via WebSocket (`/ws`) or sends HTTP POST (`/api/chat`)
 2. **Server creates session** with a `ConversationManager` for history tracking
 3. **User sends message** with current map state (`initialState`)
-4. **Server builds system prompt** using `buildSystemPrompt()` from `@carto/map-ai-tools` plus semantic context and custom instructions
+4. **Server builds system prompt** using `buildSystemPrompt()` from `@carto/agentic-deckgl` plus semantic context and custom instructions
 5. **Agent runner** calls `streamText()` from Vercel AI SDK with the tool definitions
 6. **Streaming loop**: AI generates text chunks and tool calls
    - Text chunks are streamed back to the client
@@ -213,7 +213,7 @@ The agent runner also extracts coordinates from the MCP result (via `extractCoor
 
 Tools are aggregated from three sources in `agent/tools.ts`:
 
-### Local Tools (from `@carto/map-ai-tools`)
+### Local Tools (from `@carto/agentic-deckgl`)
 
 The consolidated tools (`set-deck-state`, `set-marker`, `set-mask-layer`) are imported from the core library and converted to Vercel AI SDK format.
 
@@ -235,7 +235,7 @@ The `MCP_WHITELIST_CARTO` variable filters which tools are available. MCP tool r
 
 The system prompt is built in two layers:
 
-### Library Prompt (`@carto/map-ai-tools`)
+### Library Prompt (`@carto/agentic-deckgl`)
 
 `buildSystemPrompt()` generates the base prompt with:
 

@@ -4,18 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI-powered map control framework using `@carto/map-ai-tools`. Users interact with a deck.gl map through natural language chat. Messages are processed by an LLM (via multiple AI SDK backends) that generates tool calls executed client-side to manipulate the map.
+AI-powered map control framework using `@carto/agentic-deckgl`. Users interact with a deck.gl map through natural language chat. Messages are processed by an LLM (via multiple AI SDK backends) that generates tool calls executed client-side to manipulate the map.
 
 **Tech Stack:**
-- Core Library: `@carto/map-ai-tools` (TypeScript, Zod, framework-agnostic)
+- Core Library: `@carto/agentic-deckgl` (TypeScript, Zod, framework-agnostic)
 - Backends: Node.js + TypeScript, Express, WebSocket — OpenAI Agents SDK (default), Vercel AI SDK v6, or Google ADK
 - Frontends: Angular 20, React 19, Vue 3, Vanilla JS — all with deck.gl, MapLibre GL, CARTO
 
 ## Project Structure
 
 ```
-ps-frontend-tools-poc/
-├── map-ai-tools/                    # Core library (@carto/map-ai-tools)
+carto-agentic-deckgl/
+├── agentic-deckgl/                  # Core library (@carto/agentic-deckgl)
 ├── backend-integration/
 │   ├── openai-agents-sdk/           # Backend server — OpenAI Agents SDK (default)
 │   ├── vercel-ai-sdk/               # Backend server — Vercel AI SDK
@@ -77,7 +77,7 @@ pnpm test            # Run unit tests
 
 ### Core Library
 ```bash
-cd map-ai-tools
+cd agentic-deckgl
 npm install
 npm run build        # Build ESM + CJS outputs to dist/
 ```
@@ -99,7 +99,7 @@ pnpm e2e:matrix --backend openai-agents-sdk --current  # Run matrix with current
 ```
 
 ### Running the Application
-1. Build core library: `cd map-ai-tools && npm run build`
+1. Build core library: `cd agentic-deckgl && npm run build`
 2. Start backend: `cd backend-integration/openai-agents-sdk && npm run dev` (runs on http://localhost:3003)
 3. Start frontend: `cd frontend-integration/angular && pnpm start` (http://localhost:4200) or `cd frontend-integration/react && pnpm dev` (http://localhost:5173)
 
@@ -152,7 +152,7 @@ All three backends share the same directory structure with SDK-specific differen
 - `components/confirmation-dialog/` — Confirmation modal
 
 **Services:**
-- `services/map-ai-tools.service.ts` — Orchestrates WebSocket messages, tool execution, loader state
+- `services/agentic-deckgl.service.ts` — Orchestrates WebSocket messages, tool execution, loader state
 - `services/deck-map.service.ts` — Creates and manages deck.gl + MapLibre instances
 - `services/websocket.service.ts` — WebSocket connection with auto-reconnect
 - `services/consolidated-executors.service.ts` — Executes tool calls against DeckStateService

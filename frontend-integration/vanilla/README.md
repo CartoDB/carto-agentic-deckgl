@@ -1,4 +1,4 @@
-# @carto/map-ai-tools — Vanilla JS Integration
+# @carto/agentic-deckgl — Vanilla JS Integration
 
 > Zero-framework implementation of the AI-powered map application using plain ES6 classes, a custom EventEmitter, and Vite.
 
@@ -60,7 +60,7 @@ VITE_USE_HTTP=false
 
 ```bash
 # 1. Build the core library (if not already built)
-cd ../../map-ai-tools && npm run build && cd -
+cd ../../agentic-deckgl && npm run build && cd -
 
 # 2. Start the backend
 cd ../../backend-integration/vercel-ai-sdk && npm run dev &
@@ -96,7 +96,7 @@ src/
 │
 ├── services/
 │   ├── websocket.js                # WebSocket client (EventEmitter)
-│   ├── map-ai-tools.js             # Orchestrator (EventEmitter)
+│   ├── agentic-deckgl.js           # Orchestrator (EventEmitter)
 │   ├── deck-map.js                 # deck.gl + MapLibre manager (EventEmitter)
 │   └── tool-executor.js            # Tool executor
 │

@@ -28,7 +28,7 @@ e2e/
 
 1. **Build the core library:**
    ```bash
-   cd map-ai-tools && npm install && npm run build
+   cd agentic-deckgl && npm install && npm run build
    ```
 
 2. **Configure backend environment** (`backend-integration/vercel-ai-sdk/.env`):
