@@ -1,6 +1,6 @@
 # Frontend Integrations
 
-> Reference implementations of the AI-powered map application across 4 frontend frameworks. Each integration demonstrates how to build the complete chat-to-map experience using `@carto/map-ai-tools`.
+> Reference implementations of the AI-powered map application across 4 frontend frameworks. Each integration demonstrates how to build the complete chat-to-map experience using `@carto/agentic-deckgl`.
 
 ## Available Integrations
 

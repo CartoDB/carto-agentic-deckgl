@@ -12,11 +12,11 @@ import { ChatUi } from './components/chat-ui/chat-ui';
 import { ZoomControls } from './components/zoom-controls/zoom-controls';
 import { LayerToggle } from './components/layer-toggle/layer-toggle';
 import { SnackbarComponent } from './components/snackbar/snackbar';
-import { MapAIToolsService } from './services/map-ai-tools.service';
+import { AgenticDeckGLService } from './services/agentic-deckgl.service';
 import { DeckMapService, ViewState } from './services/deck-map.service';
 import { DeckStateService } from './state/deck-state.service';
 import { ConsolidatedExecutorsService } from './services/consolidated-executors.service';
-import { TOOL_NAMES } from '@carto/map-ai-tools';
+import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import { environment } from '../environments/environment';
 import {
   Message,
@@ -50,7 +50,7 @@ export class App implements OnInit, OnDestroy {
   private isMobileViewport: boolean = false;
 
   constructor(
-    private aiToolsService: MapAIToolsService,
+    private aiToolsService: AgenticDeckGLService,
     private deckMapService: DeckMapService,
     private deckState: DeckStateService,
     private executorsService: ConsolidatedExecutorsService

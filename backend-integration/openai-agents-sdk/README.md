@@ -1,4 +1,4 @@
-# @carto/map-ai-tools -- OpenAI Agents SDK Backend
+# @carto/agentic-deckgl -- OpenAI Agents SDK Backend
 
 > Express + WebSocket server using the OpenAI Agents SDK (`@openai/agents`) for streaming AI responses and tool calling. This is the **default and recommended** backend. Connects frontend applications to an OpenAI-compatible LLM endpoint with support for MCP tool servers and CARTO LDS geocoding.
 
@@ -179,7 +179,7 @@ providers.ts  tools.ts   system-prompt.ts
 1. **Client connects** via WebSocket (`/ws`) or sends HTTP POST (`/api/chat`)
 2. **Server creates session** with a `ConversationManager` for history tracking
 3. **User sends message** with current map state (`initialState`)
-4. **Server builds system prompt** using `buildSystemPrompt()` from `@carto/map-ai-tools` plus semantic context and custom instructions
+4. **Server builds system prompt** using `buildSystemPrompt()` from `@carto/agentic-deckgl` plus semantic context and custom instructions
 5. **Agent runner** creates an `Agent` with tools and calls `run()` with streaming enabled
 6. **Streaming loop**: processes `RunItemStreamEvent` and `RunRawModelStreamEvent` events
    - Text chunks are streamed back to the client
@@ -211,7 +211,7 @@ The agent runner (`services/agent-runner.ts`) orchestrates the AI interaction us
 
 Tools are aggregated from three sources in `agent/tools.ts`:
 
-### Local Tools (from `@carto/map-ai-tools`)
+### Local Tools (from `@carto/agentic-deckgl`)
 
 The consolidated `set-deck-state` tool is imported from the core library and converted to OpenAI Agents SDK format using `getToolsForOpenAIAgents()`. A custom `zodV4ToJsonSchema()` converter is used because the SDK's built-in schema converter cannot handle `z.unknown()` used in flexible layer configs.
 
@@ -237,7 +237,7 @@ When `MCP_MOCK_MODE=true`, the backend uses fixture-backed tool responses instea
 
 The system prompt is built in two layers:
 
-### Library Prompt (`@carto/map-ai-tools`)
+### Library Prompt (`@carto/agentic-deckgl`)
 
 `buildSystemPrompt()` generates the base prompt with:
 

@@ -1,4 +1,4 @@
-# @carto/map-ai-tools -- Google ADK Backend
+# @carto/agentic-deckgl -- Google ADK Backend
 
 > Express + WebSocket server using Google ADK (`@google/adk`) for streaming AI responses and tool calling. This is an **experimental** backend integration. Connects frontend applications to an OpenAI-compatible LLM endpoint via a custom `BaseLlm` bridge, with support for MCP tool servers and CARTO LDS geocoding.
 
@@ -173,7 +173,7 @@ providers.ts  tools.ts   system-prompt.ts
 1. **Client connects** via WebSocket (`/ws`) or sends HTTP POST (`/api/chat`)
 2. **Server creates session** with a `ConversationManager` for history tracking
 3. **User sends message** with current map state (`initialState`)
-4. **Server builds system prompt** using `buildSystemPrompt()` from `@carto/map-ai-tools` plus semantic context and custom instructions
+4. **Server builds system prompt** using `buildSystemPrompt()` from `@carto/agentic-deckgl` plus semantic context and custom instructions
 5. **Agent runner** creates an `LlmAgent` with tools and uses `InMemoryRunner.runAsync()` with `StreamingMode.SSE`
 6. **ADK handles the tool loop internally** -- unlike the other backends, there is no manual tool loop
 7. **Streaming events** contain `Content.parts[]` with text, functionCall, or functionResponse
@@ -220,7 +220,7 @@ The agent runner (`services/agent-runner.ts`) orchestrates the AI interaction us
 
 Tools are aggregated from three sources in `agent/tools.ts`:
 
-### Local Tools (from `@carto/map-ai-tools`)
+### Local Tools (from `@carto/agentic-deckgl`)
 
 The consolidated `set-deck-state` tool is imported from the core library and converted to Google ADK format using `getToolsForGoogleADK()`. Unlike the OpenAI Agents SDK backend, no `zodV4ToJsonSchema()` workaround is needed -- ADK handles Zod schemas natively.
 
@@ -242,7 +242,7 @@ The `MCP_WHITELIST_CARTO` variable filters which tools are available. MCP tool r
 
 The system prompt is built in two layers:
 
-### Library Prompt (`@carto/map-ai-tools`)
+### Library Prompt (`@carto/agentic-deckgl`)
 
 `buildSystemPrompt()` generates the base prompt with:
 

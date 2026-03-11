@@ -1,7 +1,7 @@
 /**
  * Tool definitions for Google ADK
  *
- * Uses map-ai-tools converters for Google ADK format.
+ * Uses @carto/agentic-deckgl converters for Google ADK format.
  * Combines local map tools with custom tools and remote MCP server tools.
  *
  * Key differences from OpenAI Agents SDK version:
@@ -18,7 +18,7 @@ import {
   isFrontendToolResult,
   type GoogleADKToolDef,
   type ToolName,
-} from '@carto/map-ai-tools';
+} from '@carto/agentic-deckgl';
 import { getMCPTools, getMCPToolNames } from './mcp-tools.js';
 import { getCustomTools, getCustomToolNames } from './custom-tools.js';
 

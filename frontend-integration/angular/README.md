@@ -1,4 +1,4 @@
-# @carto/map-ai-tools — Angular Integration
+# @carto/agentic-deckgl — Angular Integration
 
 > Angular 20 implementation of the AI-powered map application using standalone components, RxJS, and dependency injection.
 
@@ -69,7 +69,7 @@ export const environment = {
 
 ```bash
 # 1. Build the core library (if not already built)
-cd ../../map-ai-tools && npm run build && cd -
+cd ../../agentic-deckgl && npm run build && cd -
 
 # 2. Start the backend
 cd ../../backend-integration/vercel-ai-sdk && npm run dev &
@@ -108,7 +108,7 @@ src/app/
 │   └── confirmation-dialog/            # Modal confirmation dialogs
 │
 ├── services/
-│   ├── map-ai-tools.service.ts         # Orchestrator: messages, tools, loader
+│   ├── agentic-deckgl.service.ts       # Orchestrator: messages, tools, loader
 │   ├── websocket.service.ts            # WebSocket client with auto-reconnect
 │   ├── consolidated-executors.service.ts  # Tool executor (set-deck-state)
 │   └── deck-map.service.ts             # deck.gl + MapLibre renderer
