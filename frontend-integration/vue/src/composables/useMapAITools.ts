@@ -18,6 +18,7 @@ import { useDeckState } from './useDeckState';
 import { useWebSocket } from './useWebSocket';
 import { useMaskLayer } from './useMaskLayer';
 import { createToolExecutor, type ExecuteToolFn } from '../services/tool-executor';
+import { useWidgets, type WidgetSpec } from './useWidgets';
 import { extractLegendFromLayer } from '../utils/legend';
 import { environment } from '../config/environment';
 
@@ -29,6 +30,10 @@ export interface MapAIToolsComposable {
   isConnected: ComputedRef<boolean>;
   sendMessage: (content: string) => boolean;
   clearMessages: () => void;
+  widgets: Ref<WidgetSpec[]>;
+  addWidget: (spec: WidgetSpec) => void;
+  removeWidget: (id: string) => void;
+  clearWidgets: () => void;
 }
 
 // Module-scoped singleton state
@@ -66,6 +71,7 @@ function createMapAIToolsComposable(): MapAIToolsComposable {
   const deckState = useDeckState();
   const ws = useWebSocket();
   const maskLayer = useMaskLayer();
+  const widgetManager = useWidgets(() => maskLayer.state.geometry);
 
   // Create tool executor
   const toolExecutor: ExecuteToolFn = createToolExecutor(
@@ -80,6 +86,11 @@ function createMapAIToolsComposable(): MapAIToolsComposable {
       setMaskGeometry: (g: any) => maskLayer.setMaskGeometry(g),
       enableDrawMode: () => maskLayer.enableDrawMode(),
       clearMask: () => maskLayer.clearMask(),
+    },
+    {
+      addWidget: (spec: any) => widgetManager.addWidget(spec),
+      removeWidget: (id: string) => widgetManager.removeWidget(id),
+      clearWidgets: () => widgetManager.clearWidgets(),
     }
   );
 
@@ -405,6 +416,10 @@ function createMapAIToolsComposable(): MapAIToolsComposable {
     isConnected,
     sendMessage,
     clearMessages,
+    widgets: widgetManager.widgets,
+    addWidget: widgetManager.addWidget,
+    removeWidget: widgetManager.removeWidget,
+    clearWidgets: widgetManager.clearWidgets,
   };
 }
 

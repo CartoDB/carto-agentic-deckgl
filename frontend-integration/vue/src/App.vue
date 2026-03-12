@@ -6,6 +6,7 @@ import ZoomControls from './components/ZoomControls.vue';
 import DrawTool from './components/DrawTool.vue';
 import LayerToggle from './components/LayerToggle.vue';
 import Snackbar from './components/Snackbar.vue';
+import WidgetContainer from './components/WidgetContainer.vue';
 import { useMapAITools } from './composables/useMapAITools';
 import { useDeckState } from './composables/useDeckState';
 import { useIsMobile } from './composables/useIsMobile';
@@ -17,7 +18,7 @@ const isMobile = useIsMobile();
 
 const zoomLevel = ref(3);
 const sidebarState = ref<'closed' | 'open' | 'collapsed' | 'half' | 'full'>('closed');
-const isSidebarOpen = ref(false);
+const isSidebarOpen = ref(true);
 const snackbar = ref<SnackbarConfig>({ message: null, type: 'error' });
 
 function handleViewStateChange(viewState: { zoom: number }) {
@@ -32,6 +33,7 @@ function handleClearChat(clearLayers: boolean) {
   aiTools.clearMessages();
   if (clearLayers) {
     deckState.clearChatGeneratedLayers();
+    aiTools.clearWidgets();
   }
 }
 
@@ -150,6 +152,11 @@ const sidebarFullOnMobile = computed(() => isMobile.value && sidebarState.value 
         </div>
       </div>
 
+      <WidgetContainer
+        :widgets="aiTools.widgets.value"
+        @remove="aiTools.removeWidget"
+      />
+
       <div class="sidebar-column">
         <ChatUI
           v-if="isDesktopSidebarOpen || showMobileSidebar"
@@ -169,15 +176,12 @@ const sidebarFullOnMobile = computed(() => isMobile.value && sidebarState.value 
 
     <!-- FAB button to toggle sidebar -->
     <button
-      :class="{ 'fab-button': true, 'sidebar-open': isDesktopSidebarOpen }"
+      v-if="!isDesktopSidebarOpen && !showMobileSidebar"
+      class="fab-button"
       @click="toggleSidebar"
-      :title="isSidebarOpen || showMobileSidebar ? 'Close Chat' : 'Open Chat'"
+      title="Open Chat"
     >
-      <svg v-if="isSidebarOpen || showMobileSidebar" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-        <line x1="18" y1="6" x2="6" y2="18" />
-        <line x1="6" y1="6" x2="18" y2="18" />
-      </svg>
-      <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     </button>
@@ -321,10 +325,10 @@ const sidebarFullOnMobile = computed(() => isMobile.value && sidebarState.value 
 
 .fab-button {
   position: fixed;
-  top: 58px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
+  top: 4px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #3b82f6;
   color: white;
@@ -351,13 +355,9 @@ const sidebarFullOnMobile = computed(() => isMobile.value && sidebarState.value 
 }
 
 .fab-button svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   stroke: white;
-}
-
-.fab-button.sidebar-open {
-  right: calc(450px + 20px);
 }
 
 @media (min-width: 769px) {
