@@ -127,8 +127,8 @@ export class WidgetService implements OnDestroy {
   private currentMaskGeometry: GeoJSON.FeatureCollection | null = null;
 
   constructor(private maskLayerService: MaskLayerService) {
-    // Re-fetch ALL widget data when mask geometry changes
-    this.maskSubscription = this.maskLayerService.maskGeometry$.subscribe((maskGeometry) => {
+    // Re-fetch ALL widget data when committed mask geometry changes (not during in-progress edits)
+    this.maskSubscription = this.maskLayerService.committedMaskGeometry$.subscribe((maskGeometry) => {
       this.currentMaskGeometry = maskGeometry;
       const currentWidgets = this.widgetsSubject.getValue();
       if (currentWidgets.length === 0) return;

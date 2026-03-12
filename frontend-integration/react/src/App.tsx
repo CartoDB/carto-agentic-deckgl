@@ -18,7 +18,7 @@ export default function App() {
   const deckState = useDeckState();
   const aiTools = useMapAITools();
   const maskLayer = useMaskLayer();
-  const widgetManager = useWidgets(maskLayer.maskState.geometry);
+  const widgetManager = useWidgets(maskLayer.maskState.committedGeometry);
   const isMobile = useIsMobile();
 
   const [zoomLevel, setZoomLevel] = useState(3);
