@@ -18,17 +18,20 @@ import { Snackbar } from './components/snackbar.js';
 import { ConfirmationDialog } from './components/confirmation-dialog.js';
 import { DrawTool } from './components/draw-tool.js';
 import { MaskLayerManager } from './services/mask-layer.js';
+import { WidgetManager } from './services/widget-manager.js';
+import { WidgetContainer } from './components/widget-container.js';
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
 
 // ==================== STATE ====================
 
 const deckState = new DeckState();
 const maskLayerManager = new MaskLayerManager();
+const widgetManager = new WidgetManager(maskLayerManager);
 
 // ==================== SERVICES ====================
 
 const wsClient = new WebSocketClient();
-const toolExecutor = new ToolExecutor(deckState, maskLayerManager);
+const toolExecutor = new ToolExecutor(deckState, maskLayerManager, widgetManager);
 const deckMapManager = new DeckMapManager(deckState, environment, maskLayerManager);
 const orchestrator = new MapAIToolsOrchestrator(wsClient, toolExecutor, deckState, environment);
 
@@ -36,7 +39,7 @@ const orchestrator = new MapAIToolsOrchestrator(wsClient, toolExecutor, deckStat
 
 let isMobileViewport = window.innerWidth <= 768;
 let sidebarState = 'closed'; // 'closed' | 'open' | 'collapsed' | 'half' | 'full'
-let isSidebarOpen = false;
+let isSidebarOpen = true;
 let zoomLevel = 3;
 let mapInitialized = false;
 
@@ -51,6 +54,7 @@ const chatUI = new ChatUI(document.getElementById('sidebar-column'), {
     orchestrator.clearMessages();
     if (clearLayers) {
       deckState.clearChatGeneratedLayers();
+      widgetManager.clearWidgets();
     }
   },
   onSidebarStateChange: (state) => {
@@ -118,6 +122,10 @@ const zoomControls = new ZoomControls(document.getElementById('zoom-controls-wra
 
 const drawTool = new DrawTool(document.getElementById('draw-tool-wrapper'), maskLayerManager);
 
+const widgetContainer = new WidgetContainer(document.getElementById('widget-container-wrapper'), {
+  onRemove: (id) => widgetManager.removeWidget(id),
+});
+
 // ==================== FAB BUTTON ====================
 
 const fabButton = document.getElementById('fab-button');
@@ -144,6 +152,10 @@ orchestrator.on('error', (errorMsg) => {
 
 orchestrator.on('layers', (layers) => {
   layerToggle.setLayers(layers);
+});
+
+widgetManager.on('change', (widgets) => {
+  widgetContainer.setWidgets(widgets);
 });
 
 deckMapManager.on('viewStateChange', (viewState) => {
