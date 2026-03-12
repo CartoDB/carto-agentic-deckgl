@@ -41,7 +41,6 @@ let _instance: ReturnType<typeof createDeckMapComposable> | null = null;
 function createDeckMapComposable() {
   const deckState = useDeckState();
   const maskLayer = useMaskLayer();
-  const maskExtension = new MaskExtension();
 
   let deck: Deck<any> | null = null;
   let map: maplibregl.Map | null = null;
