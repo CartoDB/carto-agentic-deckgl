@@ -500,7 +500,7 @@ export function ChatUI({
         confirmText="Clear"
         cancelText="Cancel"
         showCheckbox
-        checkboxLabel="Also clear chat-generated layers"
+        checkboxLabel="Also clear chat-generated layers and widgets"
         checkboxChecked={clearLayersOnClear}
         onCheckboxChange={setClearLayersOnClear}
         onConfirm={() => {
