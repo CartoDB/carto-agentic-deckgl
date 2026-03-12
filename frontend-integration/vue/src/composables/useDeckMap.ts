@@ -13,7 +13,7 @@ import { log as lumaLog } from '@luma.gl/core';
 import { BASEMAP } from '@deck.gl/carto';
 import maplibregl from 'maplibre-gl';
 import { useDeckState, type Basemap, type DeckSpec, type DeckStateData, DEFAULT_VIEW_STATE } from './useDeckState';
-import { useMaskLayer, MASK_LAYER_ID } from './useMaskLayer';
+import { useMaskLayer } from './useMaskLayer';
 import { getJsonConverter } from '../config/deck-json-config';
 import { getTooltipContent } from '../utils/tooltip';
 import { environment } from '../config/environment';
