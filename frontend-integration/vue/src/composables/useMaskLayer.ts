@@ -19,8 +19,21 @@ import {
 export const MASK_LAYER_ID = '__mask-layer__';
 const EDITABLE_MASK_LAYER_ID = '__editable-mask__';
 
+const FINISHED_EDIT_TYPES = new Set([
+  'addFeature',
+  'finishMovePosition',
+  'translated',
+  'addPosition',
+  'removePosition',
+  'scaled',
+  'rotated',
+  'extruded',
+  'split',
+]);
+
 interface MaskLayerState {
   geometry: GeoJSON.FeatureCollection | null;
+  committedGeometry: GeoJSON.FeatureCollection | null;
   isDrawing: boolean;
   currentMode: string;
   selectedFeatureIndexes: number[];
@@ -43,6 +56,7 @@ function createMaskLayerComposable() {
   const editMode = new CompositeMode([new TranslateMode() as any, new ModifyMode() as any]);
   const state = reactive<MaskLayerState>({
     geometry: null,
+    committedGeometry: null,
     isDrawing: false,
     currentMode: 'draw',
     selectedFeatureIndexes: [],
@@ -55,6 +69,7 @@ function createMaskLayerComposable() {
   function setMaskGeometry(geojson: any): void {
     const geometry = normalizeToFeatureCollection(geojson);
     state.geometry = geometry;
+    state.committedGeometry = geometry;
     state.isDrawing = true;
     state.currentMode = 'edit';
     state.selectedFeatureIndexes = geometry.features.length > 0 ? [0] : [];
@@ -83,6 +98,7 @@ function createMaskLayerComposable() {
 
   function clearMask(): void {
     state.geometry = null;
+    state.committedGeometry = null;
     state.isDrawing = false;
     state.currentMode = 'draw';
     state.selectedFeatureIndexes = [];
@@ -113,6 +129,9 @@ function createMaskLayerComposable() {
           onEdit: ({ updatedData, editType }: { updatedData: GeoJSON.FeatureCollection; editType: string }) => {
             if (editType === 'updateTentativeFeature') return;
             state.geometry = updatedData;
+            if (FINISHED_EDIT_TYPES.has(editType)) {
+              state.committedGeometry = updatedData;
+            }
           },
           onClick: (info: any) => {
             if (info.index >= 0 && state.currentMode === 'edit') {

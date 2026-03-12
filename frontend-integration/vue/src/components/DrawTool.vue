@@ -86,8 +86,8 @@ function clearMask() {
 }
 
 .draw-tool-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
   background: white;
   border-radius: 6px;

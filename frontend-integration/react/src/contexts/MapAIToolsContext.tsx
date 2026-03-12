@@ -25,7 +25,7 @@ import type {
 import { useContext } from 'react';
 import { DeckStateContext } from './DeckStateContext';
 import { WebSocketContext } from './WebSocketContext';
-import { createToolExecutor, type ExecuteToolFn, type MaskLayerActions } from '../services/tool-executor';
+import { createToolExecutor, type ExecuteToolFn, type MaskLayerActions, type WidgetActions } from '../services/tool-executor';
 import { extractLegendFromLayer } from '../utils/legend';
 import { environment } from '../config/environment';
 
@@ -64,6 +64,7 @@ export interface MapAIToolsContextValue {
   sendMessage: (content: string) => boolean;
   clearMessages: () => void;
   registerMaskActions: (actions: MaskLayerActions) => void;
+  registerWidgetActions: (actions: WidgetActions) => void;
 }
 
 export const MapAIToolsContext = createContext<MapAIToolsContextValue | null>(null);
@@ -95,6 +96,13 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
     maskActionsRef.current = actions;
   }, []);
 
+  // Ref for widget actions (populated by App.tsx via registerWidgetActions)
+  const widgetActionsRef = useRef<WidgetActions | null>(null);
+
+  const registerWidgetActions = useCallback((actions: WidgetActions) => {
+    widgetActionsRef.current = actions;
+  }, []);
+
   // Create tool executor with stable reference
   const toolExecutorRef = useRef<ExecuteToolFn | null>(null);
   if (!toolExecutorRef.current) {
@@ -110,6 +118,11 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
         setMaskGeometry: (g) => maskActionsRef.current?.setMaskGeometry(g),
         enableDrawMode: () => maskActionsRef.current?.enableDrawMode(),
         clearMask: () => maskActionsRef.current?.clearMask(),
+      },
+      {
+        addWidget: (spec) => widgetActionsRef.current?.addWidget(spec),
+        removeWidget: (id) => widgetActionsRef.current?.removeWidget(id),
+        clearWidgets: () => widgetActionsRef.current?.clearWidgets(),
       }
     );
   }
@@ -496,6 +509,7 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
     sendMessage,
     clearMessages,
     registerMaskActions,
+    registerWidgetActions,
   };
 
   return (

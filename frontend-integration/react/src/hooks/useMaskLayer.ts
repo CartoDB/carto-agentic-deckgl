@@ -20,8 +20,21 @@ import {
 export const MASK_LAYER_ID = '__mask-layer__';
 const EDITABLE_MASK_LAYER_ID = '__editable-mask__';
 
+const FINISHED_EDIT_TYPES = new Set([
+  'addFeature',
+  'finishMovePosition',
+  'translated',
+  'addPosition',
+  'removePosition',
+  'scaled',
+  'rotated',
+  'extruded',
+  'split',
+]);
+
 interface MaskLayerState {
   geometry: GeoJSON.FeatureCollection | null;
+  committedGeometry: GeoJSON.FeatureCollection | null;
   isDrawing: boolean;
   currentMode: string;
   selectedFeatureIndexes: number[];
@@ -40,6 +53,7 @@ function normalizeToFeatureCollection(input: any): GeoJSON.FeatureCollection {
 export function useMaskLayer() {
   const [state, setState] = useState<MaskLayerState>({
     geometry: null,
+    committedGeometry: null,
     isDrawing: false,
     currentMode: 'draw',
     selectedFeatureIndexes: [],
@@ -53,6 +67,7 @@ export function useMaskLayer() {
     setState((prev) => ({
       ...prev,
       geometry,
+      committedGeometry: geometry,
       isDrawing: true,
       currentMode: 'edit',
       selectedFeatureIndexes: geometry.features.length > 0 ? [0] : [],
@@ -90,6 +105,7 @@ export function useMaskLayer() {
   const clearMask = useCallback(() => {
     setState({
       geometry: null,
+      committedGeometry: null,
       isDrawing: false,
       currentMode: 'draw',
       selectedFeatureIndexes: [],
@@ -123,6 +139,7 @@ export function useMaskLayer() {
             setState((prev) => ({
               ...prev,
               geometry: updatedData,
+              ...(FINISHED_EDIT_TYPES.has(editType) ? { committedGeometry: updatedData } : {}),
             }));
           },
           onClick: (info: any) => {

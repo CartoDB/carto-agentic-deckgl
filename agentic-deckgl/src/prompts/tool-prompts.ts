@@ -42,6 +42,63 @@ This removes the specified layer(s) while keeping all other layers intact.
 2. Remove multiple layers: { "removeLayerIds": ["pois-layer", "buffer-layer"] }
 3. Remove layer and update another: { "removeLayerIds": ["old-layer"], "layers": [{ "id": "other-layer", "visible": true }] }
 
+**WIDGET SUPPORT (Vega-Lite):**
+After adding a data layer, you may suggest widgets to the user. If they agree, add widgets using the widgets array.
+Each widget must follow this WidgetSpec format:
+
+{
+  "id": "unique-widget-id",
+  "name": "Human-readable Widget Title",
+  "type": "formula" | "category",
+  "source": {
+    "tableName": "EXACT_TABLE_NAME_FROM_SEMANTIC_LAYER",
+    "sourceFunction": "vectorTableSource" | "h3TableSource" | "quadbinTableSource",
+    "columns": ["column_name"],
+    "aggregationExp": "SUM(column) as column"
+  },
+  "params": {
+    "column": "column_name",
+    "operation": "sum" | "avg" | "count" | "min" | "max",
+    "ticks": [0, 100, 500, 1000]
+  },
+  "vegaLiteSpec": { /* Vega-Lite v5 spec WITHOUT data — data is injected by frontend */ }
+}
+
+**Widget examples:**
+
+Formula widget (single number) from H3 layer:
+{ "widgets": [{ "id": "total-pop", "name": "Total Population", "type": "formula",
+  "source": { "tableName": "TABLE", "sourceFunction": "h3TableSource", "columns": ["population"], "aggregationExp": "SUM(population) as population" },
+  "params": { "column": "population", "operation": "sum" },
+  "vegaLiteSpec": { "$schema": "https://vega.github.io/schema/vega-lite/v5.json", "mark": "text",
+    "encoding": { "text": { "field": "value", "type": "quantitative", "format": ",.0f" } } }
+}]}
+
+Category widget (bar chart) from H3 layer:
+{ "widgets": [{ "id": "urbanity-dist", "name": "Urbanity Distribution", "type": "category",
+  "source": { "tableName": "TABLE", "sourceFunction": "h3TableSource", "columns": ["urbanity"], "aggregationExp": "COUNT(*) as count" },
+  "params": { "column": "urbanity", "operation": "count" },
+  "vegaLiteSpec": { "$schema": "https://vega.github.io/schema/vega-lite/v5.json", "mark": "bar",
+    "encoding": { "x": { "field": "name", "type": "nominal" }, "y": { "field": "value", "type": "quantitative" } } }
+}]}
+
+Remove widgets:
+{ "removeWidgetIds": ["total-pop", "urbanity-dist"] }
+
+**Widget rules:**
+1. ALWAYS ask the user before adding widgets. Suggest 2-3 relevant widgets based on the semantic layer fields.
+2. Use the SAME tableName and sourceFunction as the loaded layer.
+3. For numeric columns: suggest formula (SUM/AVG) widgets.
+4. For categorical columns (like urbanity): suggest category widgets.
+5. Widgets automatically filter when a mask is active — no extra action needed.
+6. The vegaLiteSpec must NOT include a data field — the frontend injects data from CARTO API.
+   CRITICAL: The CARTO API returns FIXED field names. Your vegaLiteSpec encoding MUST use these exact fields:
+   - category data: [{name, value}] → use field "name" for x-axis, field "value" for y-axis
+   - formula data: {value} → use field "value"
+7. Widget IDs must be unique and descriptive (e.g., "population-formula", "urbanity-category").
+8. CRITICAL: For H3/Quadbin layers, ALWAYS include "aggregationExp" in source (e.g., "SUM(population) as population"). Without it, the API returns a 400 error. For vectorTableSource, aggregationExp is NOT needed.
+9. CRITICAL: The "operation" field in params is REQUIRED for ALL widget types (formula, category, table). Never omit it.
+
 **CRITICAL: If user requests to add a new layer and no type is provided (quanbin, h3, etc.), use vectorTileLayer as default.**
 
 **CRITICAL SOURCE FUNCTIONS - Do NOT invent new function names:**

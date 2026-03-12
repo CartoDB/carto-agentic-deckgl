@@ -44,6 +44,11 @@
       </div>
     </div>
 
+    <app-widget-container
+      [widgets]="widgets"
+      (removeWidget)="onRemoveWidget($event)"
+    ></app-widget-container>
+
     <!-- Segunda columna: Sidebar/Chat -->
     <div class="sidebar-column" [class.sidebar-open]="!isMobile() && isSidebarOpen">
       <app-chat-ui

@@ -24,8 +24,21 @@ import {
 export const MASK_LAYER_ID = '__mask-layer__';
 const EDITABLE_MASK_LAYER_ID = '__editable-mask__';
 
+const FINISHED_EDIT_TYPES = new Set([
+  'addFeature',
+  'finishMovePosition',
+  'translated',
+  'addPosition',
+  'removePosition',
+  'scaled',
+  'rotated',
+  'extruded',
+  'split',
+]);
+
 interface MaskLayerState {
   geometry: GeoJSON.FeatureCollection | null;
+  committedGeometry: GeoJSON.FeatureCollection | null;
   isDrawing: boolean;
   mode: any;
   selectedFeatureIndexes: number[];
@@ -35,6 +48,7 @@ interface MaskLayerState {
 export class MaskLayerService {
   private maskState = new BehaviorSubject<MaskLayerState>({
     geometry: null,
+    committedGeometry: null,
     isDrawing: false,
     mode: ViewMode,
     selectedFeatureIndexes: [],
@@ -43,6 +57,10 @@ export class MaskLayerService {
   public maskState$ = this.maskState.asObservable();
   public maskGeometry$ = this.maskState$.pipe(
     map((s) => s.geometry),
+    distinctUntilChanged()
+  );
+  public committedMaskGeometry$ = this.maskState$.pipe(
+    map((s) => s.committedGeometry),
     distinctUntilChanged()
   );
   public hasMask$ = this.maskGeometry$.pipe(
@@ -66,6 +84,7 @@ export class MaskLayerService {
     this.maskState.next({
       ...this.maskState.getValue(),
       geometry,
+      committedGeometry: geometry,
       isDrawing: true,
       mode: new CompositeMode([new TranslateMode(), new ModifyMode()]),
       selectedFeatureIndexes: geometry.features.length > 0 ? [0] : [],
@@ -116,6 +135,7 @@ export class MaskLayerService {
   clearMask(): void {
     this.maskState.next({
       geometry: null,
+      committedGeometry: null,
       isDrawing: false,
       mode: ViewMode,
       selectedFeatureIndexes: [],
@@ -148,6 +168,7 @@ export class MaskLayerService {
             this.maskState.next({
               ...this.maskState.getValue(),
               geometry: updatedData,
+              ...(FINISHED_EDIT_TYPES.has(editType) ? { committedGeometry: updatedData } : {}),
             });
           },
           onClick: (info: any) => {
@@ -190,9 +211,11 @@ export class MaskLayerService {
     if (!current.geometry) return;
     const features = [...current.geometry.features];
     features.splice(index, 1);
+    const geometry: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
     this.maskState.next({
       ...current,
-      geometry: { type: 'FeatureCollection', features },
+      geometry,
+      committedGeometry: geometry,
     });
   }
 }

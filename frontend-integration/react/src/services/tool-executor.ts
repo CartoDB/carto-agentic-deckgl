@@ -41,6 +41,7 @@ interface SetDeckStateParams {
   effects?: Record<string, unknown>[];
   layerOrder?: string[];
   removeLayerIds?: string[];
+  removeWidgetIds?: string[];
 }
 
 export interface DeckStateActions {
@@ -68,7 +69,7 @@ export type ExecuteToolFn = (toolName: string, params: unknown) => Promise<ToolR
 
 type ToolExecutorFn = (params: unknown) => ToolResult | Promise<ToolResult>;
 
-function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolResult {
+function executeSetDeckState(actions: DeckStateActions, params: unknown, widgetActions?: WidgetActions): ToolResult {
   const paramsObj = params as SetDeckStateParams;
   const updatedParts: string[] = [];
 
@@ -96,6 +97,7 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
   const hasDeckConfigFields =
     'layers' in paramsObj ||
     'removeLayerIds' in paramsObj ||
+    'removeWidgetIds' in paramsObj ||
     'layerOrder' in paramsObj ||
     'widgets' in paramsObj ||
     'effects' in paramsObj;
@@ -164,6 +166,27 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
       }
     } else {
       finalWidgets = currentConfig.widgets ?? [];
+    }
+
+    // Route Vega-Lite widget specs to WidgetActions (detect by .type + .source + .vegaLiteSpec)
+    if (widgetActions && finalWidgets.length > 0) {
+      const vegaWidgets = finalWidgets.filter(
+        (w: any) => w.type && w.source && w.vegaLiteSpec
+      );
+      const deckWidgets = finalWidgets.filter(
+        (w: any) => !(w.type && w.source && w.vegaLiteSpec)
+      );
+      for (const vw of vegaWidgets) {
+        widgetActions.addWidget(vw as any);
+      }
+      finalWidgets = deckWidgets;
+    }
+
+    // Handle widget removal
+    if (widgetActions && paramsObj.removeWidgetIds) {
+      for (const id of paramsObj.removeWidgetIds) {
+        widgetActions.removeWidget(id);
+      }
     }
 
     // Determine final effects
@@ -349,6 +372,12 @@ export interface MaskLayerActions {
   clearMask: () => void;
 }
 
+export interface WidgetActions {
+  addWidget: (spec: any) => void;
+  removeWidget: (id: string) => void;
+  clearWidgets: () => void;
+}
+
 // Update with your geom column name(s) if different
 const GEOM_COLUMNS = ["geom"];
 
@@ -417,10 +446,10 @@ async function executeSetMaskLayer(maskActions: MaskLayerActions, params: unknow
   }
 }
 
-export function createToolExecutor(actions: DeckStateActions, maskActions?: MaskLayerActions): ExecuteToolFn {
+export function createToolExecutor(actions: DeckStateActions, maskActions?: MaskLayerActions, widgetActions?: WidgetActions): ExecuteToolFn {
   console.log('Creating tool executor with actions:', actions, 'and maskActions:', maskActions);
   const executors: Record<string, ToolExecutorFn> = {
-    [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
+    [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params, widgetActions),
     [TOOL_NAMES.SET_MARKER]: (params) => executeSetMarker(actions, params),
     ...(maskActions ? {
       [TOOL_NAMES.SET_MASK_LAYER]: (params) => executeSetMaskLayer(maskActions, params),

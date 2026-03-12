@@ -136,10 +136,10 @@
 /* Floating Action Button */
 .fab-button {
   position: fixed;
-  top: 58px; /* Header height (12px padding + 20px font + 12px padding + line-height ≈ 48px) + 10px to align with layers div */
-  right: 20px;
-  width: 56px;
-  height: 56px;
+  top: 4px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #3b82f6;
   color: white;
@@ -164,13 +164,9 @@
 }
 
 .fab-button svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   stroke: white;
-}
-
-.fab-button.sidebar-open {
-  right: calc(450px + 20px); /* 450px sidebar width + 20px margin */
 }
 
 /* Desktop: Right Sidebar Layout */
