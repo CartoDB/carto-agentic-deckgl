@@ -13,12 +13,13 @@ import { ZoomControls } from './components/zoom-controls/zoom-controls';
 import { LayerToggle } from './components/layer-toggle/layer-toggle';
 import { DrawTool } from './components/draw-tool/draw-tool';
 import { SnackbarComponent } from './components/snackbar/snackbar';
+import { WidgetContainer } from './components/widget-container/widget-container';
+import { WidgetService, type WidgetSpec } from './services/widget.service';
 import { AgenticDeckGLService } from './services/agentic-deckgl.service';
 import { DeckMapService, ViewState } from './services/deck-map.service';
 import { DeckStateService } from './state/deck-state.service';
 import { ConsolidatedExecutorsService } from './services/consolidated-executors.service';
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
-import { environment } from '../environments/environment';
 import {
   Message,
   MapInstances,
@@ -30,7 +31,7 @@ import {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [MapView, ChatUi, ZoomControls, LayerToggle, DrawTool, SnackbarComponent],
+  imports: [MapView, ChatUi, ZoomControls, LayerToggle, DrawTool, SnackbarComponent, WidgetContainer],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
@@ -42,9 +43,10 @@ export class App implements OnInit, OnDestroy {
   loaderMessage: string = '';
   zoomLevel: number = 3;
   layers: LayerConfig[] = [];
+  widgets: WidgetSpec[] = [];
   snackbar: SnackbarConfig = { message: null, type: 'error' };
   sidebarState: 'closed' | 'open' | 'collapsed' | 'half' | 'full' = 'closed';
-  isSidebarOpen: boolean = false; // Desktop sidebar state
+  isSidebarOpen: boolean = true; // Desktop sidebar state
 
   private mapInstances: MapInstances | null = null;
   private subscriptions: Subscription[] = [];
@@ -54,7 +56,8 @@ export class App implements OnInit, OnDestroy {
     private aiToolsService: AgenticDeckGLService,
     private deckMapService: DeckMapService,
     private deckState: DeckStateService,
-    private executorsService: ConsolidatedExecutorsService
+    private executorsService: ConsolidatedExecutorsService,
+    private widgetService: WidgetService,
   ) {}
 
   ngOnInit(): void {
@@ -71,7 +74,8 @@ export class App implements OnInit, OnDestroy {
       this.aiToolsService.loaderState$.subscribe((s) => (this.loaderState = s)),
       this.aiToolsService.loaderMessage$.subscribe((m) => (this.loaderMessage = m)),
       this.aiToolsService.error$.subscribe((err) => this.showSnackbar(err)),
-      this.aiToolsService.layers$.subscribe((l) => (this.layers = l))
+      this.aiToolsService.layers$.subscribe((l) => (this.layers = l)),
+      this.widgetService.widgets$.subscribe((w) => (this.widgets = w)),
     );
   }
 
@@ -100,7 +104,12 @@ export class App implements OnInit, OnDestroy {
     this.aiToolsService.clearMessages();
     if (clearLayers) {
       this.deckState.clearChatGeneratedLayers();
+      this.widgetService.clearWidgets();
     }
+  }
+
+  onRemoveWidget(id: string): void {
+    this.widgetService.removeWidget(id);
   }
 
   async handleZoomIn(): Promise<void> {
