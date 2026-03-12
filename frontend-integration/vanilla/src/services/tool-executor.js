@@ -17,9 +17,10 @@ const LOCATION_MARKER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="48" 
 const LOCATION_MARKER_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(LOCATION_MARKER_SVG)}`;
 
 export class ToolExecutor {
-  constructor(deckState, maskLayerManager) {
+  constructor(deckState, maskLayerManager, widgetManager) {
     this._deckState = deckState;
     this._maskLayerManager = maskLayerManager || null;
+    this._widgetManager = widgetManager || null;
     this._executors = this._createExecutors();
   }
 
@@ -69,6 +70,7 @@ export class ToolExecutor {
           const hasDeckConfigFields =
             'layers' in params ||
             'removeLayerIds' in params ||
+            'removeWidgetIds' in params ||
             'layerOrder' in params ||
             'widgets' in params ||
             'effects' in params;
@@ -136,6 +138,27 @@ export class ToolExecutor {
               }
             } else {
               finalWidgets = currentSpec.widgets ?? [];
+            }
+
+            // Route Vega-Lite widget specs to WidgetManager
+            if (this._widgetManager && finalWidgets.length > 0) {
+              const vegaWidgets = finalWidgets.filter(
+                (w) => w.type && w.source && w.vegaLiteSpec
+              );
+              const deckWidgets = finalWidgets.filter(
+                (w) => !(w.type && w.source && w.vegaLiteSpec)
+              );
+              for (const vw of vegaWidgets) {
+                this._widgetManager.addWidget(vw);
+              }
+              finalWidgets = deckWidgets;
+            }
+
+            // Handle widget removal
+            if (this._widgetManager && params.removeWidgetIds) {
+              for (const id of params.removeWidgetIds) {
+                this._widgetManager.removeWidget(id);
+              }
             }
 
             // Determine final effects
