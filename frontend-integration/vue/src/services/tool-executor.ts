@@ -4,10 +4,11 @@
  * Factory function that creates a tool executor for AI tool calls.
  * Pure function with no React dependencies — used inside MapAIToolsContext.
  */
-
+import { vectorTableSource } from '@deck.gl/carto';
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import type { LayerSpec } from '../utils/layer-merge';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge';
+import { environment } from '../config/environment';
 
 export interface ToolResult {
   success: boolean;
@@ -39,6 +40,7 @@ interface SetDeckStateParams {
   effects?: Record<string, unknown>[];
   layerOrder?: string[];
   removeLayerIds?: string[];
+  removeWidgetIds?: string[];
 }
 
 export interface DeckStateActions {
@@ -64,9 +66,9 @@ const LOCATION_MARKER_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(LOCATION_
 
 export type ExecuteToolFn = (toolName: string, params: unknown) => Promise<ToolResult>;
 
-type ToolExecutorFn = (params: unknown) => ToolResult;
+type ToolExecutorFn = (params: unknown) => ToolResult | Promise<ToolResult>;
 
-function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolResult {
+function executeSetDeckState(actions: DeckStateActions, params: unknown, widgetActions?: WidgetActions): ToolResult {
   const paramsObj = params as SetDeckStateParams;
   const updatedParts: string[] = [];
 
@@ -94,6 +96,7 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
   const hasDeckConfigFields =
     'layers' in paramsObj ||
     'removeLayerIds' in paramsObj ||
+    'removeWidgetIds' in paramsObj ||
     'layerOrder' in paramsObj ||
     'widgets' in paramsObj ||
     'effects' in paramsObj;
@@ -162,6 +165,27 @@ function executeSetDeckState(actions: DeckStateActions, params: unknown): ToolRe
       }
     } else {
       finalWidgets = currentConfig.widgets ?? [];
+    }
+
+    // Route Vega-Lite widget specs to WidgetActions
+    if (widgetActions && finalWidgets.length > 0) {
+      const vegaWidgets = finalWidgets.filter(
+        (w: any) => w.type && w.source && w.vegaLiteSpec
+      );
+      const deckWidgets = finalWidgets.filter(
+        (w: any) => !(w.type && w.source && w.vegaLiteSpec)
+      );
+      for (const vw of vegaWidgets) {
+        widgetActions.addWidget(vw as any);
+      }
+      finalWidgets = deckWidgets;
+    }
+
+    // Handle widget removal
+    if (widgetActions && paramsObj.removeWidgetIds) {
+      for (const id of paramsObj.removeWidgetIds) {
+        widgetActions.removeWidget(id);
+      }
     }
 
     // Determine final effects
@@ -341,10 +365,93 @@ function executeSetMarker(actions: DeckStateActions, params: unknown): ToolResul
   }
 }
 
-export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
+export interface WidgetActions {
+  addWidget: (spec: any) => void;
+  removeWidget: (id: string) => void;
+  clearWidgets: () => void;
+}
+
+export interface MaskLayerActions {
+  setMaskGeometry: (geojson: any) => void;
+  enableDrawMode: () => void;
+  clearMask: () => void;
+}
+
+// Update with your geom column name(s) if different
+const GEOM_COLUMNS = ['geom'];
+
+async function fetchGeometryFromTable(tableName: string): Promise<Record<string, unknown>> {
+  const source = await vectorTableSource({
+    apiBaseUrl: environment.apiBaseUrl,
+    accessToken: environment.accessToken,
+    connectionName: environment.connectionName,
+    tableName,
+    columns: GEOM_COLUMNS,
+  });
+
+  const { rows } = await source.widgetSource.getTable({
+    columns: GEOM_COLUMNS,
+    limit: 1,
+  });
+
+  if (rows.length > 0) {
+    for (const col of GEOM_COLUMNS) {
+      const val = rows[0][col];
+      if (val) {
+        return typeof val === 'string' ? JSON.parse(val) : val as unknown as Record<string, unknown>;
+      }
+    }
+  }
+
+  throw new Error(`No geometry found in table "${tableName}"`);
+}
+
+async function executeSetMaskLayer(maskActions: MaskLayerActions, params: unknown): Promise<ToolResult> {
+  const { action, geometry, tableName } = params as {
+    action: 'set' | 'enable-draw' | 'clear';
+    geometry?: Record<string, unknown>;
+    tableName?: string;
+  };
+  try {
+    switch (action) {
+      case 'set': {
+        let resolvedGeometry = geometry;
+
+        if (!resolvedGeometry && tableName) {
+          resolvedGeometry = await fetchGeometryFromTable(tableName);
+        }
+
+        if (!resolvedGeometry) {
+          return { success: false, message: 'Either geometry or tableName is required for action "set".' };
+        }
+        maskActions.setMaskGeometry(resolvedGeometry);
+        return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+      }
+      case 'enable-draw':
+        maskActions.enableDrawMode();
+        return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
+      case 'clear':
+        maskActions.clearMask();
+        return { success: true, message: 'Mask cleared. All data layers are now fully visible.' };
+      default:
+        return { success: false, message: `Unknown mask action: ${action}` };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to set mask layer: ${error instanceof Error ? error.message : String(error)}`,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
+export function createToolExecutor(actions: DeckStateActions, maskActions?: MaskLayerActions, widgetActions?: WidgetActions): ExecuteToolFn {
   const executors: Record<string, ToolExecutorFn> = {
-    [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params),
+    [TOOL_NAMES.SET_DECK_STATE]: (params) => executeSetDeckState(actions, params, widgetActions),
     [TOOL_NAMES.SET_MARKER]: (params) => executeSetMarker(actions, params),
+    ...(maskActions ? {
+      [TOOL_NAMES.SET_MASK_LAYER]: (params) => executeSetMaskLayer(maskActions, params),
+    } : {}),
   };
 
   return async (toolName, params) => {
@@ -354,7 +461,7 @@ export function createToolExecutor(actions: DeckStateActions): ExecuteToolFn {
     }
 
     try {
-      return executor(params);
+      return await executor(params);
     } catch (error) {
       return {
         success: false,

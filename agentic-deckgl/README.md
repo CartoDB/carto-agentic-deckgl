@@ -12,7 +12,7 @@ npm install @carto/agentic-deckgl
 
 - **Isomorphic** - Works in both Node.js and browser environments
 - **Type-safe** - Full TypeScript support with Zod validation
-- **Consolidated Tools** - Tools for complete map control (deck.gl state + marker placement)
+- **Consolidated Tools** - Tools for complete map control (deck.gl state, marker placement, spatial mask filtering)
 - **Prompts Module** - Built-in system prompt generation for AI agents
 - **Tree-shakeable** - Import only what you need via subpath exports
 
@@ -49,6 +49,7 @@ const systemPrompt = buildSystemPrompt({
   toolNames: [
     TOOL_NAMES.SET_DECK_STATE,
     TOOL_NAMES.SET_MARKER,
+    TOOL_NAMES.SET_MASK_LAYER,
   ],
   initialState: {
     viewState: { latitude: 40.7128, longitude: -74.006, zoom: 12 },
@@ -90,20 +91,22 @@ websocket.on('tool_call', async (message) => {
 
 ## Consolidated Tools
 
-The library provides 2 consolidated tools for complete map control:
+The library provides 3 consolidated tools for complete map control:
 
-| Tool             | Description                                                                |
-|------------------|----------------------------------------------------------------------------|
+| Tool | Description |
+| --- | --- |
 | `set-deck-state` | Full deck.gl state control (navigation, basemap, layers, widgets, effects) |
-| `set-marker`     | Place a location marker pin at specified coordinates                       |
+| `set-marker` | Place a location marker pin at specified coordinates |
+| `set-mask-layer` | Editable mask layer for spatial filtering (set geometry or table name, draw mode, or clear) |
 
 ### Tool Names
 
 ```typescript
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
 
-TOOL_NAMES.SET_DECK_STATE // 'set-deck-state'
-TOOL_NAMES.SET_MARKER     // 'set-marker'
+TOOL_NAMES.SET_DECK_STATE  // 'set-deck-state'
+TOOL_NAMES.SET_MARKER      // 'set-marker'
+TOOL_NAMES.SET_MASK_LAYER  // 'set-mask-layer'
 ```
 
 ## Prompts Module
@@ -120,7 +123,7 @@ import {
 
 const options: BuildSystemPromptOptions = {
   // Required: list of available tool names
-  toolNames: ['set-deck-state', 'set-marker'],
+  toolNames: ['set-deck-state', 'set-marker', 'set-mask-layer'],
 
   // Optional: current map state for context
   initialState: {
@@ -170,7 +173,7 @@ const combinedPrompts = getToolPrompts(['set-map-view', 'set-deck-state']);
 
 // Access all tool prompts
 console.log(Object.keys(toolPrompts));
-// ['set-deck-state', 'set-marker']
+// ['set-deck-state', 'set-marker', 'set-mask-layer']
 ```
 
 ### Shared Sections

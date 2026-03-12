@@ -16,24 +16,30 @@ import { LayerToggle } from './components/layer-toggle.js';
 import { ZoomControls } from './components/zoom-controls.js';
 import { Snackbar } from './components/snackbar.js';
 import { ConfirmationDialog } from './components/confirmation-dialog.js';
+import { DrawTool } from './components/draw-tool.js';
+import { MaskLayerManager } from './services/mask-layer.js';
+import { WidgetManager } from './services/widget-manager.js';
+import { WidgetContainer } from './components/widget-container.js';
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
 
 // ==================== STATE ====================
 
 const deckState = new DeckState();
+const maskLayerManager = new MaskLayerManager();
+const widgetManager = new WidgetManager(maskLayerManager);
 
 // ==================== SERVICES ====================
 
 const wsClient = new WebSocketClient();
-const toolExecutor = new ToolExecutor(deckState);
-const deckMapManager = new DeckMapManager(deckState, environment);
+const toolExecutor = new ToolExecutor(deckState, maskLayerManager, widgetManager);
+const deckMapManager = new DeckMapManager(deckState, environment, maskLayerManager);
 const orchestrator = new MapAIToolsOrchestrator(wsClient, toolExecutor, deckState, environment);
 
 // ==================== UI STATE ====================
 
 let isMobileViewport = window.innerWidth <= 768;
 let sidebarState = 'closed'; // 'closed' | 'open' | 'collapsed' | 'half' | 'full'
-let isSidebarOpen = false;
+let isSidebarOpen = true;
 let zoomLevel = 3;
 let mapInitialized = false;
 
@@ -48,6 +54,7 @@ const chatUI = new ChatUI(document.getElementById('sidebar-column'), {
     orchestrator.clearMessages();
     if (clearLayers) {
       deckState.clearChatGeneratedLayers();
+      widgetManager.clearWidgets();
     }
   },
   onSidebarStateChange: (state) => {
@@ -113,6 +120,12 @@ const zoomControls = new ZoomControls(document.getElementById('zoom-controls-wra
   },
 });
 
+new DrawTool(document.getElementById('draw-tool-wrapper'), maskLayerManager);
+
+const widgetContainer = new WidgetContainer(document.getElementById('widget-container-wrapper'), {
+  onRemove: (id) => widgetManager.removeWidget(id),
+});
+
 // ==================== FAB BUTTON ====================
 
 const fabButton = document.getElementById('fab-button');
@@ -141,6 +154,10 @@ orchestrator.on('layers', (layers) => {
   layerToggle.setLayers(layers);
 });
 
+widgetManager.on('change', (widgets) => {
+  widgetContainer.setWidgets(widgets);
+});
+
 deckMapManager.on('viewStateChange', (viewState) => {
   zoomLevel = viewState.zoom;
   zoomControls.setZoomLevel(zoomLevel);
@@ -166,7 +183,7 @@ function updateLayout() {
   const mainLayout = document.getElementById('main-layout');
   const sidebarColumn = document.getElementById('sidebar-column');
   const mapContainerWrapper = document.getElementById('map-container-wrapper');
-  const layerToggleWrapper = document.getElementById('layer-toggle-wrapper');
+  const topLeftControls = document.getElementById('top-left-controls');
 
   // Desktop sidebar
   if (!isMobileViewport) {
@@ -181,7 +198,7 @@ function updateLayout() {
 
   // Mobile states
   mapContainerWrapper.classList.toggle('sidebar-full', isMobileViewport && sidebarState === 'full');
-  layerToggleWrapper.classList.toggle(
+  topLeftControls.classList.toggle(
     'below-sidebar',
     isMobileViewport && sidebarState === 'full'
   );

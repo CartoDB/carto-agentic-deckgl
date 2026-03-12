@@ -5,8 +5,10 @@
  * Port of Angular's ConsolidatedExecutorsService.
  */
 
+import { vectorTableSource } from '@deck.gl/carto';
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.js';
+import { environment } from '../config/environment.js';
 
 // ==================== MARKER CONSTANTS ====================
 
@@ -15,8 +17,10 @@ const LOCATION_MARKER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="48" 
 const LOCATION_MARKER_SVG_DATA_URL = `data:image/svg+xml;base64,${btoa(LOCATION_MARKER_SVG)}`;
 
 export class ToolExecutor {
-  constructor(deckState) {
+  constructor(deckState, maskLayerManager, widgetManager) {
     this._deckState = deckState;
+    this._maskLayerManager = maskLayerManager || null;
+    this._widgetManager = widgetManager || null;
     this._executors = this._createExecutors();
   }
 
@@ -38,7 +42,7 @@ export class ToolExecutor {
   }
 
   _createExecutors() {
-    return {
+    const executors = {
       [TOOL_NAMES.SET_DECK_STATE]: (params) => {
         const updatedParts = [];
         try {
@@ -66,6 +70,7 @@ export class ToolExecutor {
           const hasDeckConfigFields =
             'layers' in params ||
             'removeLayerIds' in params ||
+            'removeWidgetIds' in params ||
             'layerOrder' in params ||
             'widgets' in params ||
             'effects' in params;
@@ -133,6 +138,27 @@ export class ToolExecutor {
               }
             } else {
               finalWidgets = currentSpec.widgets ?? [];
+            }
+
+            // Route Vega-Lite widget specs to WidgetManager
+            if (this._widgetManager && finalWidgets.length > 0) {
+              const vegaWidgets = finalWidgets.filter(
+                (w) => w.type && w.source && w.vegaLiteSpec
+              );
+              const deckWidgets = finalWidgets.filter(
+                (w) => !(w.type && w.source && w.vegaLiteSpec)
+              );
+              for (const vw of vegaWidgets) {
+                this._widgetManager.addWidget(vw);
+              }
+              finalWidgets = deckWidgets;
+            }
+
+            // Handle widget removal
+            if (this._widgetManager && params.removeWidgetIds) {
+              for (const id of params.removeWidgetIds) {
+                this._widgetManager.removeWidget(id);
+              }
             }
 
             // Determine final effects
@@ -317,5 +343,70 @@ export class ToolExecutor {
         }
       },
     };
+
+    // Add mask layer executor if maskLayerManager is provided
+    if (this._maskLayerManager) {
+      const maskManager = this._maskLayerManager;
+      executors[TOOL_NAMES.SET_MASK_LAYER] = async (params) => {
+        const { action, geometry, tableName } = params;
+        try {
+          switch (action) {
+            case 'set': {
+              let resolvedGeometry = geometry;
+
+              if (!resolvedGeometry && tableName) {
+                // Update with your geom column name(s) if different
+                const geomColumns = ['geom'];
+                const source = await vectorTableSource({
+                  apiBaseUrl: environment.apiBaseUrl,
+                  accessToken: environment.accessToken,
+                  connectionName: environment.connectionName,
+                  tableName,
+                  columns: geomColumns,
+                });
+                const { rows } = await source.widgetSource.getTable({
+                  columns: geomColumns,
+                  limit: 1,
+                });
+                if (rows.length > 0) {
+                  for (const col of geomColumns) {
+                    const val = rows[0][col];
+                    if (val) {
+                      resolvedGeometry = typeof val === 'string' ? JSON.parse(val) : val;
+                      break;
+                    }
+                  }
+                }
+                if (!resolvedGeometry) {
+                  return { success: false, message: `No geometry found in table "${tableName}".` };
+                }
+              }
+
+              if (!resolvedGeometry) {
+                return { success: false, message: 'Either geometry or tableName is required for action "set".' };
+              }
+              maskManager.setMaskGeometry(resolvedGeometry);
+              return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+            }
+            case 'enable-draw':
+              maskManager.enableDrawMode();
+              return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
+            case 'clear':
+              maskManager.clearMask();
+              return { success: true, message: 'Mask cleared. All data layers are now fully visible.' };
+            default:
+              return { success: false, message: `Unknown mask action: ${action}` };
+          }
+        } catch (error) {
+          return {
+            success: false,
+            message: `Failed to set mask layer: ${error instanceof Error ? error.message : String(error)}`,
+            error: error instanceof Error ? error : new Error(String(error)),
+          };
+        }
+      };
+    }
+
+    return executors;
   }
 }

@@ -66,11 +66,14 @@
   width: 450px;
 }
 
-.layer-toggle-wrapper {
+.top-left-controls {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .zoom-controls-wrapper {
@@ -114,24 +117,24 @@
     overflow: hidden;
   }
 
-  .layer-toggle-wrapper.below-sidebar {
+  .top-left-controls.below-sidebar {
     position: fixed;
     top: auto;
     bottom: calc(50vh + 10px);
     z-index: 1001;
   }
 
-  .map-container.sidebar-full .layer-toggle-wrapper.below-sidebar {
+  .map-container.sidebar-full .top-left-controls.below-sidebar {
     bottom: calc(100vh - 56px + 10px);
   }
 }
 
 .fab-button {
   position: fixed;
-  top: 58px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
+  top: 4px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #3b82f6;
   color: white;
@@ -158,8 +161,8 @@
 }
 
 .fab-button svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   stroke: white;
 }
 

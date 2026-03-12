@@ -87,11 +87,14 @@ body {
   width: 450px;
 }
 
-.layer-toggle-wrapper {
+.top-left-controls {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .zoom-controls-wrapper {
@@ -101,13 +104,146 @@ body {
   z-index: 100;
 }
 
+/* ==================== DRAW TOOL ==================== */
+
+.draw-tool-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: white;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.draw-tool-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.draw-tool-btn:hover {
+  background: #f1f5f9;
+}
+
+.draw-tool-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.draw-tool-btn.clear-btn {
+  color: #ef4444;
+}
+
+.draw-tool-btn.clear-btn:hover {
+  background: #fef2f2;
+}
+
+.draw-tool-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 4px;
+}
+
+.mode-btn {
+  width: 36px;
+  height: 28px;
+  border: none;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.mode-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.mode-btn.active {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+
+.mode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Widget Container */
+.widget-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  min-width: 330px;
+  color: #1e293b;
+  font-size: 13px;
+  overflow-y: auto;
+  max-height: calc(40 - 100vh);
+}
+.widget-container-header {
+  display: flex;
+  align-items: center;
+  padding: 15px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
+}
+.widget-card { border-bottom: 1px solid #e2e8f0; }
+.widget-card:last-child { border-bottom: none; }
+.widget-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.widget-card-title { font-weight: 500; font-size: 12px; color: #475569; }
+.widget-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.widget-remove-btn:hover { color: #ef4444; background: #fef2f2; }
+.widget-card-body { padding: 8px 14px; }
+.widget-formula-value {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  padding: 8px 0;
+  color: #1e293b;
+}
+.widget-vega-container { width: 100%; min-height: 100px; }
+.widget-vega-container svg { width: 100% !important; }
+.widget-loading { text-align: center; padding: 12px; color: #94a3b8; font-size: 12px; }
+.widget-error { text-align: center; padding: 8px; color: #ef4444; font-size: 11px; }
+
 /* FAB Button */
 .fab-button {
   position: fixed;
-  top: 58px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
+  top: 4px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #3b82f6;
   color: white;
@@ -132,8 +268,8 @@ body {
 }
 
 .fab-button svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   stroke: white;
 }
 
@@ -180,7 +316,7 @@ body {
     overflow: hidden;
   }
 
-  .layer-toggle-wrapper.below-sidebar {
+  .top-left-controls.below-sidebar {
     position: fixed;
     top: auto;
     bottom: calc(50vh + 10px);
@@ -294,7 +430,7 @@ body {
 
 /* Header */
 .chat-header {
-  padding: 12px;
+  padding: 10px;
   border-bottom: 1px solid #ddd;
   display: flex;
   justify-content: space-between;

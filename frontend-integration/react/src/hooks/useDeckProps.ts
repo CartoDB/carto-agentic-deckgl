@@ -8,16 +8,28 @@
  * with a single full-spec conversion that mirrors the deck.gl playground.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { getJsonConverter } from '../config/deck-json-config';
 import { environment } from '../config/environment';
 import { useDeckState } from './useDeckState';
 
-export function useDeckProps(): Record<string, unknown> {
+interface MaskLayerHook {
+  isMaskActive: boolean;
+  isDrawing: boolean;
+  getMaskLayers: () => any[];
+  injectMaskExtension: (layers: any[]) => any[];
+}
+
+export function useDeckProps(maskLayer?: MaskLayerHook): Record<string, unknown> {
   const { state } = useDeckState();
   const deckSpec = state.deckSpec;
+  const cachedRef = useRef<{ converted: Record<string, unknown>; layers: any[] }>({
+    converted: {},
+    layers: [],
+  });
 
-  return useMemo(() => {
+  // Step 1: Convert deck spec via JSONConverter — only re-runs when deckSpec changes
+  const baseProps = useMemo(() => {
     const jsonConverter = getJsonConverter();
 
     // Inject credentials into layers (deep clone to avoid mutating state)
@@ -37,17 +49,36 @@ export function useDeckProps(): Record<string, unknown> {
 
     const converted = jsonConverter.convert(spec);
     if (converted) {
+      const convertedLayers = (converted as any).layers || [];
       console.log('[useDeckProps] Converted full spec:', {
         layers: layers.length,
         widgets: (deckSpec.widgets || []).length,
         effects: (deckSpec.effects || []).length,
       });
-      return converted as Record<string, unknown>;
+      cachedRef.current = { converted, layers: convertedLayers };
+      return { converted, layers: convertedLayers };
     }
 
     console.error('[useDeckProps] Failed to convert spec');
-    return {};
+    return null;
   }, [deckSpec]);
+
+  // Step 2: Compose with mask layers — cheap operation, re-runs on mask state changes
+  return useMemo(() => {
+    if (!baseProps) return {};
+
+    let finalLayers = baseProps.layers;
+
+    if (maskLayer) {
+      // Inject MaskExtension when mask has completed features (cheap clone, no API calls)
+      finalLayers = maskLayer.injectMaskExtension(finalLayers);
+      // Always append mask layers for visual feedback
+      const maskLayers = maskLayer.getMaskLayers();
+      finalLayers = [...finalLayers, ...maskLayers];
+    }
+
+    return { ...baseProps.converted, layers: finalLayers } as Record<string, unknown>;
+  }, [baseProps, maskLayer]);
 }
 
 function injectCartoCredentials(

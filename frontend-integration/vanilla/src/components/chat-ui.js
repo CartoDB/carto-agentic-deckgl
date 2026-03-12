@@ -457,7 +457,7 @@ export class ChatUI {
       message: 'Are you sure you want to clear the chat history? This action cannot be undone.',
       confirmLabel: 'Clear',
       cancelLabel: 'Cancel',
-      checkboxLabel: 'Also clear chat-generated layers',
+      checkboxLabel: 'Also clear chat-generated layers and widgets',
       onConfirm: (checked) => {
         this._onClearChat(!!checked);
       },

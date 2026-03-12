@@ -196,6 +196,17 @@ The `AgentRunner` (`services/agent-runner.ts`) orchestrates the AI interaction l
 - Strips CARTO credentials from tool call data before sending to the frontend
 - Tracks step count for the tool loop
 
+### MCP Table Name Caching
+
+When an MCP async workflow completes (`async_workflow_job_get_results`), the agent runner extracts the `workflowOutputTableName` from the tool call input parameters. This table name identifies where the MCP workflow stored its output in CARTO.
+
+The table name is stored in conversation history with a `[MCP Result Table Available]` marker:
+> `[MCP Result Table Available] The MCP workflow result is stored in table "<table>". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "<table>" }.`
+
+When the user later asks to "filter by this area" or "mask the map to this region", the AI retrieves the cached table name and calls `set-mask-layer { action: "set", tableName: "<table>" }`. The frontend fetches the geometry directly from the CARTO table via `vectorTableSource`.
+
+The agent runner also extracts coordinates from the MCP result (via `extractCoordinatesFromMcpResult()`) for centering the map. If the LLM fails to add a layer with the MCP table, a fallback `VectorTileLayer` is auto-injected.
+
 ---
 
 ## Tool System
@@ -204,7 +215,7 @@ Tools are aggregated from three sources in `agent/tools.ts`:
 
 ### Local Tools (from `@carto/agentic-deckgl`)
 
-The consolidated `set-deck-state` tool is imported from the core library and converted to Vercel AI SDK format.
+The consolidated tools (`set-deck-state`, `set-marker`, `set-mask-layer`) are imported from the core library and converted to Vercel AI SDK format.
 
 ### Custom Tools (`agent/custom-tools.ts`)
 
@@ -228,10 +239,11 @@ The system prompt is built in two layers:
 
 `buildSystemPrompt()` generates the base prompt with:
 
-- Tool-specific instructions (how to use `set-deck-state` and `set-marker`)
+- Tool-specific instructions (how to use `set-deck-state`, `set-marker`, and `set-mask-layer`)
 - Current map state (camera position, active layers)
 - User context (country, business type)
 - MCP instructions (if MCP tools are available)
+- Mask layer instructions (geometry caching, trigger phrases, no-fabrication rules)
 
 ### Custom Prompt (`prompts/custom-prompt.ts`)
 
@@ -243,9 +255,6 @@ Application-specific instructions appended to the library prompt:
 - Agent behavior rules (no loops, no self-responses)
 - Layer styling guidance
 - Geocoding workflow sequence (`lds-geocode → set-deck-state → MCP tool`)
-- Marker placement rules (when to use `set-marker` vs. navigation-only `set-deck-state`)
-- MCP workflow results with mandatory layer creation and automatic `set-marker` after completion
-- Response format rules (no JSON/code in chat text)
 
 ---
 

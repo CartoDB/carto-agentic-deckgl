@@ -51,6 +51,9 @@ export const tools = {
       removeLayerIds: z.array(z.string()).optional().describe(
         'Array of layer IDs to remove from the map. Process removals before any layer updates/additions.'
       ),
+      removeWidgetIds: z.array(z.string()).optional().describe(
+        'Array of widget IDs to remove from display. Process removals before any widget additions.'
+      ),
     }),
   },
 
@@ -64,6 +67,25 @@ export const tools = {
       ),
       latitude: z.number().min(-90).max(90).optional().describe('Latitude coordinate (required for add/remove)'),
       longitude: z.number().min(-180).max(180).optional().describe('Longitude coordinate (required for add/remove)'),
+    }),
+  },
+
+  [TOOL_NAMES.SET_MASK_LAYER]: {
+    name: TOOL_NAMES.SET_MASK_LAYER,
+    description: 'Manage the editable mask layer: set a GeoJSON geometry to mask/filter layers, enable drawing mode, or clear the mask.',
+    outputType: 'spec' as ToolOutputType,
+    schema: z.object({
+      action: z.enum(['set', 'enable-draw', 'clear']).describe(
+        '"set" applies a mask from geometry or table, "enable-draw" activates user drawing mode, "clear" removes the mask.'
+      ),
+      geometry: z.object({
+        type: z.enum(['Polygon', 'MultiPolygon', 'Feature', 'FeatureCollection']),
+      }).passthrough().optional().describe(
+        'GeoJSON geometry for mask. Use when geometry is already available (e.g., draw mode). Mutually exclusive with tableName.'
+      ),
+      tableName: z.string().optional().describe(
+        'CARTO table name containing mask geometry (from MCP workflow result). Frontend fetches geometry directly via vectorTableSource. Mutually exclusive with geometry.'
+      ),
     }),
   },
 
@@ -160,6 +182,7 @@ export function getDataTools(): ToolName[] {
 export const consolidatedToolNames: ToolName[] = [
   TOOL_NAMES.SET_DECK_STATE,
   TOOL_NAMES.SET_MARKER,
+  TOOL_NAMES.SET_MASK_LAYER,
 ];
 
 /**
