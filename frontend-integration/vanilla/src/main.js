@@ -120,7 +120,7 @@ const zoomControls = new ZoomControls(document.getElementById('zoom-controls-wra
   },
 });
 
-const drawTool = new DrawTool(document.getElementById('draw-tool-wrapper'), maskLayerManager);
+new DrawTool(document.getElementById('draw-tool-wrapper'), maskLayerManager);
 
 const widgetContainer = new WidgetContainer(document.getElementById('widget-container-wrapper'), {
   onRemove: (id) => widgetManager.removeWidget(id),
