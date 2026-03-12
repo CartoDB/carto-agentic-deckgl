@@ -131,10 +131,10 @@
 
 .fab-button {
   position: fixed;
-  top: 58px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
+  top: 4px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #3b82f6;
   color: white;
@@ -161,8 +161,8 @@
 }
 
 .fab-button svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   stroke: white;
 }
 

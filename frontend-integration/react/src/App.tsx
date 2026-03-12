@@ -5,9 +5,11 @@ import { ZoomControls } from './components/ZoomControls';
 import { LayerToggle } from './components/LayerToggle';
 import { Snackbar } from './components/Snackbar';
 import { DrawTool } from './components/DrawTool';
+import { WidgetContainer } from './components/WidgetContainer';
 import { useMapAITools } from './hooks/useMapAITools';
 import { useDeckState } from './hooks/useDeckState';
 import { useMaskLayer } from './hooks/useMaskLayer';
+import { useWidgets } from './hooks/useWidgets';
 import { useIsMobile } from './hooks/useIsMobile';
 import type { SnackbarConfig } from './types/models';
 import './App.css';
@@ -16,13 +18,14 @@ export default function App() {
   const deckState = useDeckState();
   const aiTools = useMapAITools();
   const maskLayer = useMaskLayer();
+  const widgetManager = useWidgets(maskLayer.maskState.committedGeometry);
   const isMobile = useIsMobile();
 
   const [zoomLevel, setZoomLevel] = useState(3);
   const [sidebarState, setSidebarState] = useState<
     'closed' | 'open' | 'collapsed' | 'half' | 'full'
   >('closed');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [snackbar, setSnackbar] = useState<SnackbarConfig>({ message: null, type: 'error' });
 
   // Register mask layer actions with the tool executor
@@ -33,6 +36,15 @@ export default function App() {
       clearMask: maskLayer.clearMask,
     });
   }, [aiTools, maskLayer]);
+
+  // Register widget actions with the tool executor
+  useEffect(() => {
+    aiTools.registerWidgetActions({
+      addWidget: widgetManager.addWidget,
+      removeWidget: widgetManager.removeWidget,
+      clearWidgets: widgetManager.clearWidgets,
+    });
+  }, [aiTools, widgetManager]);
 
   const handleViewStateChange = useCallback((viewState: { zoom: number }) => {
     setZoomLevel(viewState.zoom);
@@ -50,9 +62,10 @@ export default function App() {
       aiTools.clearMessages();
       if (clearLayers) {
         deckState.clearChatGeneratedLayers();
+        widgetManager.clearWidgets();
       }
     },
-    [aiTools, deckState]
+    [aiTools, deckState, widgetManager]
   );
 
   const handleZoomIn = useCallback(() => {
@@ -145,13 +158,17 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <div className={`main-layout${isDesktopSidebarOpen ? ' sidebar-open' : ''}`}>
+      <div
+        className={`main-layout${isDesktopSidebarOpen ? " sidebar-open" : ""}`}
+      >
         <div className="map-column">
           <header className="app-header">
             <h1 className="app-title">CARTO AI Tools — React</h1>
           </header>
 
-          <div className={`map-container${sidebarFullOnMobile ? ' sidebar-full' : ''}`}>
+          <div
+            className={`map-container${sidebarFullOnMobile ? " sidebar-full" : ""}`}
+          >
             <MapView
               onViewStateChange={handleViewStateChange}
               maskLayer={{
@@ -164,7 +181,7 @@ export default function App() {
 
             <div
               className={`top-left-controls${
-                showMobileSidebar ? ' below-sidebar' : ''
+                showMobileSidebar ? " below-sidebar" : ""
               }`}
             >
               <LayerToggle
@@ -179,7 +196,11 @@ export default function App() {
                   hasMask={maskLayer.isMaskActive}
                   isDrawing={maskLayer.maskState.isDrawing}
                   currentMode={maskLayer.maskState.currentMode}
-                  onToggleDraw={() => maskLayer.maskState.isDrawing ? maskLayer.disableDrawMode() : maskLayer.enableDrawMode()}
+                  onToggleDraw={() =>
+                    maskLayer.maskState.isDrawing
+                      ? maskLayer.disableDrawMode()
+                      : maskLayer.enableDrawMode()
+                  }
                   onSetMode={maskLayer.setDrawMode}
                   onClear={maskLayer.clearMask}
                 />
@@ -196,7 +217,10 @@ export default function App() {
             </div>
           </div>
         </div>
-
+        <WidgetContainer
+          widgets={widgetManager.widgets}
+          onRemove={widgetManager.removeWidget}
+        />
         <div className="sidebar-column">
           {(isDesktopSidebarOpen || showMobileSidebar) && (
             <ChatUI
@@ -215,23 +239,25 @@ export default function App() {
         </div>
       </div>
 
-      {/* FAB button to toggle sidebar */}
-      <button
-        className={`fab-button${isDesktopSidebarOpen ? ' sidebar-open' : ''}`}
-        onClick={toggleSidebar}
-        title={isSidebarOpen || showMobileSidebar ? 'Close Chat' : 'Open Chat'}
-      >
-        {isSidebarOpen || showMobileSidebar ? (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        ) : (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+      {/* FAB button to toggle sidebar — hidden when sidebar is open */}
+      {!isDesktopSidebarOpen && !showMobileSidebar && (
+        <button
+          className="fab-button"
+          onClick={toggleSidebar}
+          title="Open Chat"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+          >
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-        )}
-      </button>
+        </button>
+      )}
 
       {/* Snackbar */}
       <Snackbar config={snackbar} onDismiss={hideSnackbar} />

@@ -17,9 +17,9 @@
     "e2e:matrix": "node e2e/scripts/run-matrix.mjs"
   },
   "dependencies": {
+    "@carto/agentic-deckgl": "file:../../agentic-deckgl",
     "@carto/api-client": "^0.5.24",
     "@deck.gl-community/editable-layers": "^9.2.8",
-    "@carto/agentic-deckgl": "file:../../agentic-deckgl",
     "@deck.gl/carto": "^9.2.2",
     "@deck.gl/core": "^9.2.2",
     "@deck.gl/extensions": "^9.2.6",
@@ -59,6 +59,9 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-map-gl": "^8.1.0",
+    "vega": "^6.2.0",
+    "vega-embed": "^7.1.0",
+    "vega-lite": "^6.4.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

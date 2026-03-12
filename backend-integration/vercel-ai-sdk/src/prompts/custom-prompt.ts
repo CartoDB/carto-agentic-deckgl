@@ -62,5 +62,14 @@ When the user mentions a location (address, city, landmark, place name) and you 
 4. If \`lds-geocode\` fails, inform the user and ask them to provide coordinates or a more specific address.
 
 The sequence for MCP workflows MUST be: lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool call. Never skip any step.
+
+### Widget Suggestions
+After successfully adding a data layer, offer to create widgets for the user:
+- "I've added the [layer name] layer. Would you like me to add some widgets to analyze this data? I can show:"
+- List 2-3 relevant widget suggestions based on the semantic layer fields
+- For the H3 spatial features layer: suggest total population (formula), urbanity distribution (category), or data table
+- For the counties layer: suggest population formula, higher education percentage, or election results category
+- Only create widgets after the user explicitly confirms
+- When a mask is active, widgets automatically show filtered data — mention this to the user
 `;
 

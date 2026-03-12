@@ -20,6 +20,18 @@ import { EventEmitter } from '../state/event-emitter.js';
 export const MASK_LAYER_ID = '__mask-layer__';
 const EDITABLE_MASK_LAYER_ID = '__editable-mask__';
 
+const FINISHED_EDIT_TYPES = new Set([
+  'addFeature',
+  'finishMovePosition',
+  'translated',
+  'addPosition',
+  'removePosition',
+  'scaled',
+  'rotated',
+  'extruded',
+  'split',
+]);
+
 function normalizeToFeatureCollection(input) {
   if (input.type === 'FeatureCollection') return input;
   if (input.type === 'Feature')
@@ -37,6 +49,7 @@ export class MaskLayerManager extends EventEmitter {
     this._editMode = new CompositeMode([new TranslateMode(), new ModifyMode()]);
     this._state = {
       geometry: null,
+      committedGeometry: null,
       isDrawing: false,
       currentMode: 'draw',
       selectedFeatureIndexes: [],
@@ -54,10 +67,12 @@ export class MaskLayerManager extends EventEmitter {
   setMaskGeometry(geojson) {
     const geometry = normalizeToFeatureCollection(geojson);
     this._state.geometry = geometry;
+    this._state.committedGeometry = geometry;
     this._state.isDrawing = true;
     this._state.currentMode = 'edit';
     this._state.selectedFeatureIndexes = geometry.features.length > 0 ? [0] : [];
     this._emitChange();
+    this._emitGeometryCommitted();
   }
 
   enableDrawMode() {
@@ -86,10 +101,12 @@ export class MaskLayerManager extends EventEmitter {
 
   clearMask() {
     this._state.geometry = null;
+    this._state.committedGeometry = null;
     this._state.isDrawing = false;
     this._state.currentMode = 'draw';
     this._state.selectedFeatureIndexes = [];
     this._emitChange();
+    this._emitGeometryCommitted();
   }
 
   getMaskLayers() {
@@ -118,6 +135,10 @@ export class MaskLayerManager extends EventEmitter {
             if (editType === 'updateTentativeFeature') return;
             this._state.geometry = updatedData;
             this._emitChange();
+            if (FINISHED_EDIT_TYPES.has(editType)) {
+              this._state.committedGeometry = updatedData;
+              this._emitGeometryCommitted();
+            }
           },
           onClick: (info) => {
             if (info.index >= 0 && this._state.currentMode === 'edit') {
@@ -150,5 +171,9 @@ export class MaskLayerManager extends EventEmitter {
 
   _emitChange() {
     this.emit('change', this.getState());
+  }
+
+  _emitGeometryCommitted() {
+    this.emit('geometry-committed', this.getState());
   }
 }

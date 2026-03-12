@@ -117,7 +117,7 @@
 
 /* Header */
 .chat-header {
-  padding: 12px;
+  padding: 10px;
   border-bottom: 1px solid #ddd;
   display: flex;
   justify-content: space-between;

@@ -17,6 +17,7 @@ import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import { DeckStateService, Basemap, LayerSpec } from '../state/deck-state.service';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.utils';
 import { MaskLayerService } from './mask-layer.service';
+import { WidgetService } from './widget.service';
 import { environment } from '../../environments/environment';
 
 // ==================== MARKER CONSTANTS ====================
@@ -53,6 +54,7 @@ interface SetDeckStateParams {
   effects?: Record<string, unknown>[];
   layerOrder?: string[];
   removeLayerIds?: string[];
+  removeWidgetIds?: string[];
 }
 
 @Injectable({
@@ -64,6 +66,7 @@ export class ConsolidatedExecutorsService {
   constructor(
     private deckState: DeckStateService,
     private maskLayerService: MaskLayerService,
+    private widgetService: WidgetService,
   ) {
     this.executors = this.createExecutors();
   }
@@ -122,6 +125,7 @@ export class ConsolidatedExecutorsService {
           const hasDeckConfigFields =
             'layers' in paramsObj ||
             'removeLayerIds' in paramsObj ||
+            'removeWidgetIds' in paramsObj ||
             'layerOrder' in paramsObj ||
             'widgets' in paramsObj ||
             'effects' in paramsObj;
@@ -200,6 +204,27 @@ export class ConsolidatedExecutorsService {
               }
             } else {
               finalWidgets = currentConfig.widgets ?? [];
+            }
+
+            // Route Vega-Lite widget specs to WidgetService
+            if (finalWidgets.length > 0) {
+              const vegaWidgets = finalWidgets.filter(
+                (w: any) => w.type && w.source && w.vegaLiteSpec
+              );
+              const deckWidgets = finalWidgets.filter(
+                (w: any) => !(w.type && w.source && w.vegaLiteSpec)
+              );
+              for (const vw of vegaWidgets) {
+                this.widgetService.addWidget(vw as any);
+              }
+              finalWidgets = deckWidgets;
+            }
+
+            // Handle widget removal
+            if (paramsObj.removeWidgetIds) {
+              for (const id of paramsObj.removeWidgetIds) {
+                this.widgetService.removeWidget(id);
+              }
             }
 
             // Determine final effects
