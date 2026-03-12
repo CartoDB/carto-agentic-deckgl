@@ -482,7 +482,7 @@ const containerClasses = computed(() => {
       confirmText="Clear"
       cancelText="Cancel"
       :showCheckbox="true"
-      checkboxLabel="Also clear chat-generated layers"
+      checkboxLabel="Also clear chat-generated layers and widgets"
       :checkboxChecked="clearLayersOnClear"
       @checkboxChange="clearLayersOnClear = $event"
       @confirm="
@@ -606,7 +606,7 @@ const containerClasses = computed(() => {
 
 /* Header */
 .chat-header {
-  padding: 12px;
+  padding: 10px;
   border-bottom: 1px solid #ddd;
   display: flex;
   justify-content: space-between;

@@ -42,6 +42,63 @@ This removes the specified layer(s) while keeping all other layers intact.
 2. Remove multiple layers: { "removeLayerIds": ["pois-layer", "buffer-layer"] }
 3. Remove layer and update another: { "removeLayerIds": ["old-layer"], "layers": [{ "id": "other-layer", "visible": true }] }
 
+**WIDGET SUPPORT (Vega-Lite):**
+After adding a data layer, you may suggest widgets to the user. If they agree, add widgets using the widgets array.
+Each widget must follow this WidgetSpec format:
+
+{
+  "id": "unique-widget-id",
+  "name": "Human-readable Widget Title",
+  "type": "formula" | "category",
+  "source": {
+    "tableName": "EXACT_TABLE_NAME_FROM_SEMANTIC_LAYER",
+    "sourceFunction": "vectorTableSource" | "h3TableSource" | "quadbinTableSource",
+    "columns": ["column_name"],
+    "aggregationExp": "SUM(column) as column"
+  },
+  "params": {
+    "column": "column_name",
+    "operation": "sum" | "avg" | "count" | "min" | "max",
+    "ticks": [0, 100, 500, 1000]
+  },
+  "vegaLiteSpec": { /* Vega-Lite v5 spec WITHOUT data — data is injected by frontend */ }
+}
+
+**Widget examples:**
+
+Formula widget (single number) from H3 layer:
+{ "widgets": [{ "id": "total-pop", "name": "Total Population", "type": "formula",
+  "source": { "tableName": "TABLE", "sourceFunction": "h3TableSource", "columns": ["population"], "aggregationExp": "SUM(population) as population" },
+  "params": { "column": "population", "operation": "sum" },
+  "vegaLiteSpec": { "$schema": "https://vega.github.io/schema/vega-lite/v5.json", "mark": "text",
+    "encoding": { "text": { "field": "value", "type": "quantitative", "format": ",.0f" } } }
+}]}
+
+Category widget (bar chart) from H3 layer:
+{ "widgets": [{ "id": "urbanity-dist", "name": "Urbanity Distribution", "type": "category",
+  "source": { "tableName": "TABLE", "sourceFunction": "h3TableSource", "columns": ["urbanity"], "aggregationExp": "COUNT(*) as count" },
+  "params": { "column": "urbanity", "operation": "count" },
+  "vegaLiteSpec": { "$schema": "https://vega.github.io/schema/vega-lite/v5.json", "mark": "bar",
+    "encoding": { "x": { "field": "name", "type": "nominal" }, "y": { "field": "value", "type": "quantitative" } } }
+}]}
+
+Remove widgets:
+{ "removeWidgetIds": ["total-pop", "urbanity-dist"] }
+
+**Widget rules:**
+1. ALWAYS ask the user before adding widgets. Suggest 2-3 relevant widgets based on the semantic layer fields.
+2. Use the SAME tableName and sourceFunction as the loaded layer.
+3. For numeric columns: suggest formula (SUM/AVG) widgets.
+4. For categorical columns (like urbanity): suggest category widgets.
+5. Widgets automatically filter when a mask is active — no extra action needed.
+6. The vegaLiteSpec must NOT include a data field — the frontend injects data from CARTO API.
+   CRITICAL: The CARTO API returns FIXED field names. Your vegaLiteSpec encoding MUST use these exact fields:
+   - category data: [{name, value}] → use field "name" for x-axis, field "value" for y-axis
+   - formula data: {value} → use field "value"
+7. Widget IDs must be unique and descriptive (e.g., "population-formula", "urbanity-category").
+8. CRITICAL: For H3/Quadbin layers, ALWAYS include "aggregationExp" in source (e.g., "SUM(population) as population"). Without it, the API returns a 400 error. For vectorTableSource, aggregationExp is NOT needed.
+9. CRITICAL: The "operation" field in params is REQUIRED for ALL widget types (formula, category, table). Never omit it.
+
 **CRITICAL: If user requests to add a new layer and no type is provided (quanbin, h3, etc.), use vectorTileLayer as default.**
 
 **CRITICAL SOURCE FUNCTIONS - Do NOT invent new function names:**
@@ -660,6 +717,54 @@ Do NOT call set-marker for simple navigation/fly-to commands. If the user says "
 3. Coordinates should match the target location (same as initialViewState coordinates).
 4. For MCP workflows: call set-marker BEFORE the MCP tool starts, right after set-deck-state (flyTo). Sequence: lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool → set-deck-state (add layer).
 5. The marker layer is managed automatically - do NOT remove it with set-deck-state removeLayerIds.
+`,
+  },
+
+  [TOOL_NAMES.SET_MASK_LAYER]: {
+    name: TOOL_NAMES.SET_MASK_LAYER,
+    prompt: `### 3. set-mask-layer
+Manage the editable mask layer: set a GeoJSON geometry to mask/filter layers, enable drawing mode, or clear the mask.
+
+**Parameters:**
+- \`action\` (required): \`"set"\` | \`"enable-draw"\` | \`"clear"\`
+- \`geometry\` (optional, for "set"): GeoJSON Polygon, MultiPolygon, Feature, or FeatureCollection. Use when geometry is already available.
+- \`tableName\` (optional, for "set"): CARTO table name containing mask geometry (from MCP workflow result). The frontend fetches geometry directly. Mutually exclusive with geometry.
+
+**Examples:**
+Set mask from MCP result table: \`{ "action": "set", "tableName": "carto-demo-data.demo_tables.buffer_result" }\`
+Set mask from geometry: \`{ "action": "set", "geometry": { "type": "Polygon", "coordinates": [...] } }\`
+Enable drawing mode: \`{ "action": "enable-draw" }\`
+Clear mask: \`{ "action": "clear" }\`
+
+**WHEN TO CALL set-mask-layer:**
+- The user explicitly asks to draw a mask, filter area, or region of interest → use "enable-draw"
+- The user explicitly asks to filter or mask using an MCP result → use "set" with tableName from the [MCP Result Table Available] message
+- The user says "clear the mask", "remove the filter area", etc. → use "clear"
+
+**MCP Result → Mask (USER-INITIATED ONLY):**
+When the user asks to filter by an MCP result area:
+1. Find the [MCP Result Table Available] message in conversation history.
+2. Use the table name from that message with the tableName parameter.
+3. Call set-mask-layer { action: "set", tableName: "<table name from message>" }
+If no [MCP Result Table Available] message exists, use: set-mask-layer { action: "enable-draw" }
+Do NOT automatically apply a mask when an MCP workflow completes — only when the user explicitly requests it.
+
+Trigger phrases: "Filter by this area", "Mask the map to this region", "Use this as a spatial filter", "Only show data inside the drivetime area", "Clip the layers to the buffer zone"
+
+**WHEN NOT TO CALL set-mask-layer:**
+- Simple navigation/fly-to requests — use set-deck-state
+- Adding/removing data layers — use set-deck-state
+- Changing basemap — use set-deck-state
+- Adding markers — use set-marker
+- The user has NOT mentioned masking, filtering by area, or drawing regions
+- An MCP workflow just completed but the user did NOT ask to mask or filter
+
+**CRITICAL RULES:**
+1. Only one mask can be active at a time — setting a new mask replaces the previous one.
+2. The mask layer is separate from data layers — do NOT try to create mask layers with set-deck-state.
+3. When mask is active, all data layers are visually masked (only rendered inside the mask geometry).
+4. The mask layer is managed automatically — do NOT remove it with set-deck-state removeLayerIds.
+5. Do NOT auto-apply mask after MCP results — only when the user explicitly requests it.
 `,
   },
 };

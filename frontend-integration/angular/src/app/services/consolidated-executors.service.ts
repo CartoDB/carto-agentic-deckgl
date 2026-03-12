@@ -12,9 +12,13 @@
  */
 
 import { Injectable } from '@angular/core';
+import { vectorTableSource } from '@deck.gl/carto';
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
 import { DeckStateService, Basemap, LayerSpec } from '../state/deck-state.service';
 import { mergeLayerSpecs, validateLayerColumns } from '../utils/layer-merge.utils';
+import { MaskLayerService } from './mask-layer.service';
+import { WidgetService } from './widget.service';
+import { environment } from '../../environments/environment';
 
 // ==================== MARKER CONSTANTS ====================
 
@@ -50,6 +54,7 @@ interface SetDeckStateParams {
   effects?: Record<string, unknown>[];
   layerOrder?: string[];
   removeLayerIds?: string[];
+  removeWidgetIds?: string[];
 }
 
 @Injectable({
@@ -58,7 +63,11 @@ interface SetDeckStateParams {
 export class ConsolidatedExecutorsService {
   private executors: Record<string, ToolExecutor> = {};
 
-  constructor(private deckState: DeckStateService) {
+  constructor(
+    private deckState: DeckStateService,
+    private maskLayerService: MaskLayerService,
+    private widgetService: WidgetService,
+  ) {
     this.executors = this.createExecutors();
   }
 
@@ -116,6 +125,7 @@ export class ConsolidatedExecutorsService {
           const hasDeckConfigFields =
             'layers' in paramsObj ||
             'removeLayerIds' in paramsObj ||
+            'removeWidgetIds' in paramsObj ||
             'layerOrder' in paramsObj ||
             'widgets' in paramsObj ||
             'effects' in paramsObj;
@@ -194,6 +204,27 @@ export class ConsolidatedExecutorsService {
               }
             } else {
               finalWidgets = currentConfig.widgets ?? [];
+            }
+
+            // Route Vega-Lite widget specs to WidgetService
+            if (finalWidgets.length > 0) {
+              const vegaWidgets = finalWidgets.filter(
+                (w: any) => w.type && w.source && w.vegaLiteSpec
+              );
+              const deckWidgets = finalWidgets.filter(
+                (w: any) => !(w.type && w.source && w.vegaLiteSpec)
+              );
+              for (const vw of vegaWidgets) {
+                this.widgetService.addWidget(vw as any);
+              }
+              finalWidgets = deckWidgets;
+            }
+
+            // Handle widget removal
+            if (paramsObj.removeWidgetIds) {
+              for (const id of paramsObj.removeWidgetIds) {
+                this.widgetService.removeWidget(id);
+              }
             }
 
             // Determine final effects
@@ -377,6 +408,76 @@ export class ConsolidatedExecutorsService {
           return {
             success: false,
             message: `Failed to set marker: ${error instanceof Error ? error.message : String(error)}`,
+            error: error instanceof Error ? error : new Error(String(error)),
+          };
+        }
+      },
+
+      // ==================== SET MASK LAYER ====================
+      [TOOL_NAMES.SET_MASK_LAYER]: async (params: unknown): Promise<ToolResult> => {
+        const { action, geometry, tableName } = params as {
+          action: 'set' | 'enable-draw' | 'clear';
+          geometry?: Record<string, unknown>;
+          tableName?: string;
+        };
+        try {
+          switch (action) {
+            case 'set': {
+              let resolvedGeometry = geometry;
+
+              if (!resolvedGeometry && tableName) {
+                // Update with your geom column name(s) if different
+                const geomColumns = ['geom'];
+                const source = await vectorTableSource({
+                  apiBaseUrl: environment.apiBaseUrl,
+                  accessToken: environment.accessToken,
+                  connectionName: environment.connectionName,
+                  tableName,
+                  columns: geomColumns,
+                });
+                const { rows } = await source.widgetSource.getTable({
+                  columns: geomColumns,
+                  limit: 1,
+                });
+                if (rows.length > 0) {
+                  for (const col of geomColumns) {
+                    const val = rows[0][col];
+                    if (val) {
+                      resolvedGeometry =
+                        typeof val === 'string'
+                          ? JSON.parse(val)
+                          : (val as unknown as Record<string, unknown>);
+                      break;
+                    }
+                  }
+                }
+                if (!resolvedGeometry) {
+                  return { success: false, message: `No geometry found in table "${tableName}".` };
+                }
+              }
+
+              if (!resolvedGeometry) {
+                return { success: false, message: 'Either geometry or tableName is required for action "set".' };
+              }
+              this.maskLayerService.setMaskGeometry(resolvedGeometry);
+              return { success: true, message: 'Mask geometry applied. All data layers are now masked to the specified area.' };
+            }
+
+            case 'enable-draw':
+              this.maskLayerService.enableDrawMode();
+              return { success: true, message: 'Drawing mode enabled. Draw a polygon on the map to define the mask area.' };
+
+            case 'clear':
+              this.maskLayerService.clearMask();
+              return { success: true, message: 'Mask cleared. All data layers are now fully visible.' };
+
+            default:
+              return { success: false, message: `Unknown mask action: ${action}` };
+          }
+        } catch (error) {
+          return {
+            success: false,
+            message: `Failed to set mask layer: ${error instanceof Error ? error.message : String(error)}`,
             error: error instanceof Error ? error : new Error(String(error)),
           };
         }

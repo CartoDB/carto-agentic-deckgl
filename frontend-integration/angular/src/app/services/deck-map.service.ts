@@ -8,10 +8,12 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { Subject, Subscription } from 'rxjs';
 import { Deck, Layer } from '@deck.gl/core';
+import { MaskExtension } from '@deck.gl/extensions';
 import { log as lumaLog } from '@luma.gl/core';
 import { BASEMAP } from '@deck.gl/carto';
 import maplibregl from 'maplibre-gl';
 import { DeckStateService, DeckStateData, Basemap, DEFAULT_VIEW_STATE } from '../state/deck-state.service';
+import { MaskLayerService, MASK_LAYER_ID } from './mask-layer.service';
 import { getJsonConverter } from '../config/deck-json-config';
 import { getTooltipContent } from '../utils/tooltip.utils';
 import { environment } from '../../environments/environment';
@@ -40,12 +42,18 @@ export class DeckMapService implements OnDestroy {
   private deck: Deck<any> | null = null;
   private map: maplibregl.Map | null = null;
   private stateSubscription: Subscription | null = null;
+  private maskSubscription: Subscription | null = null;
+  private maskExtension = new MaskExtension();
+  private cachedConvertedLayers: any[] = [];
 
   // Observable for view state changes (for UI updates like zoom level)
   private viewStateSubject = new Subject<ViewState>();
   public viewStateChange$ = this.viewStateSubject.asObservable();
 
-  constructor(private deckState: DeckStateService) {}
+  constructor(
+    private deckState: DeckStateService,
+    private maskLayerService: MaskLayerService,
+  ) {}
 
   ngOnDestroy(): void {
     this.stateSubscription?.unsubscribe();
@@ -129,6 +137,17 @@ export class DeckMapService implements OnDestroy {
       }
     });
 
+    // Subscribe to mask layer changes — use light render during drawing to avoid API calls
+    this.maskSubscription = this.maskLayerService.maskState$.subscribe(() => {
+      const maskState = this.maskLayerService.getState();
+      if (maskState.isDrawing) {
+        this.updateMaskLayersOnly();
+      } else {
+        const currentState = this.deckState.getState();
+        this.renderFromState(currentState, ['layers']);
+      }
+    });
+
     console.log('[DeckMapService] Initialized');
     return { deck: this.deck, map: this.map };
   }
@@ -172,9 +191,33 @@ export class DeckMapService implements OnDestroy {
         // Convert the entire spec (initialViewState + layers + widgets + effects)
         const deckProps = jsonConverter.convert(spec);
 
+        // Cache raw converted layers BEFORE MaskExtension injection (for light render during drawing)
+        let convertedLayers = (deckProps as any).layers || [];
+        this.cachedConvertedLayers = convertedLayers;
+
+        // Always inject MaskExtension (pre-registers MaskEffect for first-polygon fix)
+        const maskActive = this.maskLayerService.isMaskActive();
+        convertedLayers = convertedLayers.map((layer: any) => {
+          const layerId = layer.id || '';
+          if (layerId.startsWith('__')) return layer;
+          return layer.clone({
+            extensions: [...(layer.props?.extensions || []), this.maskExtension],
+            maskId: maskActive ? MASK_LAYER_ID : '',
+          });
+        });
+
+        // Append mask layers (GeoJsonLayer + optional EditableGeoJsonLayer)
+        const maskLayers = this.maskLayerService.getMaskLayers();
+        const allLayers = [...convertedLayers, ...maskLayers];
+
+        // Disable doubleClickZoom when drawing mode is active (prevents zoom on polygon close)
+        const maskState = this.maskLayerService.getState();
+
         // Set all props on deck with error handling
         this.deck.setProps({
           ...deckProps,
+          layers: allLayers,
+          controller: { dragPan: !maskState.isDrawing, doubleClickZoom: !maskState.isDrawing },
           onError: (error: Error, layer: Layer | null) => {
             console.error('[DeckMapService] Layer rendering error:', {
               error: error.message,
@@ -194,6 +237,36 @@ export class DeckMapService implements OnDestroy {
         });
       }
     }
+  }
+
+  /**
+   * Light render path: update only mask layers without re-running JSONConverter.
+   * Used during active drawing to avoid triggering CARTO API calls on every vertex.
+   */
+  private updateMaskLayersOnly(): void {
+    if (!this.deck) return;
+
+    // Always inject MaskExtension with dynamic maskId
+    let dataLayers = this.cachedConvertedLayers;
+    const maskActive = this.maskLayerService.isMaskActive();
+    dataLayers = dataLayers.map((layer: any) => {
+      const layerId = layer.id || '';
+      if (layerId.startsWith('__')) return layer;
+      return layer.clone({
+        extensions: [...(layer.props?.extensions || []), this.maskExtension],
+        maskId: maskActive ? MASK_LAYER_ID : '',
+      });
+    });
+
+    const maskLayers = this.maskLayerService.getMaskLayers();
+    const allLayers = [...dataLayers, ...maskLayers];
+
+    this.deck.setProps({
+      layers: allLayers,
+      controller: { dragPan: false, doubleClickZoom: false },
+    });
+
+    this.scheduleRedraws();
   }
 
   /**
@@ -247,6 +320,8 @@ export class DeckMapService implements OnDestroy {
   destroy(): void {
     this.stateSubscription?.unsubscribe();
     this.stateSubscription = null;
+    this.maskSubscription?.unsubscribe();
+    this.maskSubscription = null;
 
     if (this.deck) {
       this.deck.finalize();

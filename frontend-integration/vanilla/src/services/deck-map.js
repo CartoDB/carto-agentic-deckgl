@@ -21,13 +21,16 @@ const BASEMAP_URLS = {
 };
 
 export class DeckMapManager extends EventEmitter {
-  constructor(deckState, environment) {
+  constructor(deckState, environment, maskLayerManager) {
     super();
     this._deckState = deckState;
     this._environment = environment;
+    this._maskLayerManager = maskLayerManager || null;
     this._deck = null;
     this._map = null;
     this._stateUnsubscribe = null;
+    this._maskUnsubscribe = null;
+    this._cachedConvertedLayers = [];
   }
 
   async initialize(containerId, canvasId) {
@@ -98,6 +101,18 @@ export class DeckMapManager extends EventEmitter {
       }
     });
 
+    // Subscribe to mask layer changes — use light render during drawing to avoid API calls
+    if (this._maskLayerManager) {
+      this._maskUnsubscribe = this._maskLayerManager.on('change', () => {
+        if (this._maskLayerManager.getState().isDrawing) {
+          this._updateMaskLayersOnly();
+        } else {
+          const currentState = this._deckState.getState();
+          this._renderFromState(currentState, ['layers']);
+        }
+      });
+    }
+
     console.log('[DeckMapManager] Initialized');
     return { deck: this._deck, map: this._map };
   }
@@ -144,8 +159,26 @@ export class DeckMapManager extends EventEmitter {
       try {
         const deckProps = jsonConverter.convert(spec);
         if (deckProps) {
+          // Cache raw converted layers BEFORE MaskExtension injection (for light render during drawing)
+          let convertedLayers = deckProps.layers || [];
+          this._cachedConvertedLayers = convertedLayers;
+
+          // Always inject MaskExtension (pre-registers MaskEffect for first-polygon fix)
+          if (this._maskLayerManager) {
+            convertedLayers = this._maskLayerManager.injectMaskExtension(convertedLayers);
+          }
+
+          // Append mask layers (GeoJsonLayer + optional EditableGeoJsonLayer)
+          if (this._maskLayerManager) {
+            const maskLayers = this._maskLayerManager.getMaskLayers();
+            convertedLayers = [...convertedLayers, ...maskLayers];
+          }
+
+          const isDrawing = this._maskLayerManager ? this._maskLayerManager.getState().isDrawing : false;
           this._deck.setProps({
             ...deckProps,
+            layers: convertedLayers,
+            controller: { dragPan: !isDrawing, doubleClickZoom: !isDrawing },
             onError: (error, layer) => {
               console.error('[DeckMapManager] Layer rendering error:', {
                 error: error.message,
@@ -159,6 +192,27 @@ export class DeckMapManager extends EventEmitter {
         console.error('[DeckMapManager] Failed to convert spec:', error);
       }
     }
+  }
+
+  /**
+   * Light render path: update only mask layers without re-running JSONConverter.
+   * Used during active drawing to avoid triggering CARTO API calls on every vertex.
+   */
+  _updateMaskLayersOnly() {
+    if (!this._deck || !this._maskLayerManager) return;
+
+    // Always inject MaskExtension with dynamic maskId
+    let dataLayers = this._maskLayerManager.injectMaskExtension(this._cachedConvertedLayers);
+
+    const maskLayers = this._maskLayerManager.getMaskLayers();
+    const allLayers = [...dataLayers, ...maskLayers];
+
+    this._deck.setProps({
+      layers: allLayers,
+      controller: { dragPan: false, doubleClickZoom: false },
+    });
+
+    this._scheduleRedraws();
   }
 
   _injectCartoCredentials(layerJson) {
@@ -199,6 +253,10 @@ export class DeckMapManager extends EventEmitter {
   }
 
   destroy() {
+    if (this._maskUnsubscribe) {
+      this._maskUnsubscribe();
+      this._maskUnsubscribe = null;
+    }
     if (this._stateUnsubscribe) {
       this._stateUnsubscribe();
       this._stateUnsubscribe = null;

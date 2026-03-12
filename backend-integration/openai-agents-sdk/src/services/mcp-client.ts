@@ -377,6 +377,22 @@ export class MCPClient {
             console.log(`[MCP:${this.serverName}] Result preview:`, JSON.stringify(parsed).substring(0, 300));
             return parsed;
           } catch (parseError) {
+            // Try to extract JSON from within the text (e.g., markdown code blocks, extra content)
+            const jsonMatch = first.text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              try {
+                const extracted = JSON.parse(jsonMatch[0]);
+                console.log(`[MCP:${this.serverName}] Extracted JSON from text via regex (${JSON.stringify(extracted).length} chars)`);
+                if (extracted.status === 'failure' || extracted.status === 'error') {
+                  const errorMsg = extracted.error?.msg || extracted.error?.message || extracted.message || 'Job failed';
+                  console.error(`[MCP:${this.serverName}] Job failed:`, errorMsg);
+                  return { error: true, message: errorMsg, details: extracted, toolName };
+                }
+                return extracted;
+              } catch {
+                // Regex-extracted text also not valid JSON, fall through
+              }
+            }
             console.log(`[MCP:${this.serverName}] Result is not JSON, returning as text`);
             return { text: first.text };
           }

@@ -25,7 +25,7 @@ import type {
 import { useContext } from 'react';
 import { DeckStateContext } from './DeckStateContext';
 import { WebSocketContext } from './WebSocketContext';
-import { createToolExecutor, type ExecuteToolFn } from '../services/tool-executor';
+import { createToolExecutor, type ExecuteToolFn, type MaskLayerActions, type WidgetActions } from '../services/tool-executor';
 import { extractLegendFromLayer } from '../utils/legend';
 import { environment } from '../config/environment';
 
@@ -63,6 +63,8 @@ export interface MapAIToolsContextValue {
   isConnected: boolean;
   sendMessage: (content: string) => boolean;
   clearMessages: () => void;
+  registerMaskActions: (actions: MaskLayerActions) => void;
+  registerWidgetActions: (actions: WidgetActions) => void;
 }
 
 export const MapAIToolsContext = createContext<MapAIToolsContextValue | null>(null);
@@ -87,16 +89,42 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
   const deckStateRef = useRef(deckState);
   deckStateRef.current = deckState;
 
+  // Ref for mask layer actions (populated by App.tsx via registerMaskActions)
+  const maskActionsRef = useRef<MaskLayerActions | null>(null);
+
+  const registerMaskActions = useCallback((actions: MaskLayerActions) => {
+    maskActionsRef.current = actions;
+  }, []);
+
+  // Ref for widget actions (populated by App.tsx via registerWidgetActions)
+  const widgetActionsRef = useRef<WidgetActions | null>(null);
+
+  const registerWidgetActions = useCallback((actions: WidgetActions) => {
+    widgetActionsRef.current = actions;
+  }, []);
+
   // Create tool executor with stable reference
   const toolExecutorRef = useRef<ExecuteToolFn | null>(null);
   if (!toolExecutorRef.current) {
-    toolExecutorRef.current = createToolExecutor({
-      setInitialViewState: (vs) => deckStateRef.current.setInitialViewState(vs),
-      setBasemap: (b) => deckStateRef.current.setBasemap(b),
-      setDeckLayers: (c) => deckStateRef.current.setDeckLayers(c),
-      setActiveLayerId: (id) => deckStateRef.current.setActiveLayerId(id),
-      getDeckSpec: () => deckStateRef.current.getDeckSpec(),
-    });
+    toolExecutorRef.current = createToolExecutor(
+      {
+        setInitialViewState: (vs) => deckStateRef.current.setInitialViewState(vs),
+        setBasemap: (b) => deckStateRef.current.setBasemap(b),
+        setDeckLayers: (c) => deckStateRef.current.setDeckLayers(c),
+        setActiveLayerId: (id) => deckStateRef.current.setActiveLayerId(id),
+        getDeckSpec: () => deckStateRef.current.getDeckSpec(),
+      },
+      {
+        setMaskGeometry: (g) => maskActionsRef.current?.setMaskGeometry(g),
+        enableDrawMode: () => maskActionsRef.current?.enableDrawMode(),
+        clearMask: () => maskActionsRef.current?.clearMask(),
+      },
+      {
+        addWidget: (spec) => widgetActionsRef.current?.addWidget(spec),
+        removeWidget: (id) => widgetActionsRef.current?.removeWidget(id),
+        clearWidgets: () => widgetActionsRef.current?.clearWidgets(),
+      }
+    );
   }
 
   // Derive layers from deckSpec
@@ -480,6 +508,8 @@ export function MapAIToolsProvider({ children }: { children: ReactNode }) {
     isConnected: ws.isConnected,
     sendMessage,
     clearMessages,
+    registerMaskActions,
+    registerWidgetActions,
   };
 
   return (

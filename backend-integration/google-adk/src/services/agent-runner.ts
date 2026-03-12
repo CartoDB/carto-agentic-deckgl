@@ -74,6 +74,7 @@ export async function runMapAgent(
   sessionId: string,
   conversationHistory: ConversationMessage[],
   initialState?: InitialState,
+  onConversationMessage?: (message: ConversationMessage) => void,
 ): Promise<ConversationMessage | null> {
   const messageId = `msg_${Date.now()}`;
 
@@ -222,6 +223,15 @@ export async function runMapAgent(
               if (coords) {
                 mcpResultCoordinates = coords;
                 console.log(`[Agent] Extracted coordinates from MCP result: lat=${coords.latitude}, lng=${coords.longitude}`);
+              }
+
+              // Store MCP table name in conversation history for follow-up mask requests
+              if (onConversationMessage) {
+                onConversationMessage({
+                  role: 'assistant',
+                  content: `[MCP Result Table Available] The MCP workflow result is stored in table "${pendingMcpTableName}". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "${pendingMcpTableName}" }.`,
+                });
+                console.log(`[Agent] Stored MCP table name in conversation history for mask layer use`);
               }
             }
 
