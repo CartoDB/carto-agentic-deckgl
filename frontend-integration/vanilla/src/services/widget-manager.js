@@ -63,12 +63,12 @@ export class WidgetManager extends EventEmitter {
     this._widgets = [];
     this._maskLayerManager = maskLayerManager;
 
-    // Re-fetch all widgets when mask geometry changes
+    // Re-fetch all widgets when committed mask geometry changes (not during in-progress edits)
     if (maskLayerManager) {
-      maskLayerManager.on('change', () => {
+      maskLayerManager.on('geometry-committed', () => {
         if (this._widgets.length === 0) return;
         const spatialFilter = getSpatialFilterFromMask(
-          maskLayerManager.getState().geometry
+          maskLayerManager.getState().committedGeometry
         );
         for (const widget of this._widgets) {
           this._fetchAndUpdate(widget, spatialFilter);
@@ -83,7 +83,7 @@ export class WidgetManager extends EventEmitter {
 
   addWidget(spec) {
     const spatialFilter = this._maskLayerManager
-      ? getSpatialFilterFromMask(this._maskLayerManager.getState().geometry)
+      ? getSpatialFilterFromMask(this._maskLayerManager.getState().committedGeometry)
       : undefined;
     const newWidget = { ...spec, loading: true, data: undefined, error: undefined };
     const existing = this._widgets.findIndex(w => w.id === spec.id);

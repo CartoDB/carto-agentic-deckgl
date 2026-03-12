@@ -71,7 +71,7 @@ function createMapAIToolsComposable(): MapAIToolsComposable {
   const deckState = useDeckState();
   const ws = useWebSocket();
   const maskLayer = useMaskLayer();
-  const widgetManager = useWidgets(() => maskLayer.state.geometry);
+  const widgetManager = useWidgets(() => maskLayer.state.committedGeometry);
 
   // Create tool executor
   const toolExecutor: ExecuteToolFn = createToolExecutor(
