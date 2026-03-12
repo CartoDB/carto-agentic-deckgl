@@ -51,6 +51,9 @@ export const tools = {
       removeLayerIds: z.array(z.string()).optional().describe(
         'Array of layer IDs to remove from the map. Process removals before any layer updates/additions.'
       ),
+      removeWidgetIds: z.array(z.string()).optional().describe(
+        'Array of widget IDs to remove from display. Process removals before any widget additions.'
+      ),
     }),
   },
 
