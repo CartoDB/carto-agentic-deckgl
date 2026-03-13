@@ -24,7 +24,12 @@ const deepMerge = (target, source) => {
       typeof targetValue === 'object' &&
       !Array.isArray(targetValue)
     ) {
-      result[key] = deepMerge(targetValue, sourceValue);
+      // Empty object means explicit replacement (e.g., filters: {} to clear filters)
+      if (Object.keys(sourceValue).length === 0) {
+        result[key] = sourceValue;
+      } else {
+        result[key] = deepMerge(targetValue, sourceValue);
+      }
     } else {
       result[key] = sourceValue;
     }

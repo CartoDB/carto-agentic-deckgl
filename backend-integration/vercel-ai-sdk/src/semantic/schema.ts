@@ -128,6 +128,7 @@ export const fieldSchema = z.object({
   dimension: dimensionSchema.optional(),
   label: z.string().optional(),
   description: z.string().optional(),
+  values: z.array(z.union([z.string(), z.number(), z.null()])).optional(),
   ai_context: aiContextSchema.optional(),
   custom_extensions: z.array(customExtensionSchema).optional(),
 });
