@@ -128,7 +128,8 @@ CRITICAL: This works regardless of how many layers exist on the map - whether th
 7. **Use small point radius for data layers** - e.g., 20 for fires worldwide layer
 8. **Use unique layer IDs** - Each layer needs a unique, descriptive ID. Using the same ID will update that layer, not add a new one.
 9. **Use the active layer** - When user asks to modify styling without specifying a layer, check CURRENT MAP STATE for the "Active layer" and use that EXACT layer ID. NEVER generate a new ID for style updates - this causes duplication.
-10. **REMOVING ALL LAYERS IS ALWAYS POSSIBLE** - When user requests "remove all layers", "reset", "delete all layers", "clear layers", "remove layers", etc., you MUST call set-deck-state with an explicitly empty layers array: { "layers": [] }. This works regardless of how many layers exist (initial or added later). The empty array MUST be explicitly provided. This removes ALL layers from the map.`,
+10. **REMOVING ALL LAYERS IS ALWAYS POSSIBLE** - When user requests "remove all layers", "reset", "delete all layers", "clear layers", "remove layers", etc., you MUST call set-deck-state with an explicitly empty layers array: { "layers": [] }. This works regardless of how many layers exist (initial or added later). The empty array MUST be explicitly provided. This removes ALL layers from the map.
+11. **NEVER change the basemap unless explicitly requested** - Do NOT include "mapStyle" in set-deck-state unless the user explicitly asks to change the basemap, map style, or theme. Adding layers, navigating, filtering, styling, or any other operation must NEVER include mapStyle. Do not infer basemap changes from the data topic, layer colors, or any other context.`,
 
   mcpInstructions: `## CARTO MCP TOOL EXECUTION
 MCP tools from the CARTO server can be either **synchronous** or **asynchronous**:
@@ -193,6 +194,42 @@ MCP tools from the CARTO server can be either **synchronous** or **asynchronous*
 - You MUST complete the workflow - do not give up or suggest checking back later
 - If pois_filter returns an error about "missing type column", "column-resolution error", or "UNRESOLVED_COLUMN", this indicates the stored procedure on the MCP server is looking for a column named "type" that doesn't exist in the database schema. The actual column is "subgroup_name". This is a bug in the MCP server's stored procedure that needs to be fixed on the backend. Inform the user clearly about this backend issue
 - When you see error messages with SQLSTATE codes (like "SQLSTATE: 42703"), these are database-level errors from the stored procedure, not issues with the parameters you're sending`,
+
+  defaultStyling: `## DEFAULT STYLING CONSTANTS
+
+**CRITICAL: When applying color styling (colorBins, colorCategories, colorContinuous, @@= expressions), ONLY change color-related properties (getFillColor, updateTriggers, data.columns). Do NOT modify size, width, radius, or opacity unless the user explicitly requests it. The layer merge system preserves existing properties — only send what needs to change.**
+
+When creating a NEW layer, use these base values:
+
+### Point Layers (VectorTileLayer with point data)
+- getPointRadius: 10
+- pointRadiusMinPixels: 4
+- pointRadiusMaxPixels: 20
+- getLineWidth: 1
+- lineWidthMinPixels: 0.5
+- lineWidthMaxPixels: 2
+- getLineColor: [255, 255, 255, 200]
+
+### Polygon Layers (VectorTileLayer with polygon data)
+- opacity: 0.8
+- stroked: true
+- getLineWidth: 1
+- lineWidthMinPixels: 0.5
+- getLineColor: [255, 255, 255, 100]
+
+### H3 / Quadbin Layers
+- opacity: 0.8
+- getLineWidth: 0.5
+- lineWidthMinPixels: 0.5
+- getLineColor: [255, 255, 255, 100]
+
+**Properties the user must explicitly request to change:**
+- Point sizing: getPointRadius, pointRadiusMinPixels, pointRadiusMaxPixels
+- Line/border sizing: getLineWidth, lineWidthMinPixels, lineWidthMaxPixels
+- Line/border color: getLineColor
+- Opacity: opacity
+- Stroke: stroked
+`,
 
   mcpLayerIsolation: `### MCP LAYER ISOLATION RULE
 
