@@ -25,10 +25,15 @@ const deepMerge = (
       typeof targetValue === 'object' &&
       !Array.isArray(targetValue)
     ) {
-      result[key] = deepMerge(
-        targetValue as Record<string, unknown>,
-        sourceValue as Record<string, unknown>
-      );
+      // Empty object means explicit replacement (e.g., filters: {} to clear filters)
+      if (Object.keys(sourceValue as Record<string, unknown>).length === 0) {
+        result[key] = sourceValue;
+      } else {
+        result[key] = deepMerge(
+          targetValue as Record<string, unknown>,
+          sourceValue as Record<string, unknown>
+        );
+      }
     } else {
       result[key] = sourceValue;
     }
