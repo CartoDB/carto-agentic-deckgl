@@ -172,6 +172,31 @@ export function loadSemanticModel(): SemanticModel | null {
             ...parsed.semantic_model.relationships
           );
         }
+        // Merge custom_extensions: concatenate welcome_chips from CARTO extensions
+        if (parsed.semantic_model.custom_extensions) {
+          if (!merged.semantic_model.custom_extensions) {
+            merged.semantic_model.custom_extensions = parsed.semantic_model.custom_extensions;
+          } else {
+            const mergedCarto = merged.semantic_model.custom_extensions.find(
+              (e) => e.vendor_name === 'CARTO'
+            );
+            const parsedCarto = parsed.semantic_model.custom_extensions.find(
+              (e) => e.vendor_name === 'CARTO'
+            );
+            if (mergedCarto && parsedCarto && typeof mergedCarto.data === 'object' && typeof parsedCarto.data === 'object') {
+              const mergedData = mergedCarto.data as Record<string, unknown>;
+              const parsedData = parsedCarto.data as Record<string, unknown>;
+              // Concatenate welcome_chips arrays
+              if (parsedData.welcome_chips) {
+                const existingChips = (mergedData.welcome_chips as unknown[]) ?? [];
+                const newChips = parsedData.welcome_chips as unknown[];
+                mergedData.welcome_chips = [...existingChips, ...newChips];
+              }
+            } else if (!mergedCarto && parsedCarto) {
+              merged.semantic_model.custom_extensions.push(parsedCarto);
+            }
+          }
+        }
       }
     } catch (error) {
       console.warn(`[Semantic] Error loading ${file}:`, error);
@@ -308,6 +333,11 @@ function renderDatasetAsMarkdown(dataset: Dataset): string {
         if (vizHint.domain)
           md += `, domain: [${vizHint.domain.join(', ')}]`;
         md += `\n`;
+      }
+
+      if (field.values && field.values.length > 0) {
+        const formatted = field.values.map((v) => v === null ? 'null' : String(v));
+        md += `  - *Values:* ${formatted.join(', ')}\n`;
       }
 
       const fieldInstructions = getAiInstructions(field.ai_context);
