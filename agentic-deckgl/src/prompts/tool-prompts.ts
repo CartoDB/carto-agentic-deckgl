@@ -4,6 +4,7 @@
  */
 
 import { TOOL_NAMES } from '../definitions/dictionary.js';
+import { sharedSections } from './shared-sections.js';
 import type { ToolPromptConfig } from './types.js';
 
 export const toolPrompts: Record<string, ToolPromptConfig> = {
@@ -12,14 +13,17 @@ export const toolPrompts: Record<string, ToolPromptConfig> = {
     prompt: `### 1. set-deck-state
 Set Deck.gl visualization state including view navigation, basemap style, layers, widgets, and effects.
 
+${sharedSections.defaultStyling}
+
 **Navigate to a location:**
 { "initialViewState": { "latitude": 48.8566, "longitude": 2.3522, "zoom": 12 } }
 
-**Change basemap:**
+**Change basemap (ONLY when explicitly requested by the user):**
 { "mapStyle": "dark-matter" }
 Options: "dark-matter" (dark theme), "positron" (light theme), "voyager" (colorful roads)
+**IMPORTANT: NEVER change mapStyle unless the user explicitly asks to change the basemap/map style/theme. Adding layers, navigating, or any other action must NOT include mapStyle. Do NOT infer basemap changes from context (e.g., "dark data" does not mean "dark basemap").**
 
-**Both at once:**
+**Both at once (only if user explicitly requests basemap change along with navigation):**
 { "initialViewState": { "latitude": 40.7128, "longitude": -74.006, "zoom": 14 }, "mapStyle": "dark-matter" }
 
 **Navigate + add layer:**
@@ -310,7 +314,7 @@ Example - User has layer "pois-financial" and says "also include Healthcare":
   "id": "pois-financial",
   "data": {
     "@@function": "vectorTableSource",
-    "tableName": "ps-catalog-default.ps-demo-tables.osm_pois_usa",
+    "tableName": "TABLE_NAME_FROM_SEMANTIC_LAYER",
     "filters": {
       "group_name": {
         "in": { "values": ["Financial", "Healthcare"] }
@@ -320,9 +324,9 @@ Example - User has layer "pois-financial" and says "also include Healthcare":
 }
 
 **REMOVING FILTERS:**
-To remove all filters from a layer, either:
-1. Omit the filters property entirely, OR
-2. Set filters to empty object: \`"filters": {}\`
+To remove all filters from a layer, use the SAME layer ID and set filters to empty object: \`"filters": {}\`
+CRITICAL: Do NOT omit the filters property — you MUST explicitly send \`"filters": {}\` for filters to be cleared.
+CRITICAL: Do NOT create a new layer to remove filters — ALWAYS update the existing layer using its SAME ID.
 
 **FILTERABLE/STYLABLE COLUMNS:**
 Refer to the semantic layer for available columns. Use the \`sql\` field for the actual column name.
@@ -371,7 +375,8 @@ Refer to the semantic layer for available columns. Use the \`sql\` field for the
 **UPDATING EXISTING LAYERS (CRITICAL - DO NOT DUPLICATE):**
 When user:
 - Requests style changes (palette, color, domain, opacity, etc.) OR
-- Provides configuration details (aggregation method, styling function, domain values)
+- Provides configuration details (aggregation method, styling function, domain values) OR
+- Requests filter changes (add filter, modify filter, remove filter, clear filters)
 
 Follow these steps:
 
@@ -379,6 +384,7 @@ Follow these steps:
    - If user specifies a layer → use that layer ID
    - If user doesn't specify → use the **Active layer** from CURRENT MAP STATE section below
    - CRITICAL: If user just added a layer and now provides config details, they want to UPDATE that layer!
+   - **If multiple layers exist and user doesn't specify which one, ASK the user which layer to update.**
 
 2. **REUSE the SAME layer ID** - do NOT generate a new ID!
 
@@ -388,6 +394,9 @@ Follow these steps:
    - "set domain to [0, 100, 1000, 10000]" → Update getFillColor.domain
    - "make it 3D" → Update extruded: true
    - "change to PurpOr" → Update getFillColor.colors
+   - "filter by Cafe" → Update data.filters, keep SAME layer ID
+   - "also show Pub" → Update data.filters, keep SAME layer ID
+   - "remove filter" / "clear filters" → Set data.filters: {}, keep SAME layer ID
 
 4. **Send update with same layer ID:**
    Good example - adding aggregation and styling to active layer "my-quadbin":
@@ -416,17 +425,24 @@ Follow these steps:
      ...
    }
 
-**Common style/config update commands:**
+**Common style/config/filter update commands:**
 - "SUM by population" → Update data.aggregationExp, keep SAME layer ID
 - "change palette to Teal" → Update getFillColor.colors, keep SAME layer ID
 - "update domain to [0, 100, 1000]" → Update getFillColor.domain, keep SAME layer ID
 - "make it 3D" / "extrude" → Update extruded: true, keep SAME layer ID
+- "filter by Cafe and Pub" → Update data.filters, keep SAME layer ID
+- "remove filter" / "show all" → Set data.filters: {}, keep SAME layer ID
 
 Example workflow:
 1. User: "Add quadbin layer from table X" → Create layer with id="quadbin-layer"
 2. User: "SUM by population, use colorBins" → Update layer with SAME id="quadbin-layer" (not a new ID!)
 3. User: "Use Temps palette" → Update layer with SAME id="quadbin-layer"
 4. User: "Change domain to [0, 100, 1000]" → Update layer with SAME id="quadbin-layer"
+
+Example filter workflow:
+1. User: "Show Food & Drink POIs" → Create layer with id="pois-layer"
+2. User: "Filter by Cafe and Pub" → Update SAME id="pois-layer" with filters (NOT a new layer!)
+3. User: "Remove filter" → Update SAME id="pois-layer" with filters: {} (NOT a new layer!)
 
 **H3TileLayer (spatial aggregation with hexagons):**
 H3 layers aggregate data into hexagonal cells. IMPORTANT: aggregationExp is REQUIRED.
@@ -617,12 +633,14 @@ Quadbin with continuous color interpolation:
 - Use H3 for more uniform distance calculations (hexagons have equal area)
 - Check the table name or ask the user which spatial index their data uses
 
-**IMPORTANT: When user ask to update an specific property or accesor DO NOT update any other property or accesor.
-For example:
-- If user asks to update the "getFillColor" property, DO NOT update the "getLineColor" property or other not related properties.
-- If user asks to update the "getLineWidth" property, DO NOT update the "getLineColor" property or other not related properties.
-- If user asks to update the "getLineColor" property, DO NOT update the "getLineWidth" property or other not related properties.
-- If user asks to update the "getLineWidth" property, DO NOT update the "getLineColor" property or other not related properties.
+**IMPORTANT: When user asks to update a specific property or accessor, DO NOT update any other property or accessor.
+Only send the properties that need to change — the merge system preserves existing properties.
+
+Examples:
+- "color by X" or "change palette" → ONLY change getFillColor, data.columns, and updateTriggers. Do NOT change getPointRadius, getLineWidth, lineWidthMinPixels, getLineColor, opacity, or any sizing property.
+- "make points bigger" → ONLY change getPointRadius / pointRadiusMinPixels. Do NOT change getFillColor or getLineColor.
+- "change border color" → ONLY change getLineColor. Do NOT change getLineWidth, getFillColor, or sizing.
+- "change line width" → ONLY change getLineWidth / lineWidthMinPixels. Do NOT change colors or other properties.
 
 **LAYER ORDERING (Stacking Order):**
 
