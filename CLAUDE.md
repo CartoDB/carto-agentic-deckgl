@@ -14,24 +14,40 @@ AI-powered map control framework using `@carto/agentic-deckgl`. Users interact w
 ## Project Structure
 
 ```
-carto-agentic-deckgl/
-├── agentic-deckgl/                  # Core library (@carto/agentic-deckgl)
-├── backend-integration/
-│   ├── openai-agents-sdk/           # Backend server — OpenAI Agents SDK (default)
-│   ├── vercel-ai-sdk/               # Backend server — Vercel AI SDK
-│   └── google-adk/                  # Backend server — Google ADK
-└── frontend-integration/
-    ├── angular/                     # Angular 20 frontend
-    ├── react/                       # React 19 frontend (+ E2E tests)
-    ├── vue/                         # Vue 3 frontend
-    └── vanilla/                     # Vanilla JS frontend
+carto-agentic-deckgl/                        # Root IS the library package
+├── src/                                     # Core library source (@carto/agentic-deckgl)
+├── test/                                    # Core library tests
+├── dist/                                    # Build output (ESM + CJS)
+├── examples/
+│   ├── backend/
+│   │   ├── openai-agents-sdk/               # Backend server — OpenAI Agents SDK (default)
+│   │   ├── vercel-ai-sdk/                   # Backend server — Vercel AI SDK
+│   │   └── google-adk/                      # Backend server — Google ADK
+│   └── frontend/
+│       ├── angular/                         # Angular 20 frontend
+│       ├── react/                           # React 19 frontend (+ E2E tests)
+│       ├── vue/                             # Vue 3 frontend
+│       └── vanilla/                         # Vanilla JS frontend
+├── package.json                             # Library package.json
+├── rollup.config.js                         # Build config
+├── tsconfig.json                            # TypeScript config
+└── vitest.config.ts                         # Test config
 ```
 
 ## Development Commands
 
+### Core Library
+```bash
+npm install
+npm run build        # Build ESM + CJS outputs to dist/
+npm run dev          # Watch mode
+npm run type-check   # Type check without emitting
+npm test             # Run unit tests
+```
+
 ### Backend (OpenAI Agents SDK — default)
 ```bash
-cd backend-integration/openai-agents-sdk
+cd examples/backend/openai-agents-sdk
 npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
 npm run dev:mock-mcp # Start with MCP mock mode (fixture-backed tools)
 npm run build        # Compile TypeScript to dist/
@@ -41,7 +57,7 @@ npm run typecheck    # Type check without emitting
 
 ### Backend (Vercel AI SDK)
 ```bash
-cd backend-integration/vercel-ai-sdk
+cd examples/backend/vercel-ai-sdk
 npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
 npm run build        # Compile TypeScript to dist/
 npm start            # Run production build
@@ -50,7 +66,7 @@ npm run typecheck    # Type check without emitting
 
 ### Backend (Google ADK)
 ```bash
-cd backend-integration/google-adk
+cd examples/backend/google-adk
 npm install --force  # --force needed for peer dependency conflicts
 npm run dev          # Start dev server with hot reload (tsx watch, port 3003)
 npm run build        # Compile TypeScript to dist/
@@ -60,7 +76,7 @@ npm run typecheck    # Type check without emitting
 
 ### Frontend (Angular)
 ```bash
-cd frontend-integration/angular
+cd examples/frontend/angular
 pnpm install         # Install dependencies
 pnpm start           # Start dev server (http://localhost:4200)
 pnpm build           # Build for production
@@ -68,23 +84,16 @@ pnpm build           # Build for production
 
 ### Frontend (React)
 ```bash
-cd frontend-integration/react
+cd examples/frontend/react
 pnpm install         # Install dependencies
 pnpm dev             # Start dev server (http://localhost:5173)
 pnpm build           # Build for production
 pnpm test            # Run unit tests
 ```
 
-### Core Library
-```bash
-cd agentic-deckgl
-npm install
-npm run build        # Build ESM + CJS outputs to dist/
-```
-
 ### E2E Tests (React)
 ```bash
-cd frontend-integration/react
+cd examples/frontend/react
 npx playwright install chromium                     # One-time browser install
 pnpm e2e                                            # Headless (default: openai-agents-sdk backend)
 pnpm e2e:headed                                     # Headed mode (watch in browser)
@@ -99,9 +108,9 @@ pnpm e2e:matrix --backend openai-agents-sdk --current  # Run matrix with current
 ```
 
 ### Running the Application
-1. Build core library: `cd agentic-deckgl && npm run build`
-2. Start backend: `cd backend-integration/openai-agents-sdk && npm run dev` (runs on http://localhost:3003)
-3. Start frontend: `cd frontend-integration/angular && pnpm start` (http://localhost:4200) or `cd frontend-integration/react && pnpm dev` (http://localhost:5173)
+1. Build core library: `npm run build` (from root)
+2. Start backend: `cd examples/backend/openai-agents-sdk && npm run dev` (runs on http://localhost:3003)
+3. Start frontend: `cd examples/frontend/angular && pnpm start` (http://localhost:4200) or `cd examples/frontend/react && pnpm dev` (http://localhost:5173)
 
 ## Architecture
 
@@ -126,7 +135,7 @@ Frontend: Display text + Execute tool_calls
 | `set-marker`     | Place, remove, or clear location marker pins at specified coordinates                                            |
 | `set-mask-layer` | Editable mask layer for spatial filtering (set geometry or table name, draw mode, or clear). Uses MaskExtension. |
 
-### Key Files — Backend (`backend-integration/<sdk>/src/`)
+### Key Files — Backend (`examples/backend/<sdk>/src/`)
 
 All three backends share the same directory structure with SDK-specific differences:
 
@@ -141,7 +150,7 @@ All three backends share the same directory structure with SDK-specific differen
 - `prompts/custom-prompt.ts` — App-specific AI instructions
 - `models/carto-litellm.ts` — (Google ADK only) BaseLlm bridge for OpenAI-compatible endpoints
 
-### Key Files — Angular Frontend (`frontend-integration/angular/src/app/`)
+### Key Files — Angular Frontend (`examples/frontend/angular/src/app/`)
 
 **Components:**
 - `components/map-view/` — deck.gl + MapLibre map container
@@ -195,7 +204,7 @@ The AI generates JSON specs using special prefixes resolved by JSONConverter:
 
 ## Environment Variables
 
-### Backend (`backend-integration/<sdk>/.env`)
+### Backend (`examples/backend/<sdk>/.env`)
 
 All three backends use the same environment variables:
 
@@ -212,7 +221,7 @@ CARTO_LDS_API_KEY=your-key           # Optional: LDS API key
 MCP_MOCK_MODE=true                   # Optional: use fixture-backed MCP tools (for testing)
 ```
 
-### Frontend — Angular (`frontend-integration/angular/src/environments/environment.ts`)
+### Frontend — Angular (`examples/frontend/angular/src/environments/environment.ts`)
 ```typescript
 export const environment = {
   production: false,
@@ -225,7 +234,7 @@ export const environment = {
 };
 ```
 
-### Frontend — React (`frontend-integration/react/.env`)
+### Frontend — React (`examples/frontend/react/.env`)
 ```
 VITE_API_BASE_URL=https://gcp-us-east1.api.carto.com
 VITE_API_ACCESS_TOKEN=YOUR_CARTO_TOKEN
