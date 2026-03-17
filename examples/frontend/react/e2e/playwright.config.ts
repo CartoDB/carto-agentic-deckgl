@@ -36,7 +36,7 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'npm run dev',
+      command: 'npm run dev:mock-mcp',
       cwd: `../../../backend/${backend}`,
       port: 3003,
       reuseExistingServer: true,
