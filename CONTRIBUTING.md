@@ -35,10 +35,10 @@ You'll need three terminals:
    - `cd examples/backend/vercel-ai-sdk && npm run dev`
    - `cd examples/backend/google-adk && npm run dev`
 3. **Frontend** (pick one):
-   - `cd examples/frontend/react && npm run dev`
+   - `cd examples/frontend/react && pnpm dev`
    - `cd examples/frontend/angular && pnpm start`
-   - `cd examples/frontend/vue && npm run dev`
-   - `cd examples/frontend/vanilla && npm run dev`
+   - `cd examples/frontend/vue && pnpm dev`
+   - `cd examples/frontend/vanilla && pnpm dev`
 
 See [Development Commands](README.md#development-commands) in the main README for the full command reference.
 
