@@ -53,24 +53,24 @@ jobs:
           version: 10
 
       # Build core library
-      - name: Build agentic-deckgl
-        run: cd agentic-deckgl && npm ci && npm run build
+      - name: Build core library
+        run: npm ci && npm run build
 
       # Install backend
       - name: Install backend
-        run: cd backend-integration/${{ inputs.backend || 'openai-agents-sdk' }} && npm ci
+        run: cd examples/backend/${{ inputs.backend || 'openai-agents-sdk' }} && npm ci
 
       # Install frontend + Playwright
       - name: Install frontend
-        run: cd frontend-integration/react && pnpm install --frozen-lockfile
+        run: cd examples/frontend/react && pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: cd frontend-integration/react && pnpm exec playwright install --with-deps chromium
+        run: cd examples/frontend/react && pnpm exec playwright install --with-deps chromium
 
       # Create environment files
       - name: Setup backend environment
         run: |
-          cat > backend-integration/${{ inputs.backend || 'openai-agents-sdk' }}/.env << 'EOF'
+          cat > examples/backend/${{ inputs.backend || 'openai-agents-sdk' }}/.env << 'EOF'
           CARTO_AI_API_BASE_URL=${{ secrets.CARTO_AI_API_BASE_URL }}
           CARTO_AI_API_KEY=${{ secrets.CARTO_AI_API_KEY }}
           CARTO_AI_API_MODEL=${{ matrix.model }}
@@ -83,10 +83,11 @@ jobs:
           CARTO_LDS_API_KEY=${{ secrets.CARTO_LDS_API_KEY }}
           MCP_MOCK_MODE=true
           EOF
+          sed -i 's/^          //' examples/backend/${{ inputs.backend || 'openai-agents-sdk' }}/.env
 
       - name: Setup frontend environment
         run: |
-          cat > frontend-integration/react/.env << 'EOF'
+          cat > examples/frontend/react/.env << 'EOF'
           VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
           VITE_API_ACCESS_TOKEN=${{ secrets.VITE_API_ACCESS_TOKEN }}
           VITE_CONNECTION_NAME=carto_dw
@@ -94,6 +95,7 @@ jobs:
           VITE_WS_URL=ws://localhost:3003/ws
           VITE_HTTP_API_URL=http://localhost:3003/api/chat
           EOF
+          sed -i 's/^          //' examples/frontend/react/.env
 
       # Run E2E tests
       - name: Run E2E tests
@@ -101,14 +103,14 @@ jobs:
           TEST_MODEL: ${{ matrix.model }}
           BACKEND_SDK: ${{ inputs.backend || 'openai-agents-sdk' }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
-        run: cd frontend-integration/react && pnpm e2e --reporter=list,json
+        run: cd examples/frontend/react && pnpm e2e --reporter=list,json
 
       # Upload results
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e2e-results-${{ matrix.model_name }}
-          path: frontend-integration/react/e2e/test-results/
+          path: examples/frontend/react/e2e/test-results/
           retention-days: 30
 
   # Comparison report job

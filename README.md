@@ -4,11 +4,11 @@
 
 ## Overview
 
-This monorepo contains three layers that work together:
+This repository contains three layers that work together:
 
-1. **Core Library** (`agentic-deckgl/`) -- Framework-agnostic TypeScript library that defines the AI tool schema, system prompt builder, deck.gl JSON validation, and SDK converters.
-2. **Backend Integrations** (`backend-integration/`) -- Server implementations that connect frontends to AI models. Includes OpenAI Agents SDK (default), Vercel AI SDK, and Google ADK backends, all with Express + WebSocket.
-3. **Frontend Integrations** (`frontend-integration/`) -- Reference implementations in Angular, Vue, React, and Vanilla JS showing how to build the chat-to-map experience.
+1. **Core Library** (`src/`) -- Framework-agnostic TypeScript library that defines the AI tool schema, system prompt builder, deck.gl JSON validation, and SDK converters.
+2. **Backend Examples** (`examples/backend/`) -- Server implementations that connect frontends to AI models. Includes OpenAI Agents SDK (default), Vercel AI SDK, and Google ADK backends, all with Express + WebSocket.
+3. **Frontend Examples** (`examples/frontend/`) -- Reference implementations in Angular, Vue, React, and Vanilla JS showing how to build the chat-to-map experience.
 
 ## Architecture
 
@@ -29,46 +29,49 @@ The AI generates deck.gl JSON specifications using 3 consolidated tools (`set-de
 ## Project Structure
 
 ```text
-carto-agentic-deckgl/
+carto-agentic-deckgl/                        # Root IS the library package
 |
-+-- agentic-deckgl/                       # Core library (@carto/agentic-deckgl)
-|   +-- src/
-|   |   +-- definitions/                  # Tool definitions (Zod schemas)
-|   |   +-- converters/                   # AI SDK adapters (Vercel, OpenAI, Google)
-|   |   +-- schemas/                      # deck.gl JSON validation
-|   |   +-- prompts/                      # System prompt builder
-|   |   +-- executors/                    # Response formatting
-|   |   +-- core/                         # Validation utilities
-|   |   +-- utils/                        # Response parsing
-|   +-- dist/                             # Built ESM + CJS outputs
-|   +-- README.md                         # Library API documentation
++-- src/                                     # Core library source (@carto/agentic-deckgl)
+|   +-- definitions/                         # Tool definitions (Zod schemas)
+|   +-- converters/                          # AI SDK adapters (Vercel, OpenAI, Google)
+|   +-- schemas/                             # deck.gl JSON validation
+|   +-- prompts/                             # System prompt builder
+|   +-- executors/                           # Response formatting
+|   +-- core/                                # Validation utilities
+|   +-- utils/                               # Response parsing
 |
-+-- backend-integration/
-|   +-- openai-agents-sdk/                # OpenAI Agents SDK backend (default)
-|   |   +-- src/
-|   |   |   +-- server.ts                 # Express + WebSocket server
-|   |   |   +-- agent/                    # Tool aggregation, providers, MCP
-|   |   |   +-- services/                 # Agent runner, conversation manager
-|   |   |   +-- prompts/                  # System prompt, custom instructions
-|   |   |   +-- semantic/                 # YAML data catalog (GeoCubes)
-|   |   +-- tests/                        # Unit tests (Vitest)
-|   +-- vercel-ai-sdk/                    # Vercel AI SDK v6 backend
-|   +-- google-adk/                       # Google ADK backend
-|   |   +-- src/
-|   |   |   +-- server.ts                 # Express + WebSocket server
-|   |   |   +-- agent/                    # Tool aggregation, providers, MCP
-|   |   |   +-- models/                   # CartoLiteLlm (BaseLlm bridge)
-|   |   |   +-- services/                 # Agent runner, conversation manager
-|   |   |   +-- prompts/                  # System prompt, custom instructions
-|   |   |   +-- semantic/                 # YAML data catalog (GeoCubes)
-|   +-- README.md                         # Backend integrations overview
++-- test/                                    # Core library tests
+|   +-- unit/
+|       +-- schemas/
 |
-+-- frontend-integration/
-|   +-- angular/                          # Angular 20 (standalone components, RxJS)
-|   +-- vue/                              # Vue 3 (Composition API, singleton composables)
-|   +-- react/                            # React 19 (Hooks, Context API)
-|   +-- vanilla/                          # Vanilla JS (ES6 classes, EventEmitter)
-|   +-- README.md                         # Frontend integrations overview
++-- dist/                                    # Built ESM + CJS outputs
+|
++-- examples/
+|   +-- backend/
+|   |   +-- openai-agents-sdk/               # OpenAI Agents SDK backend (default)
+|   |   |   +-- src/
+|   |   |   |   +-- server.ts                # Express + WebSocket server
+|   |   |   |   +-- agent/                   # Tool aggregation, providers, MCP
+|   |   |   |   +-- services/                # Agent runner, conversation manager
+|   |   |   |   +-- prompts/                 # System prompt, custom instructions
+|   |   |   |   +-- semantic/                # YAML data catalog (GeoCubes)
+|   |   |   +-- tests/                       # Unit tests (Vitest)
+|   |   +-- vercel-ai-sdk/                   # Vercel AI SDK v6 backend
+|   |   +-- google-adk/                      # Google ADK backend
+|   |   +-- README.md                        # Backend examples overview
+|   |
+|   +-- frontend/
+|       +-- angular/                         # Angular 20 (standalone components, RxJS)
+|       +-- vue/                             # Vue 3 (Composition API, singleton composables)
+|       +-- react/                           # React 19 (Hooks, Context API)
+|       +-- vanilla/                         # Vanilla JS (ES6 classes, EventEmitter)
+|       +-- README.md                        # Frontend examples overview
+|
++-- package.json                             # Library package.json
++-- rollup.config.js                         # Build config (ESM + CJS)
++-- tsconfig.json                            # TypeScript config
++-- vitest.config.ts                         # Test config
++-- LIBRARY.md                               # Core library API reference
 ```
 
 ## Quick Start
@@ -76,7 +79,6 @@ carto-agentic-deckgl/
 ### 1. Build the core library
 
 ```bash
-cd agentic-deckgl
 npm install && npm run build
 ```
 
@@ -84,13 +86,13 @@ npm install && npm run build
 
 ```bash
 # Option A: OpenAI Agents SDK (default)
-cd backend-integration/openai-agents-sdk
+cd examples/backend/openai-agents-sdk
 
 # Option B: Vercel AI SDK
-cd backend-integration/vercel-ai-sdk
+cd examples/backend/vercel-ai-sdk
 
 # Option C: Google ADK
-cd backend-integration/google-adk
+cd examples/backend/google-adk
 ```
 
 ```bash
@@ -99,22 +101,22 @@ cp .env.example .env     # Edit with your CARTO AI credentials
 npm run dev              # http://localhost:3003
 ```
 
-All backends use the same `.env` variables and run on port 3003. See [backend-integration/README.md](backend-integration/README.md) for details.
+All backends use the same `.env` variables and run on port 3003. See [examples/backend/README.md](examples/backend/README.md) for details.
 
 ### 3. Pick a frontend and start it
 
 | Framework | Directory | Install | Start | URL |
 |-----------|-----------|---------|-------|-----|
-| Angular 20 | `frontend-integration/angular/` | `pnpm install` | `pnpm start` | `http://localhost:4200` |
-| Vue 3 | `frontend-integration/vue/` | `npm install` | `npm run dev` | `http://localhost:5174` |
-| React 19 | `frontend-integration/react/` | `npm install` | `npm run dev` | `http://localhost:5173` |
-| Vanilla JS | `frontend-integration/vanilla/` | `npm install` | `npm run dev` | `http://localhost:5173` |
+| Angular 20 | `examples/frontend/angular/` | `pnpm install` | `pnpm start` | `http://localhost:4200` |
+| Vue 3 | `examples/frontend/vue/` | `pnpm install` | `pnpm dev` | `http://localhost:5174` |
+| React 19 | `examples/frontend/react/` | `pnpm install` | `pnpm dev` | `http://localhost:5173` |
+| Vanilla JS | `examples/frontend/vanilla/` | `pnpm install` | `pnpm dev` | `http://localhost:5173` |
 
-Each frontend requires CARTO credentials configured in its environment file. See [frontend-integration/README.md](frontend-integration/README.md) for setup details.
+Each frontend requires CARTO credentials configured in its environment file. See [examples/frontend/README.md](examples/frontend/README.md) for setup details.
 
 ---
 
-## Frontend Integrations
+## Frontend Examples
 
 All 4 frontends implement the same application with identical features: chat interface, deck.gl + MapLibre map, layer toggle with legend, zoom controls, and toast notifications. They differ only in framework-specific patterns.
 
@@ -126,9 +128,9 @@ All 4 frontends implement the same application with identical features: chat int
 | deck.gl | Imperative (`new Deck`) | Imperative (`new Deck`) | Declarative (`<DeckGL>`) | Imperative (`new Deck`) |
 | Language | TypeScript | TypeScript | TypeScript | JavaScript |
 
-See [frontend-integration/README.md](frontend-integration/README.md) for a detailed comparison and architecture overview.
+See [examples/frontend/README.md](examples/frontend/README.md) for a detailed comparison and architecture overview.
 
-## Backend Integrations
+## Backend Examples
 
 The backend connects frontends to AI models via WebSocket (or HTTP SSE). It handles tool orchestration, session management, and injects a semantic data catalog into the AI's system prompt.
 
@@ -136,13 +138,13 @@ Currently available:
 
 | Backend | SDK | Directory |
 |---------|-----|-----------|
-| OpenAI Agents SDK (default) | @openai/agents | [openai-agents-sdk/](backend-integration/openai-agents-sdk/) |
-| Vercel AI SDK | v6 | [vercel-ai-sdk/](backend-integration/vercel-ai-sdk/) |
-| Google ADK | @google/adk | [google-adk/](backend-integration/google-adk/) |
+| OpenAI Agents SDK (default) | @openai/agents | [openai-agents-sdk/](examples/backend/openai-agents-sdk/) |
+| Vercel AI SDK | v6 | [vercel-ai-sdk/](examples/backend/vercel-ai-sdk/) |
+| Google ADK | @google/adk | [google-adk/](examples/backend/google-adk/) |
 
-All backends speak the same WebSocket protocol, so any frontend works with any backend. See [backend-integration/README.md](backend-integration/README.md) for the architecture overview.
+All backends speak the same WebSocket protocol, so any frontend works with any backend. See [examples/backend/README.md](examples/backend/README.md) for the architecture overview.
 
-## Core Library (`agentic-deckgl`)
+## Core Library
 
 `@carto/agentic-deckgl` is a framework-agnostic TypeScript library that provides:
 
@@ -160,7 +162,7 @@ import {
 } from '@carto/agentic-deckgl';
 ```
 
-See [agentic-deckgl/README.md](agentic-deckgl/README.md) for the full API reference.
+See [LIBRARY.md](LIBRARY.md) for the full API reference.
 
 ---
 
@@ -216,14 +218,14 @@ The backend loads YAML-based data catalogs (GeoCubes) that describe available ta
 ### Unit Tests
 
 ```bash
-# Core library
-cd agentic-deckgl && npm test
+# Core library (from root)
+npm test
 
 # Backend
-cd backend-integration/vercel-ai-sdk && npm test
+cd examples/backend/vercel-ai-sdk && npm test
 
 # Frontend (any framework)
-cd frontend-integration/react && npm test
+cd examples/frontend/react && npm test
 ```
 
 ### E2E Tests
@@ -233,7 +235,7 @@ Playwright-based end-to-end tests validate the full AI pipeline: user message â†
 The `BACKEND_SDK` env var selects which backend to test against (default: `openai-agents-sdk`).
 
 ```bash
-cd frontend-integration/react
+cd examples/frontend/react
 
 # Install Playwright browsers (one-time)
 npx playwright install chromium
@@ -263,14 +265,13 @@ pnpm e2e:matrix
 pnpm e2e:matrix --backend vercel-ai-sdk
 ```
 
-See [frontend-integration/react/e2e/README.md](frontend-integration/react/e2e/README.md) for test cases, page objects, screenshot comparison, and CI/CD details.
+See [examples/frontend/react/e2e/README.md](examples/frontend/react/e2e/README.md) for test cases, page objects, screenshot comparison, and CI/CD details.
 
 ## Development Commands
 
 ### Core Library
 
 ```bash
-cd agentic-deckgl
 npm install && npm run build    # Build ESM + CJS to dist/
 npm run dev                     # Watch mode
 npm run type-check              # Type check without emitting
@@ -280,7 +281,7 @@ npm test                        # Run unit tests
 ### Backend (OpenAI Agents SDK -- default)
 
 ```bash
-cd backend-integration/openai-agents-sdk
+cd examples/backend/openai-agents-sdk
 npm run dev                     # Dev server with hot reload (port 3003)
 npm run dev:mock-mcp            # Dev server with MCP mock mode
 npm run build                   # Compile TypeScript to dist/
@@ -292,16 +293,16 @@ npm test                        # Run unit tests
 
 ```bash
 # Vercel AI SDK
-cd backend-integration/vercel-ai-sdk
+cd examples/backend/vercel-ai-sdk
 npm run dev                     # Dev server with hot reload (port 3003)
 npm test                        # Run unit tests
 
 # OpenAI Agents SDK
-cd backend-integration/openai-agents-sdk
+cd examples/backend/openai-agents-sdk
 npm run dev                     # Dev server with hot reload (port 3003)
 
 # Google ADK
-cd backend-integration/google-adk
+cd examples/backend/google-adk
 npm install --force             # --force needed for peer dep conflicts
 npm run dev                     # Dev server with hot reload (port 3003)
 ```
@@ -310,28 +311,28 @@ npm run dev                     # Dev server with hot reload (port 3003)
 
 ```bash
 # Angular
-cd frontend-integration/angular
+cd examples/frontend/angular
 pnpm install && pnpm start      # http://localhost:4200
 pnpm build                      # Production build
-npm test                        # Run unit tests
+pnpm test                       # Run unit tests
 
 # Vue
-cd frontend-integration/vue
-npm install && npm run dev      # http://localhost:5174
-npm run build                   # Production build
-npm test                        # Run unit tests
+cd examples/frontend/vue
+pnpm install && pnpm dev        # http://localhost:5174
+pnpm build                      # Production build
+pnpm test                       # Run unit tests
 
 # React
-cd frontend-integration/react
-npm install && npm run dev      # http://localhost:5173
-npm run build                   # Production build
-npm test                        # Run unit tests
+cd examples/frontend/react
+pnpm install && pnpm dev        # http://localhost:5173
+pnpm build                      # Production build
+pnpm test                       # Run unit tests
 
 # Vanilla
-cd frontend-integration/vanilla
-npm install && npm run dev      # http://localhost:5173
-npm run build                   # Production build
-npm test                        # Run unit tests
+cd examples/frontend/vanilla
+pnpm install && pnpm dev        # http://localhost:5173
+pnpm build                      # Production build
+pnpm test                       # Run unit tests
 ```
 
 ---
@@ -340,17 +341,17 @@ npm test                        # Run unit tests
 
 | Document | Description |
 |----------|-------------|
-| [agentic-deckgl/README.md](agentic-deckgl/README.md) | Core library API reference |
-| [backend-integration/README.md](backend-integration/README.md) | Backend integrations overview |
-| [backend-integration/openai-agents-sdk/README.md](backend-integration/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
-| [backend-integration/vercel-ai-sdk/README.md](backend-integration/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
-| [backend-integration/google-adk/README.md](backend-integration/google-adk/README.md) | Google ADK server documentation |
-| [frontend-integration/README.md](frontend-integration/README.md) | Frontend integrations overview |
-| [frontend-integration/angular/README.md](frontend-integration/angular/README.md) | Angular integration guide |
-| [frontend-integration/vue/README.md](frontend-integration/vue/README.md) | Vue integration guide |
-| [frontend-integration/react/README.md](frontend-integration/react/README.md) | React integration guide |
-| [frontend-integration/vanilla/README.md](frontend-integration/vanilla/README.md) | Vanilla JS integration guide |
-| [frontend-integration/react/e2e/README.md](frontend-integration/react/e2e/README.md) | E2E test suite documentation |
+| [LIBRARY.md](LIBRARY.md) | Core library API reference |
+| [examples/backend/README.md](examples/backend/README.md) | Backend examples overview |
+| [examples/backend/openai-agents-sdk/README.md](examples/backend/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
+| [examples/backend/vercel-ai-sdk/README.md](examples/backend/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
+| [examples/backend/google-adk/README.md](examples/backend/google-adk/README.md) | Google ADK server documentation |
+| [examples/frontend/README.md](examples/frontend/README.md) | Frontend examples overview |
+| [examples/frontend/angular/README.md](examples/frontend/angular/README.md) | Angular integration guide |
+| [examples/frontend/vue/README.md](examples/frontend/vue/README.md) | Vue integration guide |
+| [examples/frontend/react/README.md](examples/frontend/react/README.md) | React integration guide |
+| [examples/frontend/vanilla/README.md](examples/frontend/vanilla/README.md) | Vanilla JS integration guide |
+| [examples/frontend/react/e2e/README.md](examples/frontend/react/e2e/README.md) | E2E test suite documentation |
 
 ---
 
