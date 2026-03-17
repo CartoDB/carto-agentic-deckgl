@@ -30,10 +30,14 @@ export class AppPage {
   }
 
   async openChat(): Promise<void> {
+    // On desktop, the sidebar starts open — no FAB button to click
+    const chatContent = this.page.locator('.chat-content');
+    if (await chatContent.isVisible()) {
+      return;
+    }
     // Click the FAB button to open the chat sidebar
     await this.page.locator('.fab-button').click();
-    // Wait for chat content to be visible
-    await this.page.locator('.chat-content').waitFor({ state: 'visible', timeout: 5_000 });
+    await chatContent.waitFor({ state: 'visible', timeout: 5_000 });
   }
 
   async setup(): Promise<void> {
