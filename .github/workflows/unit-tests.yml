@@ -23,61 +23,58 @@ jobs:
         with:
           version: 10
 
-      # Install and build agentic-deckgl first (dependency for frontend components)
-      - name: Install agentic-deckgl dependencies
-        working-directory: ./agentic-deckgl
+      # Install and build core library first (dependency for examples)
+      - name: Install core library dependencies
         run: npm ci
 
-      - name: Build agentic-deckgl
-        working-directory: ./agentic-deckgl
+      - name: Build core library
         run: npm run build
 
-      # Run agentic-deckgl tests
-      - name: Test agentic-deckgl
-        working-directory: ./agentic-deckgl
+      # Run core library tests
+      - name: Test core library
         run: npm test
 
       # Run backend tests
       - name: Install backend dependencies
-        working-directory: ./backend-integration/vercel-ai-sdk
+        working-directory: ./examples/backend/vercel-ai-sdk
         run: npm ci
 
       - name: Test backend
-        working-directory: ./backend-integration/vercel-ai-sdk
+        working-directory: ./examples/backend/vercel-ai-sdk
         run: npm test
 
       # Run Angular tests
       - name: Install Angular dependencies
-        working-directory: ./frontend-integration/angular
+        working-directory: ./examples/frontend/angular
         run: pnpm install --frozen-lockfile
 
       - name: Test Angular
-        working-directory: ./frontend-integration/angular
+        working-directory: ./examples/frontend/angular
         run: pnpm test
 
       # Run React tests
       - name: Install React dependencies
-        working-directory: ./frontend-integration/react
+        working-directory: ./examples/frontend/react
         run: pnpm install --frozen-lockfile
 
       - name: Test React
-        working-directory: ./frontend-integration/react
+        working-directory: ./examples/frontend/react
         run: pnpm test
 
       # Run Vanilla tests
       - name: Install Vanilla dependencies
-        working-directory: ./frontend-integration/vanilla
+        working-directory: ./examples/frontend/vanilla
         run: pnpm install --frozen-lockfile
 
       - name: Test Vanilla
-        working-directory: ./frontend-integration/vanilla
+        working-directory: ./examples/frontend/vanilla
         run: pnpm test
 
       # Run Vue tests
       - name: Install Vue dependencies
-        working-directory: ./frontend-integration/vue
+        working-directory: ./examples/frontend/vue
         run: pnpm install --frozen-lockfile
 
       - name: Test Vue
-        working-directory: ./frontend-integration/vue
+        working-directory: ./examples/frontend/vue
         run: pnpm test
