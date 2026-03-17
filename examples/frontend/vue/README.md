@@ -31,7 +31,7 @@ This guide covers the Vue-specific architecture, composables, components, and pa
 ### Installation
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Environment Setup
@@ -66,7 +66,7 @@ cd ../../.. && npm run build && cd -
 cd ../../examples/backend/vercel-ai-sdk && npm run dev &
 
 # 3. Start the Vue frontend
-npm run dev
+pnpm dev
 ```
 
 Open `http://localhost:5174` in your browser.
@@ -74,7 +74,7 @@ Open `http://localhost:5174` in your browser.
 ### Building
 
 ```bash
-npm run build
+pnpm build
 ```
 
 Output is written to `dist/`.

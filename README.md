@@ -108,9 +108,9 @@ All backends use the same `.env` variables and run on port 3003. See [examples/b
 | Framework | Directory | Install | Start | URL |
 |-----------|-----------|---------|-------|-----|
 | Angular 20 | `examples/frontend/angular/` | `pnpm install` | `pnpm start` | `http://localhost:4200` |
-| Vue 3 | `examples/frontend/vue/` | `npm install` | `npm run dev` | `http://localhost:5174` |
-| React 19 | `examples/frontend/react/` | `npm install` | `npm run dev` | `http://localhost:5173` |
-| Vanilla JS | `examples/frontend/vanilla/` | `npm install` | `npm run dev` | `http://localhost:5173` |
+| Vue 3 | `examples/frontend/vue/` | `pnpm install` | `pnpm dev` | `http://localhost:5174` |
+| React 19 | `examples/frontend/react/` | `pnpm install` | `pnpm dev` | `http://localhost:5173` |
+| Vanilla JS | `examples/frontend/vanilla/` | `pnpm install` | `pnpm dev` | `http://localhost:5173` |
 
 Each frontend requires CARTO credentials configured in its environment file. See [examples/frontend/README.md](examples/frontend/README.md) for setup details.
 
@@ -314,25 +314,25 @@ npm run dev                     # Dev server with hot reload (port 3003)
 cd examples/frontend/angular
 pnpm install && pnpm start      # http://localhost:4200
 pnpm build                      # Production build
-npm test                        # Run unit tests
+pnpm test                       # Run unit tests
 
 # Vue
 cd examples/frontend/vue
-npm install && npm run dev      # http://localhost:5174
-npm run build                   # Production build
-npm test                        # Run unit tests
+pnpm install && pnpm dev        # http://localhost:5174
+pnpm build                      # Production build
+pnpm test                       # Run unit tests
 
 # React
 cd examples/frontend/react
-npm install && npm run dev      # http://localhost:5173
-npm run build                   # Production build
-npm test                        # Run unit tests
+pnpm install && pnpm dev        # http://localhost:5173
+pnpm build                      # Production build
+pnpm test                       # Run unit tests
 
 # Vanilla
 cd examples/frontend/vanilla
-npm install && npm run dev      # http://localhost:5173
-npm run build                   # Production build
-npm test                        # Run unit tests
+pnpm install && pnpm dev        # http://localhost:5173
+pnpm build                      # Production build
+pnpm test                       # Run unit tests
 ```
 
 ---
