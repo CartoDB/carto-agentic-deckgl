@@ -23,56 +23,53 @@ jobs:
         with:
           version: 10
 
-      # Install and build agentic-deckgl first (dependency for frontend components)
-      - name: Install agentic-deckgl dependencies
-        working-directory: ./agentic-deckgl
+      # Install and build core library first (dependency for examples)
+      - name: Install core library dependencies
         run: npm ci
 
-      - name: Build agentic-deckgl
-        working-directory: ./agentic-deckgl
+      - name: Build core library
         run: npm run build
 
       # Backend typecheck
       - name: Install backend dependencies
-        working-directory: ./backend-integration/vercel-ai-sdk
+        working-directory: ./examples/backend/vercel-ai-sdk
         run: npm ci
 
       - name: Typecheck backend
-        working-directory: ./backend-integration/vercel-ai-sdk
+        working-directory: ./examples/backend/vercel-ai-sdk
         run: npm run typecheck
 
-      # agentic-deckgl typecheck
-      - name: Typecheck agentic-deckgl
-        working-directory: ./agentic-deckgl
+      # Core library typecheck
+      - name: Typecheck core library
         run: npm run type-check
 
       # Angular typecheck
       - name: Install Angular dependencies
-        working-directory: ./frontend-integration/angular
+        working-directory: ./examples/frontend/angular
         run: pnpm install --frozen-lockfile
 
       - name: Create Angular environment file
-        working-directory: ./frontend-integration/angular
+        working-directory: ./examples/frontend/angular
         run: cp src/environments/environment.example src/environments/environment.ts
 
       - name: Typecheck Angular
-        working-directory: ./frontend-integration/angular
+        working-directory: ./examples/frontend/angular
         run: pnpm typecheck
 
       # React typecheck
       - name: Install React dependencies
-        working-directory: ./frontend-integration/react
+        working-directory: ./examples/frontend/react
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck React
-        working-directory: ./frontend-integration/react
+        working-directory: ./examples/frontend/react
         run: pnpm typecheck
 
       # Vue typecheck
       - name: Install Vue dependencies
-        working-directory: ./frontend-integration/vue
+        working-directory: ./examples/frontend/vue
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck Vue
-        working-directory: ./frontend-integration/vue
+        working-directory: ./examples/frontend/vue
         run: pnpm typecheck
