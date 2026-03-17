@@ -83,6 +83,7 @@ jobs:
           CARTO_LDS_API_KEY=${{ secrets.CARTO_LDS_API_KEY }}
           MCP_MOCK_MODE=true
           EOF
+          sed -i 's/^          //' examples/backend/${{ inputs.backend || 'openai-agents-sdk' }}/.env
 
       - name: Setup frontend environment
         run: |
@@ -94,6 +95,7 @@ jobs:
           VITE_WS_URL=ws://localhost:3003/ws
           VITE_HTTP_API_URL=http://localhost:3003/api/chat
           EOF
+          sed -i 's/^          //' examples/frontend/react/.env
 
       # Run E2E tests
       - name: Run E2E tests
