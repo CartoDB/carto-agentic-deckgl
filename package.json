@@ -43,12 +43,19 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c --watch",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "postversion": "npm run postversion:check && npm run postversion:commit && npm run postversion:push",
+    "postversion:check": "npm run type-check && npm test",
+    "postversion:commit": "node scripts/postversion-commit.js",
+    "postversion:push": "git push --set-upstream origin HEAD && git push --tags"
   },
   "keywords": [
     "ai",

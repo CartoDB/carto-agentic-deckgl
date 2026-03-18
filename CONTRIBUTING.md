@@ -103,6 +103,29 @@ To add a new tool:
 5. **Implement the frontend executor** in each frontend example
 6. **Add backend handling** in `examples/backend/<sdk>/src/agent/tools.ts` if server-side execution is needed
 
+## Releasing
+
+Releases follow a convention-based workflow, consistent with `@carto/api-client`:
+
+1. **Bump the version** on `main`:
+   ```bash
+   npm version patch   # or minor / major / prepatch / preminor / premajor / prerelease
+   ```
+
+2. The `postversion` script will automatically:
+   - Run type checks and tests
+   - Create a `release/vX.Y.Z` branch
+   - Commit `chore(release): vX.Y.Z` and tag `vX.Y.Z`
+   - Push the branch and tags to GitHub
+
+3. **Open a PR** from the release branch to `main`.
+
+4. **On merge**, CI detects the `chore(release)` commit and publishes to NPM:
+   - Stable versions (`X.Y.Z`) are tagged `latest`
+   - Prerelease versions (`X.Y.Z-alpha.N`) are tagged `alpha`
+
+The release workflow can also be triggered manually via `workflow_dispatch`.
+
 ## Reporting Issues
 
 When reporting issues, please include:
