@@ -114,13 +114,13 @@ Releases follow a convention-based workflow, consistent with `@carto/api-client`
 
 2. The `postversion` script will automatically:
    - Run type checks and tests
-   - Create a `release/vX.Y.Z` branch
+   - Create a `chore/release-vX.Y.Z` branch
    - Commit `chore(release): vX.Y.Z` and tag `vX.Y.Z`
    - Push the branch and tags to GitHub
 
 3. **Open a PR** from the release branch to `main`.
 
-4. **On merge**, CI detects the `chore(release)` commit and publishes to NPM:
+4. **On merge**, CI detects `chore/release` in the merge commit message and publishes to NPM:
    - Stable versions (`X.Y.Z`) are tagged `latest`
    - Prerelease versions (`X.Y.Z-alpha.N`) are tagged `alpha`
 
