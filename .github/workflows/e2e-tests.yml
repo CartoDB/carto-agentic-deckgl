@@ -42,9 +42,9 @@ jobs:
           #   model_name: 'databricks-gpt-5-2'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -106,7 +106,7 @@ jobs:
         run: cd examples/frontend/react && pnpm e2e --reporter=list,json
 
       # Upload results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: e2e-results-${{ matrix.model_name }}
@@ -120,7 +120,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: all-results
           pattern: e2e-results-*
@@ -176,7 +176,7 @@ jobs:
       - name: Write summary
         run: cat comparison.md >> $GITHUB_STEP_SUMMARY
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: e2e-comparison-report
           path: comparison.md
