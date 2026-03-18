@@ -26,6 +26,9 @@ npm-debug.log*
 # TypeScript cache
 *.tsbuildinfo
 
+# Playwright
+playwright-report/
+
 simpleAgentMap-main/
 claude_docs/
 PRPs/
