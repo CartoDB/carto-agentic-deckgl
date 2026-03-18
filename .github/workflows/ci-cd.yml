@@ -43,7 +43,7 @@ jobs:
       backend: openai-agents-sdk
     secrets: inherit
 
-  # Release to NPM when a chore(release) commit lands on main
+  # Release to NPM when a chore/release branch is merged to main
   release:
     name: Release to NPM
     needs: e2e-tests
@@ -51,6 +51,6 @@ jobs:
       always() &&
       needs.e2e-tests.result == 'success' &&
       github.ref_name == 'main' &&
-      startsWith(github.event.head_commit.message, 'chore(release)')
+      contains(github.event.head_commit.message, 'chore/release')
     uses: ./.github/workflows/release.yml
     secrets: inherit
