@@ -25,17 +25,18 @@ jobs:
     uses: ./.github/workflows/lint.yml
     secrets: inherit
 
-  # Unit tests run after linting passes
+  # Unit tests run in parallel with linting after security scan passes
   unit-tests:
     name: Unit Tests
-    needs: lint
+    needs: security-scan
+    if: needs.security-scan.result == 'success'
     uses: ./.github/workflows/unit-tests.yml
     secrets: inherit
 
   # E2E tests only run on push to main/dev (i.e., after PR merge) to avoid extra consumption
   e2e-tests:
     name: E2E Tests
-    needs: unit-tests
+    needs: [lint, unit-tests]
     if: github.event_name == 'push'
     uses: ./.github/workflows/e2e-tests.yml
     with:
