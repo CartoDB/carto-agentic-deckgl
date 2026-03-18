@@ -30,15 +30,15 @@ const branch = execSync('git rev-parse --abbrev-ref HEAD', {
 }).trim();
 
 if (branch === 'main') {
-  console.log(`Creating release branch: release/${version}`);
-  run(`git checkout -b release/${version}`);
+  console.log(`Creating release branch: chore/release-${version}`);
+  run(`git checkout -b chore/release-${version}`);
 }
 
 run('git add -A');
 run(`git commit -m "chore(release): ${version}"`);
 run(`git tag -a ${version} -m "${version}"`);
 
-console.log(`\nRelease ${version} prepared on branch: ${branch === 'main' ? `release/${version}` : branch}`);
+console.log(`\nRelease ${version} prepared on branch: ${branch === 'main' ? `chore/release-${version}` : branch}`);
 console.log('Next steps:');
 console.log('  git push --set-upstream origin HEAD');
 console.log('  git push --tags');
