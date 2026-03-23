@@ -30,10 +30,10 @@ jobs:
       - name: Build core library
         run: npm run build
 
-      # Backend typecheck
+      # Backend typecheck (override published package with local build)
       - name: Install backend dependencies
         working-directory: ./examples/backend/vercel-ai-sdk
-        run: npm ci
+        run: npm ci && npm install ../../..
 
       - name: Typecheck backend
         working-directory: ./examples/backend/vercel-ai-sdk
@@ -43,10 +43,10 @@ jobs:
       - name: Typecheck core library
         run: npm run type-check
 
-      # Angular typecheck
+      # Angular typecheck (override published package with local build)
       - name: Install Angular dependencies
         working-directory: ./examples/frontend/angular
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Create Angular environment file
         working-directory: ./examples/frontend/angular
@@ -56,19 +56,19 @@ jobs:
         working-directory: ./examples/frontend/angular
         run: pnpm typecheck
 
-      # React typecheck
+      # React typecheck (override published package with local build)
       - name: Install React dependencies
         working-directory: ./examples/frontend/react
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Typecheck React
         working-directory: ./examples/frontend/react
         run: pnpm typecheck
 
-      # Vue typecheck
+      # Vue typecheck (override published package with local build)
       - name: Install Vue dependencies
         working-directory: ./examples/frontend/vue
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Typecheck Vue
         working-directory: ./examples/frontend/vue
