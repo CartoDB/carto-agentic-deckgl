@@ -23,14 +23,13 @@ jobs:
         with:
           version: 10
 
-      # Install and build core library first (dependency for examples)
+      # Run core library tests
       - name: Install core library dependencies
         run: npm ci
 
       - name: Build core library
         run: npm run build
 
-      # Run core library tests
       - name: Test core library
         run: npm test
 

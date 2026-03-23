@@ -15,7 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@carto/agentic-deckgl": "file:../../..",
+    "@carto/agentic-deckgl": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@openai/agents": "^0.4.15",
     "cors": "^2.8.6",

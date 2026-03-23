@@ -52,10 +52,6 @@ jobs:
         with:
           version: 10
 
-      # Build core library
-      - name: Build core library
-        run: npm ci && npm run build
-
       # Install backend
       - name: Install backend
         run: cd examples/backend/${{ inputs.backend || 'openai-agents-sdk' }} && npm ci
