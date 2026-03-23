@@ -25,20 +25,58 @@ Thank you for your interest in contributing! This document covers the essentials
 
 ## Development Setup
 
-### Running Everything
+### Published package vs local library
 
-You'll need three terminals:
+The examples reference `@carto/agentic-deckgl` from npm so they work standalone out of the box. If you're contributing to the **core library** and want to test your changes against the examples, you need to link the local build instead of the published package.
 
-1. **Library** (if making changes): `npm run dev` (from root)
-2. **Backend** (pick one):
-   - `cd examples/backend/openai-agents-sdk && npm run dev` (default)
-   - `cd examples/backend/vercel-ai-sdk && npm run dev`
-   - `cd examples/backend/google-adk && npm run dev`
-3. **Frontend** (pick one):
-   - `cd examples/frontend/react && pnpm dev`
-   - `cd examples/frontend/angular && pnpm start`
-   - `cd examples/frontend/vue && pnpm dev`
-   - `cd examples/frontend/vanilla && pnpm dev`
+### Local development (library + examples)
+
+When making changes to the core library and testing them in the examples:
+
+1. **Build the library** (from the repo root):
+   ```bash
+   npm install && npm run build
+   ```
+
+2. **Link the local build in the example you want to test**:
+
+   For **backend** examples (npm):
+   ```bash
+   cd examples/backend/openai-agents-sdk
+   npm install
+   npm install ../../..    # overrides the npm package with the local build
+   ```
+
+   For **frontend** examples (pnpm):
+   ```bash
+   cd examples/frontend/react
+   pnpm install
+   pnpm add ../../..      # overrides the npm package with the local build
+   ```
+
+3. **Run in watch mode** (three terminals):
+
+   ```bash
+   # Terminal 1 — Library (auto-rebuilds on changes)
+   npm run dev
+
+   # Terminal 2 — Backend
+   cd examples/backend/openai-agents-sdk && npm run dev
+
+   # Terminal 3 — Frontend
+   cd examples/frontend/react && pnpm dev
+   ```
+
+> **Note:** `npm install ../../..` / `pnpm add ../../..` modifies `package.json` and the lock file locally. **Do not commit these changes** — they are for local development only. The examples should always point to the published npm package in the repository.
+
+### Running examples with the published package
+
+If you're only working on the examples (not the library), no extra steps are needed — just install and run:
+
+```bash
+cd examples/backend/openai-agents-sdk && npm install && npm run dev
+cd examples/frontend/react && pnpm install && pnpm dev
+```
 
 See [Development Commands](README.md#development-commands) in the main README for the full command reference.
 
@@ -78,7 +116,7 @@ See [Development Commands](README.md#development-commands) in the main README fo
    - Build the library: `npm run build` (from root)
    - Run type checks: `npm run type-check`
    - Run unit tests: `npm test`
-   - Test with at least one frontend example
+   - If you changed the library, link the local build in an example (see [Local development](#local-development-library--examples)) and verify it works end-to-end
 
 4. **Commit your changes** using conventional commits:
    - `feat:` New features
