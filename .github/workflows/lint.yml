@@ -23,7 +23,7 @@ jobs:
         with:
           version: 10
 
-      # Install and build core library first (dependency for examples)
+      # Core library
       - name: Install core library dependencies
         run: npm ci
 

@@ -108,9 +108,9 @@ pnpm e2e:matrix --backend openai-agents-sdk --current  # Run matrix with current
 ```
 
 ### Running the Application
-1. Build core library: `npm run build` (from root)
-2. Start backend: `cd examples/backend/openai-agents-sdk && npm run dev` (runs on http://localhost:3003)
-3. Start frontend: `cd examples/frontend/angular && pnpm start` (http://localhost:4200) or `cd examples/frontend/react && pnpm dev` (http://localhost:5173)
+
+1. Start backend: `cd examples/backend/openai-agents-sdk && npm run dev` (runs on http://localhost:3003)
+2. Start frontend: `cd examples/frontend/angular && pnpm start` (http://localhost:4200) or `cd examples/frontend/react && pnpm dev` (http://localhost:5173)
 
 ## Architecture
 
