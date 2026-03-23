@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@carto/agentic-deckgl':
-        specifier: file:../../..
-        version: file:../../..(@deck.gl/json@9.2.11(@deck.gl/core@9.2.11))(zod@4.3.6)
+        specifier: ^0.1.0
+        version: 0.1.0(@deck.gl/json@9.2.11(@deck.gl/core@9.2.11))(zod@4.3.6)
       '@carto/api-client':
         specifier: ^0.5.24
         version: 0.5.24(@loaders.gl/core@4.3.4)
@@ -254,8 +254,8 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@carto/agentic-deckgl@file:../../..':
-    resolution: {directory: ../../.., type: directory}
+  '@carto/agentic-deckgl@0.1.0':
+    resolution: {integrity: sha512-pPI84C/kASB6+iOPOIRCJ5vJIpMUSBd2g4p+KhviwfCaqjFge7jIW2deeXsOF+wl5e9kj2QHNu8qgoHEuzCBpw==}
     peerDependencies:
       '@deck.gl/json': ^9.2.0
       zod: ^4.3.6
@@ -2180,7 +2180,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@carto/agentic-deckgl@file:../../..(@deck.gl/json@9.2.11(@deck.gl/core@9.2.11))(zod@4.3.6)':
+  '@carto/agentic-deckgl@0.1.0(@deck.gl/json@9.2.11(@deck.gl/core@9.2.11))(zod@4.3.6)':
     dependencies:
       '@deck.gl/core': 9.2.11
       '@deck.gl/json': 9.2.11(@deck.gl/core@9.2.11)

@@ -23,57 +23,56 @@ jobs:
         with:
           version: 10
 
-      # Install and build core library first (dependency for examples)
+      # Run core library tests
       - name: Install core library dependencies
         run: npm ci
 
       - name: Build core library
         run: npm run build
 
-      # Run core library tests
       - name: Test core library
         run: npm test
 
-      # Run backend tests
+      # Run backend tests (override published package with local build)
       - name: Install backend dependencies
         working-directory: ./examples/backend/vercel-ai-sdk
-        run: npm ci
+        run: npm ci && npm install ../../..
 
       - name: Test backend
         working-directory: ./examples/backend/vercel-ai-sdk
         run: npm test
 
-      # Run Angular tests
+      # Run Angular tests (override published package with local build)
       - name: Install Angular dependencies
         working-directory: ./examples/frontend/angular
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Test Angular
         working-directory: ./examples/frontend/angular
         run: pnpm test
 
-      # Run React tests
+      # Run React tests (override published package with local build)
       - name: Install React dependencies
         working-directory: ./examples/frontend/react
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Test React
         working-directory: ./examples/frontend/react
         run: pnpm test
 
-      # Run Vanilla tests
+      # Run Vanilla tests (override published package with local build)
       - name: Install Vanilla dependencies
         working-directory: ./examples/frontend/vanilla
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Test Vanilla
         working-directory: ./examples/frontend/vanilla
         run: pnpm test
 
-      # Run Vue tests
+      # Run Vue tests (override published package with local build)
       - name: Install Vue dependencies
         working-directory: ./examples/frontend/vue
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Test Vue
         working-directory: ./examples/frontend/vue
