@@ -59,13 +59,10 @@ VITE_USE_HTTP=false
 ### Running
 
 ```bash
-# 1. Build the core library (if not already built)
-cd ../../.. && npm run build && cd -
-
-# 2. Start the backend
+# 1. Start the backend
 cd ../../examples/backend/vercel-ai-sdk && npm run dev &
 
-# 3. Start the React frontend
+# 2. Start the React frontend
 pnpm dev
 ```
 

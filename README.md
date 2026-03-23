@@ -76,13 +76,7 @@ carto-agentic-deckgl/                        # Root IS the library package
 
 ## Quick Start
 
-### 1. Build the core library
-
-```bash
-npm install && npm run build
-```
-
-### 2. Configure and start a backend (pick one)
+### 1. Configure and start a backend (pick one)
 
 ```bash
 # Option A: OpenAI Agents SDK (default)
@@ -103,7 +97,7 @@ npm run dev              # http://localhost:3003
 
 All backends use the same `.env` variables and run on port 3003. See [examples/backend/README.md](examples/backend/README.md) for details.
 
-### 3. Pick a frontend and start it
+### 2. Pick a frontend and start it
 
 | Framework | Directory | Install | Start | URL |
 |-----------|-----------|---------|-------|-----|

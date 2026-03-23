@@ -52,17 +52,17 @@ jobs:
         with:
           version: 10
 
-      # Build core library
+      # Build core library (test local code before publishing)
       - name: Build core library
         run: npm ci && npm run build
 
-      # Install backend
+      # Install backend (override published package with local build)
       - name: Install backend
-        run: cd examples/backend/${{ inputs.backend || 'openai-agents-sdk' }} && npm ci
+        run: cd examples/backend/${{ inputs.backend || 'openai-agents-sdk' }} && npm ci && npm install ../../..
 
-      # Install frontend + Playwright
+      # Install frontend + Playwright (override published package with local build)
       - name: Install frontend
-        run: cd examples/frontend/react && pnpm install --frozen-lockfile
+        run: cd examples/frontend/react && pnpm install --frozen-lockfile && pnpm add ../../..
 
       - name: Install Playwright browsers
         run: cd examples/frontend/react && pnpm exec playwright install --with-deps chromium
