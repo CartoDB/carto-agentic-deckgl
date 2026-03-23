@@ -26,12 +26,7 @@ e2e/
 
 ## Prerequisites
 
-1. **Build the core library:**
-   ```bash
-   cd . && npm install && npm run build
-   ```
-
-2. **Configure backend environment** (`examples/backend/vercel-ai-sdk/.env`):
+1. **Configure backend environment** (`examples/backend/vercel-ai-sdk/.env`):
    ```
    CARTO_AI_API_BASE_URL=<LiteLLM endpoint>
    CARTO_AI_API_KEY=<API key>
@@ -42,7 +37,7 @@ e2e/
    CARTO_LDS_API_KEY=<LDS API key>
    ```
 
-3. **Configure frontend environment** (`examples/frontend/react/.env`):
+2. **Configure frontend environment** (`examples/frontend/react/.env`):
    ```
    VITE_API_BASE_URL=https://gcp-us-east1.api.carto.com
    VITE_API_ACCESS_TOKEN=<CARTO access token>
@@ -52,7 +47,7 @@ e2e/
    VITE_USE_HTTP=false
    ```
 
-4. **Install Playwright browsers:**
+3. **Install Playwright browsers:**
    ```bash
    cd examples/frontend/react && npx playwright install chromium
    ```
