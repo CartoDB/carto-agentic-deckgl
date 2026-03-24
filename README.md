@@ -54,7 +54,7 @@ carto-agentic-deckgl/                        # Root IS the library package
 |   |   |   |   +-- agent/                   # Tool aggregation, providers, MCP
 |   |   |   |   +-- services/                # Agent runner, conversation manager
 |   |   |   |   +-- prompts/                 # System prompt, custom instructions
-|   |   |   |   +-- semantic/                # YAML data catalog (GeoCubes)
+|   |   |   |   +-- semantic/                # YAML data catalog (OSI semantic model)
 |   |   |   +-- tests/                       # Unit tests (Vitest)
 |   |   +-- vercel-ai-sdk/                   # Vercel AI SDK v6 backend
 |   |   +-- google-adk/                      # Google ADK backend
@@ -71,7 +71,9 @@ carto-agentic-deckgl/                        # Root IS the library package
 +-- rollup.config.js                         # Build config (ESM + CJS)
 +-- tsconfig.json                            # TypeScript config
 +-- vitest.config.ts                         # Test config
-+-- LIBRARY.md                               # Core library API reference
++-- docs/
+|   +-- LIBRARY.md                           # Core library API reference
+|   +-- SEMANTIC_LAYER.md                    # Semantic layer (OSI) documentation
 ```
 
 ## Quick Start
@@ -156,7 +158,7 @@ import {
 } from '@carto/agentic-deckgl';
 ```
 
-See [LIBRARY.md](LIBRARY.md) for the full API reference.
+See [docs/LIBRARY.md](docs/LIBRARY.md) for the full API reference.
 
 ---
 
@@ -201,9 +203,9 @@ Frontends communicate with the backend via WebSocket messages:
 - `mcp_tool_result` -- Result from an MCP tool executed on the backend
 - `error` -- Error message
 
-### Semantic Layer
+### Semantic Layer (OSI v1.0)
 
-The backend loads YAML-based data catalogs (GeoCubes) that describe available tables, columns, and visualization hints. This context is injected into the AI's system prompt so it knows what data is available and how to visualize it.
+The backend loads YAML-based semantic models following the [Open Semantic Interchange (OSI)](https://github.com/open-semantic-interchange/OSI) v1.0 specification. These models describe available datasets, fields, relationships, metrics, and visualization hints. CARTO geospatial extensions (spatial data types, styling guidance, welcome chips) are delivered via OSI's native `custom_extensions` mechanism. This context is injected into the AI's system prompt so it knows what data is available and how to visualize it. See [docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md) for details.
 
 ---
 
@@ -335,7 +337,8 @@ pnpm test                       # Run unit tests
 
 | Document | Description |
 |----------|-------------|
-| [LIBRARY.md](LIBRARY.md) | Core library API reference |
+| [docs/LIBRARY.md](docs/LIBRARY.md) | Core library API reference |
+| [docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md) | Semantic layer (OSI v1.0) documentation |
 | [examples/backend/README.md](examples/backend/README.md) | Backend examples overview |
 | [examples/backend/openai-agents-sdk/README.md](examples/backend/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
 | [examples/backend/vercel-ai-sdk/README.md](examples/backend/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
