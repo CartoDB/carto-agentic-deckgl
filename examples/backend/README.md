@@ -40,12 +40,12 @@ Every backend integration must handle the following:
 ### System Prompt
 
 - Use `buildSystemPrompt()` from `@carto/agentic-deckgl` to generate the base prompt
-- Inject semantic context (data catalog) describing available tables and columns
+- Inject semantic context ([OSI v1.0](https://github.com/open-semantic-interchange/OSI) model) describing available datasets and fields
 - Add application-specific instructions and guardrails
 
 ### Semantic Layer
 
-- Load YAML-based data catalogs (GeoCubes) describing available data sources
+- Load YAML-based semantic models ([OSI v1.0](https://github.com/open-semantic-interchange/OSI)) describing available data sources
 - Render them as markdown and inject into the system prompt
 - Expose semantic configuration to frontends via HTTP endpoint
 
