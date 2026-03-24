@@ -260,57 +260,9 @@ Application-specific instructions appended to the library prompt:
 
 ## Semantic Layer
 
-The semantic layer provides the AI with structured knowledge about available data sources. It acts as a data catalog injected into the system prompt.
+The semantic layer provides the AI with structured knowledge about available data sources using the [OSI v1.0](https://github.com/open-semantic-interchange/OSI) specification. YAML files under `semantic/layers/` define datasets, fields, metrics, and CARTO geospatial extensions. These are loaded, validated with Zod, and injected as markdown into the system prompt.
 
-### YAML Configuration
-
-Semantic layers are defined in YAML files under `semantic/layers/`. Each file describes:
-
-```yaml
-# Example structure
-name: "My Data Catalog"
-initialViewState:
-  latitude: 40.7
-  longitude: -74.0
-  zoom: 10
-welcomeMessage: "Welcome! Ask me about..."
-cubes:
-  - name: population
-    tableName: "project.dataset.population_table"
-    geometryType: h3
-    dimensions:
-      - name: state
-        sql: state_name
-        type: string
-    measures:
-      - name: total_population
-        sql: population
-        agg: sum
-    vizHints:
-      - colorFunction: colorBins
-        palette: Sunset
-        domain: [0, 1000, 10000, 100000]
-```
-
-### Key Types (from `semantic/schema.ts`)
-
-| Type | Description |
-| ---- | ----------- |
-| `GeoCube` | Table definition with dimensions, measures, joins, and visualization hints |
-| `GeoDimension` | Filterable/groupable column (name, SQL expression, type) |
-| `GeoMeasure` | Aggregatable column (name, SQL expression, aggregation type) |
-| `GeoVizHint` | Recommended styling (color function, palette, domain) |
-| `SemanticLayer` | Root configuration combining cubes, business context, and metadata |
-
-### Loader Functions (from `semantic/loader.ts`)
-
-| Function | Description |
-| -------- | ----------- |
-| `loadSemanticLayer()` | Reads the first YAML file from `semantic/layers/` |
-| `renderSemanticLayerAsMarkdown(layer)` | Converts to prompt-ready markdown |
-| `getPrimaryCube(layer)` | Returns the first GeoCube |
-| `getInitialViewState(layer)` | Extracts map view state from the primary cube |
-| `getWelcomeMessage(layer)` | Returns the welcome message string |
+See [docs/SEMANTIC_LAYER.md](../../../docs/SEMANTIC_LAYER.md) for the full specification, schema details, types, and loader functions.
 
 ---
 

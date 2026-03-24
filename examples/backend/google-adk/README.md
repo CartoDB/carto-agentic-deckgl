@@ -278,9 +278,9 @@ Application-specific instructions appended to the library prompt:
 
 ## Semantic Layer
 
-The semantic layer provides the AI with structured knowledge about available data sources. It acts as a data catalog injected into the system prompt.
+The semantic layer provides the AI with structured knowledge about available data sources using the [OSI v1.0](https://github.com/open-semantic-interchange/OSI) specification. YAML files under `semantic/layers/` define datasets, fields, metrics, and CARTO geospatial extensions. These are loaded, validated with Zod, and injected as markdown into the system prompt.
 
-Semantic layers are defined in YAML files under `semantic/layers/`. See the [Vercel AI SDK README](../vercel-ai-sdk/README.md#semantic-layer) for the full YAML schema and loader function reference -- the semantic layer implementation is identical across all backends.
+See [docs/SEMANTIC_LAYER.md](../../../docs/SEMANTIC_LAYER.md) for the full specification, schema details, types, and loader functions.
 
 ---
 
