@@ -166,6 +166,8 @@ pnpm e2e              # Run E2E tests (Playwright)
 
 - **[Environment Configuration](environment.md)** — Detailed variable reference for backend and frontend
 - **[WebSocket Protocol](websocket-protocol.md)** — Message format details and communication flow
-- **[Tool System](tools.md)** — Understanding the 3 consolidated tools (coming soon)
+- **[Tool System](tools.md)** — Understanding the 3 consolidated tools
+- **[System Prompt Architecture](system-prompt.md)** — Customizing AI behavior and prompt layers
+- **[Semantic Layer](semantic-layer.md)** — Configuring the data catalog for your tables
 
 For contributing to the project, see [CONTRIBUTING.md](../CONTRIBUTING.md).

@@ -15,7 +15,7 @@ All three backend integrations (OpenAI Agents SDK, Vercel AI SDK, Google ADK) us
 | `CARTO_AI_API_MODEL` | No | Model name (default: `gpt-4o`) | |
 | `CARTO_AI_API_TYPE` | No | API type: `chat` or `responses` | **Vercel AI SDK only** — use `chat` for LiteLLM proxies, `responses` for native OpenAI Agents API (default: `chat`) |
 | `PORT` | No | Server port (default: `3003`) | |
-| `CARTO_MCP_URL` | No | MCP server URL for remote tools | |
+| `CARTO_MCP_URL` | No | MCP server URL for remote tools | See [Tool System](tools.md#mcp-tools) for details |
 | `CARTO_MCP_API_KEY` | No | MCP server API key | |
 | `MCP_WHITELIST_CARTO` | No | Comma-separated list of MCP tools to include (all if unset) | |
 | `CARTO_LDS_API_BASE_URL` | No | CARTO LDS geocoding endpoint | |
