@@ -122,7 +122,7 @@ VITE_USE_HTTP=false
 ## Google ADK Note
 
 > [!NOTE]
-> The Google ADK backend requires `npm install --force` due to peer dependency conflicts. See [Getting Started](getting-started.md#google-adk) for details.
+> The Google ADK backend requires `npm install --force` due to peer dependency conflicts. See [Getting Started](getting-started.md) for details.
 
 ---
 
