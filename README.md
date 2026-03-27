@@ -333,19 +333,31 @@ pnpm test                       # Run unit tests
 
 ## Documentation Index
 
+### Shared Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/getting-started.md) | Prerequisites, installation, and quick-start guide |
+| [Environment Configuration](docs/environment.md) | Backend and frontend environment variables reference |
+| [Tool System](docs/tools.md) | Consolidated tools: set-deck-state, set-marker, set-mask-layer |
+| [WebSocket Protocol](docs/websocket-protocol.md) | Client-server message types and communication flow |
+| [System Prompt Architecture](docs/system-prompt.md) | Library and custom prompt layers |
+| [Semantic Layer](docs/semantic-layer.md) | YAML data catalog configuration and loader functions |
+
+### Examples
+
+| Document | Description |
+|----------|-------------|
+| [Frontend Examples](examples/frontend/README.md) | Angular, React, Vue, and Vanilla JS integrations |
+| [Backend Examples](examples/backend/README.md) | OpenAI Agents SDK, Vercel AI SDK, and Google ADK servers |
+| [E2E Tests](examples/frontend/react/e2e/README.md) | Playwright test suite for React frontend |
+
+### Other
+
 | Document | Description |
 |----------|-------------|
 | [LIBRARY.md](LIBRARY.md) | Core library API reference |
-| [examples/backend/README.md](examples/backend/README.md) | Backend examples overview |
-| [examples/backend/openai-agents-sdk/README.md](examples/backend/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
-| [examples/backend/vercel-ai-sdk/README.md](examples/backend/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
-| [examples/backend/google-adk/README.md](examples/backend/google-adk/README.md) | Google ADK server documentation |
-| [examples/frontend/README.md](examples/frontend/README.md) | Frontend examples overview |
-| [examples/frontend/angular/README.md](examples/frontend/angular/README.md) | Angular integration guide |
-| [examples/frontend/vue/README.md](examples/frontend/vue/README.md) | Vue integration guide |
-| [examples/frontend/react/README.md](examples/frontend/react/README.md) | React integration guide |
-| [examples/frontend/vanilla/README.md](examples/frontend/vanilla/README.md) | Vanilla JS integration guide |
-| [examples/frontend/react/e2e/README.md](examples/frontend/react/e2e/README.md) | E2E test suite documentation |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup and contribution workflow |
 
 ---
 
