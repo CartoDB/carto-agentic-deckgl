@@ -54,7 +54,7 @@ carto-agentic-deckgl/                        # Root IS the library package
 |   |   |   |   +-- agent/                   # Tool aggregation, providers, MCP
 |   |   |   |   +-- services/                # Agent runner, conversation manager
 |   |   |   |   +-- prompts/                 # System prompt, custom instructions
-|   |   |   |   +-- semantic/                # YAML data catalog (OSI semantic model)
+|   |   |   |   +-- semantic/                # YAML data catalog (GeoCubes)
 |   |   |   +-- tests/                       # Unit tests (Vitest)
 |   |   +-- vercel-ai-sdk/                   # Vercel AI SDK v6 backend
 |   |   +-- google-adk/                      # Google ADK backend
@@ -71,9 +71,7 @@ carto-agentic-deckgl/                        # Root IS the library package
 +-- rollup.config.js                         # Build config (ESM + CJS)
 +-- tsconfig.json                            # TypeScript config
 +-- vitest.config.ts                         # Test config
-+-- docs/
-|   +-- LIBRARY.md                           # Core library API reference
-|   +-- SEMANTIC_LAYER.md                    # Semantic layer (OSI) documentation
++-- LIBRARY.md                               # Core library API reference
 ```
 
 ## Quick Start
@@ -158,7 +156,7 @@ import {
 } from '@carto/agentic-deckgl';
 ```
 
-See [docs/LIBRARY.md](docs/LIBRARY.md) for the full API reference.
+See [LIBRARY.md](LIBRARY.md) for the full API reference.
 
 ---
 
@@ -203,9 +201,9 @@ Frontends communicate with the backend via WebSocket messages:
 - `mcp_tool_result` -- Result from an MCP tool executed on the backend
 - `error` -- Error message
 
-### Semantic Layer (OSI v1.0)
+### Semantic Layer
 
-The backend loads YAML-based semantic models following the [Open Semantic Interchange (OSI)](https://github.com/open-semantic-interchange/OSI) v1.0 specification. These models describe available datasets, fields, relationships, metrics, and visualization hints. CARTO geospatial extensions (spatial data types, styling guidance, welcome chips) are delivered via OSI's native `custom_extensions` mechanism. This context is injected into the AI's system prompt so it knows what data is available and how to visualize it. See [docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md) for details.
+The backend loads YAML-based data catalogs (GeoCubes) that describe available tables, columns, and visualization hints. This context is injected into the AI's system prompt so it knows what data is available and how to visualize it.
 
 ---
 
@@ -335,20 +333,31 @@ pnpm test                       # Run unit tests
 
 ## Documentation Index
 
+### Shared Documentation
+
 | Document | Description |
 |----------|-------------|
-| [docs/LIBRARY.md](docs/LIBRARY.md) | Core library API reference |
-| [docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md) | Semantic layer (OSI v1.0) documentation |
-| [examples/backend/README.md](examples/backend/README.md) | Backend examples overview |
-| [examples/backend/openai-agents-sdk/README.md](examples/backend/openai-agents-sdk/README.md) | OpenAI Agents SDK server documentation |
-| [examples/backend/vercel-ai-sdk/README.md](examples/backend/vercel-ai-sdk/README.md) | Vercel AI SDK server documentation |
-| [examples/backend/google-adk/README.md](examples/backend/google-adk/README.md) | Google ADK server documentation |
-| [examples/frontend/README.md](examples/frontend/README.md) | Frontend examples overview |
-| [examples/frontend/angular/README.md](examples/frontend/angular/README.md) | Angular integration guide |
-| [examples/frontend/vue/README.md](examples/frontend/vue/README.md) | Vue integration guide |
-| [examples/frontend/react/README.md](examples/frontend/react/README.md) | React integration guide |
-| [examples/frontend/vanilla/README.md](examples/frontend/vanilla/README.md) | Vanilla JS integration guide |
-| [examples/frontend/react/e2e/README.md](examples/frontend/react/e2e/README.md) | E2E test suite documentation |
+| [Getting Started](docs/getting-started.md) | Prerequisites, installation, and quick-start guide |
+| [Environment Configuration](docs/environment.md) | Backend and frontend environment variables reference |
+| [Tool System](docs/tools.md) | Consolidated tools: set-deck-state, set-marker, set-mask-layer |
+| [WebSocket Protocol](docs/websocket-protocol.md) | Client-server message types and communication flow |
+| [System Prompt Architecture](docs/system-prompt.md) | Library and custom prompt layers |
+| [Semantic Layer](docs/semantic-layer.md) | YAML data catalog configuration and loader functions |
+
+### Examples
+
+| Document | Description |
+|----------|-------------|
+| [Frontend Examples](examples/frontend/README.md) | Angular, React, Vue, and Vanilla JS integrations |
+| [Backend Examples](examples/backend/README.md) | OpenAI Agents SDK, Vercel AI SDK, and Google ADK servers |
+| [E2E Tests](examples/frontend/react/e2e/README.md) | Playwright test suite for React frontend |
+
+### Other
+
+| Document | Description |
+|----------|-------------|
+| [LIBRARY.md](LIBRARY.md) | Core library API reference |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup and contribution workflow |
 
 ---
 
