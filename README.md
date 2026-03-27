@@ -12,16 +12,15 @@ This repository contains three layers that work together:
 
 ## Architecture
 
-```text
-User Message --> Frontend (WebSocket) --> Backend Server
-                                              |
-                                    AI SDK (streaming + tool calling)
-                                              |
-                              text chunks + tool_call messages
-                                              |
-                Frontend: Display text + Execute tool calls
-                                              |
-                              deck.gl state update --> Map renders
+```mermaid
+flowchart TD
+    A[User Message] --> B[Frontend WebSocket]
+    B --> C[Backend Server]
+    C --> D[AI SDK\nstreaming + tool calling]
+    D --> E[text chunks + tool_call messages]
+    E --> F[Frontend\nDisplay text + Execute tool calls]
+    F --> G[deck.gl state update]
+    G --> H[Map renders]
 ```
 
 The AI generates deck.gl JSON specifications using 3 consolidated tools (`set-deck-state` for map state, `set-marker` for location pins, and `set-mask-layer` for spatial filtering). The frontend executes these through `JSONConverter` to render layers, update the camera, and change the basemap.

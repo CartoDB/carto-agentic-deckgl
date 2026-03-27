@@ -115,16 +115,15 @@ pnpm e2e:matrix --backend openai-agents-sdk --current  # Run matrix with current
 ## Architecture
 
 ### Communication Flow
-```
-User Message → Frontend WebSocket → Backend (Express)
-                                         ↓
-                            AI SDK (streaming + tool calling)
-                                         ↓
-Backend streams back: text chunks + tool_call messages
-                                         ↓
-Frontend: Display text + Execute tool_calls
-                                         ↓
-                            deck.gl state update
+
+```mermaid
+flowchart TD
+    A[User Message] --> B[Frontend WebSocket]
+    B --> C[Backend - Express]
+    C --> D[AI SDK\nstreaming + tool calling]
+    D --> E[text chunks + tool_call messages]
+    E --> F[Frontend\nDisplay text + Execute tool_calls]
+    F --> G[deck.gl state update]
 ```
 
 ### Consolidated Tools (3 frontend-executed tools)
