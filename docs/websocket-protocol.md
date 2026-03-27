@@ -139,32 +139,19 @@ The backend sends these message types to the frontend.
 
 Typical request-response cycle:
 
-```
-┌─────────┐                                    ┌─────────┐
-│ Client  │                                    │ Backend │
-└────┬────┘                                    └────┬────┘
-     │                                              │
-     │  { type: 'chat_message', content, ... }     │
-     ├─────────────────────────────────────────────>│
-     │                                              │
-     │        { type: 'stream_chunk', ... }         │
-     │<─────────────────────────────────────────────┤
-     │        { type: 'stream_chunk', ... }         │
-     │<─────────────────────────────────────────────┤
-     │                                              │
-     │      { type: 'tool_call_start', ... }        │
-     │<─────────────────────────────────────────────┤
-     │         { type: 'tool_call', ... }           │
-     │<─────────────────────────────────────────────┤
-     │                                              │
-     │  [Frontend executes tool, updates map]       │
-     │                                              │
-     │   { type: 'tool_result', success: true }     │
-     ├─────────────────────────────────────────────>│
-     │                                              │
-     │  { type: 'stream_chunk', isComplete: true }  │
-     │<─────────────────────────────────────────────┤
-     │                                              │
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Backend
+
+    Client->>Backend: chat_message (content, ...)
+    Backend-->>Client: stream_chunk (text)
+    Backend-->>Client: stream_chunk (text)
+    Backend-->>Client: tool_call_start
+    Backend-->>Client: tool_call (data)
+    Note over Client: Execute tool & update map
+    Client->>Backend: tool_result (success: true)
+    Backend-->>Client: stream_chunk (isComplete: true)
 ```
 
 **Step-by-step:**

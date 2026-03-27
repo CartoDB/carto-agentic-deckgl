@@ -99,10 +99,13 @@ custom_extensions:
 
 The OSI integration flows through **four stages**:
 
-```
-YAML Files --> Zod Validation --> Markdown Rendering --> LLM System Prompt
-     |
-  API Endpoint --> Frontend Welcome UI
+```mermaid
+flowchart LR
+    A[YAML Files] --> B[Zod Validation]
+    B --> C[Markdown Rendering]
+    C --> D[LLM System Prompt]
+    A --> E[API Endpoint]
+    E --> F[Frontend Welcome UI]
 ```
 
 ### Stage 1: YAML Data Layer (`semantic/layers/*.yaml`)
@@ -227,37 +230,14 @@ The framework-agnostic library accepts `semanticContext?: string` in `BuildSyste
 
 ## 6. Data Flow Summary
 
-```
-                     +----------------------+
-                     |  YAML Files (OSI v1) |
-                     |  semantic/layers/    |
-                     +----------+-----------+
-                                |
-                                | loadSemanticModel()
-                                | (Zod validation + merge)
-                                v
-                     +----------------------+
-                     |  SemanticModel (TS)  |
-                     |  (cached in memory)  |
-                     +------+-------+-------+
-                            |       |
-          +-----------------+       +------------------+
-          v                                            v
- renderSemanticModelAsMarkdown()           GET /api/semantic-config
-          |                                            |
-          v                                            v
- +--------------------+                    +-------------------+
- |  System Prompt     |                    |  Frontend Chat UI |
- |  (LLM context)    |                    |  (welcome chips)  |
- +--------------------+                    +-------------------+
-          |
-          v
- +--------------------+
- |  AI Agent decides  |
- |  which dataset,    |
- |  layer type, and   |
- |  styling to use    |
- +--------------------+
+```mermaid
+flowchart TD
+    A["YAML Files (OSI v1)\nsemantic/layers/"] -->|"loadSemanticModel()\n(Zod validation + merge)"| B["SemanticModel (TS)\n(cached in memory)"]
+    B --> C["renderSemanticModelAsMarkdown()"]
+    B --> D["GET /api/semantic-config"]
+    C --> E["System Prompt\n(LLM context)"]
+    D --> F["Frontend Chat UI\n(welcome chips)"]
+    E --> G["AI Agent decides\nwhich dataset, layer type,\nand styling to use"]
 ```
 
 ---
