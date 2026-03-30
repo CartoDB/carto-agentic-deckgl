@@ -134,5 +134,5 @@ Mock fixtures are defined in `agent/mcp-mock-fixtures.ts` and return pre-defined
 
 ## Cross-References
 
-- **System Prompt**: See [System Prompt Architecture](system-prompt.md) for how tools are described to the AI and included in the system prompt
-- **WebSocket Protocol**: See [WebSocket Protocol](websocket-protocol.md) for how tool calls are transmitted from backend to frontend and how tool results are sent back
+- **System Prompt**: See [System Prompt Architecture](SYSTEM_PROMPT.md) for how tools are described to the AI and included in the system prompt
+- **WebSocket Protocol**: See [WebSocket Protocol](WEBSOCKET_PROTOCOL.md) for how tool calls are transmitted from backend to frontend and how tool results are sent back

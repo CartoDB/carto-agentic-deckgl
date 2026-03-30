@@ -100,7 +100,7 @@ The backend sends these message types to the frontend.
 
 **When sent:** AI decides to call a frontend-executed tool.
 
-**Purpose:** Frontend executes the tool (via `ConsolidatedExecutorsService`), updates map state, and sends a `tool_result` message back to the backend. See [Tool System](tools.md) for detailed tool documentation.
+**Purpose:** Frontend executes the tool (via `ConsolidatedExecutorsService`), updates map state, and sends a `tool_result` message back to the backend. See [Tool System](TOOLS.md) for detailed tool documentation.
 
 ---
 
@@ -178,5 +178,5 @@ sequenceDiagram
 
 ## See Also
 
-- [Getting Started](getting-started.md) — Backend and frontend setup
-- [Environment Configuration](environment.md) — Backend and frontend variables
+- [Getting Started](GETTING_STARTED.md) — Backend and frontend setup
+- [Environment Configuration](ENVIRONMENT.md) — Backend and frontend variables

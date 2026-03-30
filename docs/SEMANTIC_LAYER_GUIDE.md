@@ -283,4 +283,4 @@ flowchart TD
 
 ## Cross-References
 
-- **System Prompt**: See [System Prompt Architecture](system-prompt.md) for how semantic context is injected into the prompt
+- **System Prompt**: See [System Prompt Architecture](SYSTEM_PROMPT.md) for how semantic context is injected into the prompt

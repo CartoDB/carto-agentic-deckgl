@@ -117,11 +117,11 @@ To customize the system prompt for your application:
 
 1. **Edit `prompts/custom-prompt.ts`** in your backend to add application-specific rules
 2. **Do NOT modify the library prompt directly** -- it's imported from `@carto/agentic-deckgl` and should remain unchanged to ensure consistent tool behavior across all backends
-3. **Update the semantic layer YAML** to reflect your data catalog (see [Semantic Layer](semantic-layer.md))
+3. **Update the semantic layer YAML** to reflect your data catalog (see [Semantic Layer](SEMANTIC_LAYER_GUIDE.md))
 
 ---
 
 ## Cross-References
 
-- **Semantic Layer**: See [Semantic Layer](semantic-layer.md) for how the data catalog is injected into the system prompt
-- **Tool System**: See [Tool System](tools.md) for the tools described in the prompt
+- **Semantic Layer**: See [Semantic Layer](SEMANTIC_LAYER_GUIDE.md) for how the data catalog is injected into the system prompt
+- **Tool System**: See [Tool System](TOOLS.md) for the tools described in the prompt

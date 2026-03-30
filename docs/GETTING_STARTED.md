@@ -36,13 +36,13 @@ The **OpenAI Agents SDK** is the default and recommended backend.
 cd examples/backend/openai-agents-sdk
 npm install
 cp .env.example .env
-# Edit .env with your credentials (see docs/environment.md#backend-variables)
+# Edit .env with your credentials (see docs/ENVIRONMENT.md#backend-variables)
 npm run dev
 ```
 
 The backend server will start on **http://localhost:3003**.
 
-See [Environment Configuration](environment.md#backend-variables) for detailed variable reference.
+See [Environment Configuration](ENVIRONMENT.md#backend-variables) for detailed variable reference.
 
 ### Step 3: Set up a frontend
 
@@ -54,7 +54,7 @@ Choose a frontend framework. Angular and React are shown below.
 cd examples/frontend/angular
 pnpm install
 cp src/environments/environment.example src/environments/environment.ts
-# Edit environment.ts (see docs/environment.md#frontend-variables)
+# Edit environment.ts (see docs/ENVIRONMENT.md#frontend-variables)
 pnpm start
 ```
 
@@ -66,13 +66,13 @@ Frontend will start on **http://localhost:4200**.
 cd examples/frontend/react
 pnpm install
 cp .env.example .env
-# Edit .env (see docs/environment.md#frontend-variables)
+# Edit .env (see docs/ENVIRONMENT.md#frontend-variables)
 pnpm dev
 ```
 
 Frontend will start on **http://localhost:5173**.
 
-See [Environment Configuration](environment.md#frontend-variables) for detailed variable reference.
+See [Environment Configuration](ENVIRONMENT.md#frontend-variables) for detailed variable reference.
 
 ---
 
@@ -164,10 +164,10 @@ pnpm e2e              # Run E2E tests (Playwright)
 
 ## Next Steps
 
-- **[Environment Configuration](environment.md)** — Detailed variable reference for backend and frontend
-- **[WebSocket Protocol](websocket-protocol.md)** — Message format details and communication flow
-- **[Tool System](tools.md)** — Understanding the 3 consolidated tools
-- **[System Prompt Architecture](system-prompt.md)** — Customizing AI behavior and prompt layers
-- **[Semantic Layer](semantic-layer.md)** — Configuring the data catalog for your tables
+- **[Environment Configuration](ENVIRONMENT.md)** — Detailed variable reference for backend and frontend
+- **[WebSocket Protocol](WEBSOCKET_PROTOCOL.md)** — Message format details and communication flow
+- **[Tool System](TOOLS.md)** — Understanding the 3 consolidated tools
+- **[System Prompt Architecture](SYSTEM_PROMPT.md)** — Customizing AI behavior and prompt layers
+- **[Semantic Layer](SEMANTIC_LAYER_GUIDE.md)** — Configuring the data catalog for your tables
 
 For contributing to the project, see [CONTRIBUTING.md](../CONTRIBUTING.md).
