@@ -336,12 +336,12 @@ pnpm test                       # Run unit tests
 
 | Document | Description |
 |----------|-------------|
-| [Getting Started](docs/getting-started.md) | Prerequisites, installation, and quick-start guide |
-| [Environment Configuration](docs/environment.md) | Backend and frontend environment variables reference |
-| [Tool System](docs/tools.md) | Consolidated tools: set-deck-state, set-marker, set-mask-layer |
-| [WebSocket Protocol](docs/websocket-protocol.md) | Client-server message types and communication flow |
-| [System Prompt Architecture](docs/system-prompt.md) | Library and custom prompt layers |
-| [Semantic Layer](docs/semantic-layer.md) | YAML data catalog configuration and loader functions |
+| [Getting Started](docs/GETTING_STARTED.md) | Prerequisites, installation, and quick-start guide |
+| [Environment Configuration](docs/ENVIRONMENT.md) | Backend and frontend environment variables reference |
+| [Tool System](docs/TOOLS.md) | Consolidated tools: set-deck-state, set-marker, set-mask-layer |
+| [WebSocket Protocol](docs/WEBSOCKET_PROTOCOL.md) | Client-server message types and communication flow |
+| [System Prompt Architecture](docs/SYSTEM_PROMPT.md) | Library and custom prompt layers |
+| [Semantic Layer](docs/SEMANTIC_LAYER_GUIDE.md) | YAML data catalog configuration and loader functions |
 
 ### Examples
 

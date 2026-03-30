@@ -17,9 +17,9 @@ All frontends share the same 6-component layout (MapView, ChatPanel, LayerToggle
 
 ## Shared Documentation
 
-- [Getting Started](../../docs/getting-started.md#available-frontends) — Installation and dev commands
-- [Environment Configuration](../../docs/environment.md#frontend-variables) — Frontend environment variables
-- [Tool System](../../docs/tools.md) — set-deck-state, set-marker, set-mask-layer
-- [WebSocket Protocol](../../docs/websocket-protocol.md) — Message types and flow
-- [System Prompt](../../docs/system-prompt.md) — Prompt architecture
-- [Semantic Layer](../../docs/semantic-layer.md) — Data catalog configuration
+- [Getting Started](../../docs/GETTING_STARTED.md#available-frontends) — Installation and dev commands
+- [Environment Configuration](../../docs/ENVIRONMENT.md#frontend-variables) — Frontend environment variables
+- [Tool System](../../docs/TOOLS.md) — set-deck-state, set-marker, set-mask-layer
+- [WebSocket Protocol](../../docs/WEBSOCKET_PROTOCOL.md) — Message types and flow
+- [System Prompt](../../docs/SYSTEM_PROMPT.md) — Prompt architecture
+- [Semantic Layer](../../docs/SEMANTIC_LAYER_GUIDE.md) — Data catalog configuration

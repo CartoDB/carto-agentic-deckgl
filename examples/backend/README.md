@@ -16,9 +16,9 @@ All backends share the same directory structure (`server.ts`, `services/`, `agen
 
 ## Shared Documentation
 
-- [Getting Started](../../docs/getting-started.md#available-backends) — Installation and dev commands
-- [Environment Configuration](../../docs/environment.md#backend-variables) — Backend environment variables
-- [Tool System](../../docs/tools.md) — set-deck-state, set-marker, set-mask-layer, MCP tools
-- [WebSocket Protocol](../../docs/websocket-protocol.md) — Message types, endpoints, session management
-- [System Prompt](../../docs/system-prompt.md) — Library and custom prompt layers
-- [Semantic Layer](../../docs/semantic-layer.md) — YAML configuration and loader functions
+- [Getting Started](../../docs/GETTING_STARTED.md#available-backends) — Installation and dev commands
+- [Environment Configuration](../../docs/ENVIRONMENT.md#backend-variables) — Backend environment variables
+- [Tool System](../../docs/TOOLS.md) — set-deck-state, set-marker, set-mask-layer, MCP tools
+- [WebSocket Protocol](../../docs/WEBSOCKET_PROTOCOL.md) — Message types, endpoints, session management
+- [System Prompt](../../docs/SYSTEM_PROMPT.md) — Library and custom prompt layers
+- [Semantic Layer](../../docs/SEMANTIC_LAYER_GUIDE.md) — YAML configuration and loader functions
