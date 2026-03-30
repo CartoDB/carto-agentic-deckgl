@@ -165,7 +165,7 @@ pnpm e2e              # Run E2E tests (Playwright)
 ## Next Steps
 
 - **[Environment Configuration](ENVIRONMENT.md)** — Detailed variable reference for backend and frontend
-- **[WebSocket Protocol](WEBSOCKET_PROTOCOL.md)** — Message format details and communication flow
+- **[Communication Protocol](COMMUNICATION_PROTOCOL.md)** — Message format details and communication flow
 - **[Tool System](TOOLS.md)** — Understanding the 3 consolidated tools
 - **[System Prompt Architecture](SYSTEM_PROMPT.md)** — Customizing AI behavior and prompt layers
 - **[Semantic Layer](SEMANTIC_LAYER_GUIDE.md)** — Configuring the data catalog for your tables

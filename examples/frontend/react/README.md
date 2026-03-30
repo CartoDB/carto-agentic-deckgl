@@ -100,6 +100,6 @@ All components are **functional** and use hooks for state access. No class compo
 - [Getting Started](../../../docs/GETTING_STARTED.md) — Prerequisites, installation, running
 - [Environment Configuration](../../../docs/ENVIRONMENT.md#vite-based-react-vue-vanilla) — Vite environment variables
 - [Tool System](../../../docs/TOOLS.md) — set-deck-state, set-marker, set-mask-layer
-- [WebSocket Protocol](../../../docs/WEBSOCKET_PROTOCOL.md) — Message types and flow
+- [Communication Protocol](../../../docs/COMMUNICATION_PROTOCOL.md) — Message types and flow
 - [System Prompt](../../../docs/SYSTEM_PROMPT.md) — Prompt architecture
 - [Semantic Layer](../../../docs/SEMANTIC_LAYER_GUIDE.md) — Data catalog configuration

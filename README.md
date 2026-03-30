@@ -184,7 +184,7 @@ The AI generates JSON specs using special prefixes resolved by `JSONConverter`:
 | `@@=` | Accessor expression | `"@@=properties.population"` |
 | `@@#` | Constant reference | `"@@#Red"` |
 
-### WebSocket Protocol
+### Communication Protocol
 
 Frontends communicate with the backend via WebSocket messages:
 
@@ -339,7 +339,7 @@ pnpm test                       # Run unit tests
 | [Getting Started](docs/GETTING_STARTED.md) | Prerequisites, installation, and quick-start guide |
 | [Environment Configuration](docs/ENVIRONMENT.md) | Backend and frontend environment variables reference |
 | [Tool System](docs/TOOLS.md) | Consolidated tools: set-deck-state, set-marker, set-mask-layer |
-| [WebSocket Protocol](docs/WEBSOCKET_PROTOCOL.md) | Client-server message types and communication flow |
+| [Communication Protocol](docs/COMMUNICATION_PROTOCOL.md) | Client-server message types and communication flow |
 | [System Prompt Architecture](docs/SYSTEM_PROMPT.md) | Library and custom prompt layers |
 | [Semantic Layer](docs/SEMANTIC_LAYER_GUIDE.md) | YAML data catalog configuration and loader functions |
 

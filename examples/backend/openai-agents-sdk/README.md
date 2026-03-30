@@ -92,6 +92,6 @@ The consolidated tools (`set-deck-state`, `set-marker`, `set-mask-layer`) are co
 - [Getting Started](../../../docs/GETTING_STARTED.md) — Prerequisites, installation, running
 - [Environment Configuration](../../../docs/ENVIRONMENT.md#backend-variables) — Backend environment variables
 - [Tool System](../../../docs/TOOLS.md) — set-deck-state, set-marker, set-mask-layer, MCP tools
-- [WebSocket Protocol](../../../docs/WEBSOCKET_PROTOCOL.md) — Message types, endpoints, session management
+- [Communication Protocol](../../../docs/COMMUNICATION_PROTOCOL.md) — Message types, endpoints, session management
 - [System Prompt](../../../docs/SYSTEM_PROMPT.md) — Library and custom prompt layers
 - [Semantic Layer](../../../docs/SEMANTIC_LAYER_GUIDE.md) — YAML configuration and loader functions

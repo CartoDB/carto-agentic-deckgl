@@ -129,4 +129,4 @@ VITE_USE_HTTP=false
 ## See Also
 
 - [Getting Started](GETTING_STARTED.md) — Full setup instructions for backend and frontend
-- [WebSocket Protocol](WEBSOCKET_PROTOCOL.md) — Message format reference
+- [Communication Protocol](COMMUNICATION_PROTOCOL.md) — Message format reference
