@@ -155,7 +155,7 @@ import {
 } from '@carto/agentic-deckgl';
 ```
 
-See [LIBRARY.md](LIBRARY.md) for the full API reference.
+See [LIBRARY.md](docs/LIBRARY.md) for the full API reference.
 
 ---
 
