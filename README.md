@@ -339,9 +339,12 @@ pnpm test                       # Run unit tests
 | [Getting Started](docs/GETTING_STARTED.md) | Prerequisites, installation, and quick-start guide |
 | [Environment Configuration](docs/ENVIRONMENT.md) | Backend and frontend environment variables reference |
 | [Tool System](docs/TOOLS.md) | Consolidated tools: set-deck-state, set-marker, set-mask-layer |
-| [Communication Protocol](docs/COMMUNICATION_PROTOCOL.md) | Client-server message types and communication flow |
+| [Communication Protocol](docs/COMMUNICATION_PROTOCOL.md) | Client-server message types and communication flow (WebSocket & HTTP/SSE) |
 | [System Prompt Architecture](docs/SYSTEM_PROMPT.md) | Library and custom prompt layers |
 | [Semantic Layer](docs/SEMANTIC_LAYER_GUIDE.md) | YAML data catalog configuration and loader functions |
+| [Backend Integration Guide](docs/LIBRARY_BACKEND_INTEGRATION.md) | Step-by-step guide to integrate with any AI backend |
+| [Frontend Integration Guide](docs/LIBRARY_FRONTEND_INTEGRATION.md) | Step-by-step guide to execute tool calls on any frontend |
+| [Prompt System Architecture](docs/LIBRARY_PROMPT_SYSTEM.md) | How buildSystemPrompt() composes the AI system prompt |
 
 ### Examples
 
@@ -353,10 +356,10 @@ pnpm test                       # Run unit tests
 
 ### Other
 
-| Document | Description |
-|----------|-------------|
-| [LIBRARY.md](LIBRARY.md) | Core library API reference |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup and contribution workflow |
+| Document                                 | Description                                                |
+|------------------------------------------|------------------------------------------------------------|
+| [Library Architecture](docs/LIBRARY.md)  | Core library architecture, API reference, and key concepts |
+| [CONTRIBUTING.md](CONTRIBUTING.md)       | Development setup and contribution workflow                |
 
 ---
 

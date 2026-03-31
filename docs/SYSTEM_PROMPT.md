@@ -123,5 +123,7 @@ To customize the system prompt for your application:
 
 ## Cross-References
 
+- **Prompt System Architecture**: See [Prompt System Architecture](LIBRARY_PROMPT_SYSTEM.md) for how `buildSystemPrompt()` composes tool prompts, shared sections, and dynamic state
 - **Semantic Layer**: See [Semantic Layer](SEMANTIC_LAYER_GUIDE.md) for how the data catalog is injected into the system prompt
 - **Tool System**: See [Tool System](TOOLS.md) for the tools described in the prompt
+- **Library**: See [Library Architecture](LIBRARY.md) for the full API reference

@@ -164,8 +164,11 @@ pnpm e2e              # Run E2E tests (Playwright)
 
 ## Next Steps
 
+- **[Library Architecture](LIBRARY.md)** — Core library API, architecture overview, and key concepts
+- **[Backend Integration Guide](LIBRARY_BACKEND_INTEGRATION.md)** — Step-by-step guide to integrate with any AI backend
+- **[Frontend Integration Guide](LIBRARY_FRONTEND_INTEGRATION.md)** — Step-by-step guide to execute tool calls on any frontend
 - **[Environment Configuration](ENVIRONMENT.md)** — Detailed variable reference for backend and frontend
-- **[Communication Protocol](COMMUNICATION_PROTOCOL.md)** — Message format details and communication flow
+- **[Communication Protocol](COMMUNICATION_PROTOCOL.md)** — Message format details and communication flow (WebSocket & HTTP/SSE)
 - **[Tool System](TOOLS.md)** — Understanding the 3 consolidated tools
 - **[System Prompt Architecture](SYSTEM_PROMPT.md)** — Customizing AI behavior and prompt layers
 - **[Semantic Layer](SEMANTIC_LAYER_GUIDE.md)** — Configuring the data catalog for your tables
