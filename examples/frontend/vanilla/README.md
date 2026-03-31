@@ -2,6 +2,15 @@
 
 > Pure JavaScript integration with deck.gl map controlled by AI-powered natural language chat — no framework required.
 
+## Quick Start
+
+```bash
+pnpm install
+cp .env.example .env
+# Edit .env with your CARTO credentials
+pnpm dev      # http://localhost:5173
+```
+
 ## Architecture
 
 The Vanilla implementation uses **plain ES6 classes** with a custom **EventEmitter** for inter-component communication. There is no framework — all wiring is done manually in `main.js`.
@@ -137,7 +146,7 @@ All components are plain JavaScript classes with manual DOM manipulation.
 ## Shared Documentation
 
 - [Getting Started](../../../docs/GETTING_STARTED.md) — Prerequisites, installation, running
-- [Environment Configuration](../../../docs/ENVIRONMENT.md#vite-based-react-vue-vanilla) — Vite environment variables
+- [Environment Configuration](../../../docs/ENVIRONMENT.md#vite-based-frontends) — Vite environment variables
 - [Tool System](../../../docs/TOOLS.md) — set-deck-state, set-marker, set-mask-layer
 - [Communication Protocol](../../../docs/COMMUNICATION_PROTOCOL.md) — Message types and flow
 - [System Prompt](../../../docs/SYSTEM_PROMPT.md) — Prompt architecture

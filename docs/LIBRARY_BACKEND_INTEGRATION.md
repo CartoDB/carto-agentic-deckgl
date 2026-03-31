@@ -21,15 +21,15 @@ Your backend provides:
 ```mermaid
 flowchart TD
     subgraph Library["@carto/agentic-deckgl"]
-        TD[Tool Definitions\nZod schemas]
-        SP[System Prompt\nbuildSystemPrompt]
-        FT[Frontend Tool Detection\nisFrontendToolResult]
+        TD["Tool Definitions<br>Zod schemas"]
+        SP["System Prompt<br>buildSystemPrompt"]
+        FT["Frontend Tool Detection<br>isFrontendToolResult"]
     end
 
     subgraph YourBackend["Your Backend"]
-        AR[Agent Runner\nSDK-specific]
+        AR["Agent Runner<br>SDK-specific"]
         WS[WebSocket Server]
-        CT[Custom Tools\noptional]
+        CT["Custom Tools<br>optional"]
     end
 
     TD --> AR

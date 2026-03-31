@@ -1,5 +1,7 @@
 # System Prompt Architecture
 
+> **Scope**: Application-level prompt composition — how backends combine the library prompt with custom instructions. For the internal implementation of `buildSystemPrompt()` and its modular sections, see [Prompt System Architecture](LIBRARY_PROMPT_SYSTEM.md).
+
 The system prompt is built in two layers: a library-generated base prompt and application-specific custom instructions.
 
 ---

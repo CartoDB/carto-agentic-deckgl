@@ -2,6 +2,15 @@
 
 > Backend server using OpenAI Agents SDK for AI orchestration with WebSocket streaming.
 
+## Quick Start
+
+```bash
+npm install
+cp .env.example .env
+# Edit .env with your credentials (see docs/ENVIRONMENT.md)
+npm run dev   # http://localhost:3003
+```
+
 ---
 
 ## Architecture

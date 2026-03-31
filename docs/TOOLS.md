@@ -132,6 +132,20 @@ Mock fixtures are defined in `agent/mcp-mock-fixtures.ts` and return pre-defined
 
 ---
 
+## Source Files
+
+| Module | Path | Purpose |
+| ------ | ---- | ------- |
+| Tool definitions | `src/definitions/tools.ts` | Zod schemas and tool registry for the 3 consolidated tools |
+| Tool name constants | `src/definitions/dictionary.ts` | `TOOL_NAMES` enum |
+| Tool prompts | `src/prompts/tool-prompts.ts` | Per-tool instruction blocks included in the system prompt |
+| SDK converters | `src/converters/agentic-sdks.ts` | `getToolsForOpenAIAgents()`, `getToolsForVercelAI()`, `getToolsForGoogleADK()` |
+| Spec schemas | `src/schemas/deckgl-json.ts` | Zod schemas for @deck.gl/json layer specs |
+
+For adding new tools or modifying existing ones, see [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+---
+
 ## Cross-References
 
 - **Library**: See [Library Architecture](LIBRARY.md) for the full API reference, SDK converters, and how tool definitions are created from Zod schemas

@@ -2,6 +2,15 @@
 
 > Angular 20 integration with deck.gl map controlled by AI-powered natural language chat.
 
+## Quick Start
+
+```bash
+pnpm install
+cp src/environments/environment.example src/environments/environment.ts
+# Edit environment.ts with your CARTO credentials
+pnpm start    # http://localhost:4200
+```
+
 ## Architecture
 
 The Angular integration uses dependency injection with `providedIn: 'root'` singletons. All services are automatically available throughout the component tree without explicit provider configuration.

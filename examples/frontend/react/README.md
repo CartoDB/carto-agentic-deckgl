@@ -2,6 +2,15 @@
 
 > React 19 integration with deck.gl map controlled by AI-powered natural language chat.
 
+## Quick Start
+
+```bash
+pnpm install
+cp .env.example .env
+# Edit .env with your CARTO credentials
+pnpm dev      # http://localhost:5173
+```
+
 ## Architecture
 
 The React integration uses **Context Providers** for dependency injection and **Hooks** for state access. Providers are nested in a specific order in `main.tsx` to ensure proper dependency resolution.
@@ -98,7 +107,7 @@ All components are **functional** and use hooks for state access. No class compo
 ## Shared Documentation
 
 - [Getting Started](../../../docs/GETTING_STARTED.md) — Prerequisites, installation, running
-- [Environment Configuration](../../../docs/ENVIRONMENT.md#vite-based-react-vue-vanilla) — Vite environment variables
+- [Environment Configuration](../../../docs/ENVIRONMENT.md#vite-based-frontends) — Vite environment variables
 - [Tool System](../../../docs/TOOLS.md) — set-deck-state, set-marker, set-mask-layer
 - [Communication Protocol](../../../docs/COMMUNICATION_PROTOCOL.md) — Message types and flow
 - [System Prompt](../../../docs/SYSTEM_PROMPT.md) — Prompt architecture

@@ -84,7 +84,9 @@ export const environment = {
 };
 ```
 
-### Vite-Based (React, Vue, Vanilla)
+<a id="vite-based-frontends"></a>
+
+### Vite-Based Frontends (React, Vue, Vanilla)
 
 Vite frontends use a `.env` file with `VITE_` prefixed variables.
 
@@ -116,6 +118,20 @@ VITE_USE_HTTP=false
 | `wsUrl` | `VITE_WS_URL` | Backend WebSocket URL (e.g., `ws://localhost:3003/ws`) |
 | `httpApiUrl` | `VITE_HTTP_API_URL` | Backend HTTP URL (fallback for Server-Sent Events) |
 | `useHttp` | `VITE_USE_HTTP` | Use HTTP instead of WebSocket (`false` recommended) |
+
+---
+
+## React E2E Testing
+
+The React frontend includes Playwright E2E tests with additional configuration options:
+
+| Variable | Description |
+| -------- | ----------- |
+| `BACKEND_SDK` | Backend to test against: `openai-agents-sdk` (default) or `vercel-ai-sdk` |
+| `BASE_URL` | Frontend URL for E2E tests (default: `http://localhost:5173`) |
+| `WS_URL` | Backend WebSocket URL (default: `ws://localhost:3003/ws`) |
+
+See `examples/frontend/react/e2e/` for test configuration and `examples/frontend/react/playwright.config.ts` for full setup.
 
 ---
 

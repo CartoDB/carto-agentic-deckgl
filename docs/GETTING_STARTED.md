@@ -101,7 +101,7 @@ All four frontends have identical feature parity and work with any backend.
 |----------|-----------|-----------|------------|-----------------|
 | **Angular** | Angular 20 | `examples/frontend/angular/` | http://localhost:4200 | pnpm |
 | **React** | React 19 | `examples/frontend/react/` | http://localhost:5173 | pnpm |
-| **Vue** | Vue 3 | `examples/frontend/vue/` | http://localhost:5173 | pnpm |
+| **Vue** | Vue 3 | `examples/frontend/vue/` | http://localhost:5174 | pnpm |
 | **Vanilla JS** | No framework | `examples/frontend/vanilla/` | http://localhost:5173 | pnpm |
 
 All frontends use **pnpm** for package management.

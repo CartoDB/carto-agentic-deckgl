@@ -26,19 +26,19 @@ The library sits between the AI backend and the frontend, providing the contract
 ```mermaid
 flowchart LR
     subgraph Library["@carto/agentic-deckgl"]
-        D[definitions/\nZod schemas + tools]
-        P[prompts/\nSystem prompt builder]
-        C[converters/\nSDK adapters]
-        S[schemas/\ndeck.gl JSON specs]
-        E[executors/\nResponse formatting]
+        D["definitions/<br>Zod schemas + tools"]
+        P["prompts/<br>System prompt builder"]
+        C["converters/<br>SDK adapters"]
+        S["schemas/<br>deck.gl JSON specs"]
+        E["executors/<br>Response formatting"]
     end
 
     subgraph Backend
-        A[Agent Runner\nOpenAI · Vercel · Google]
+        A["Agent Runner<br>OpenAI · Vercel · Google"]
     end
 
     subgraph Frontend
-        F[Tool Executor\nAngular · React · Vue · Vanilla]
+        F["Tool Executor<br>Angular · React · Vue · Vanilla"]
         G[deck.gl + MapLibre]
     end
 
@@ -136,18 +136,18 @@ The system prompt is not a static string — it's dynamically composed from modu
 
 ```mermaid
 flowchart TD
-    A[buildSystemPrompt] --> B[Tool Prompts\nper enabled tool]
-    A --> C[Shared Sections\nworkflows + guidelines]
+    A["buildSystemPrompt"] --> B["Tool Prompts<br>per enabled tool"]
+    A --> C["Shared Sections<br>workflows + guidelines"]
     A --> D{initialState?}
-    D -->|yes| E[Map State Section\nlayers, viewState, active layer]
+    D -->|yes| E["Map State Section<br>layers, viewState, active layer"]
     A --> F{mcpToolNames?}
-    F -->|yes| G[MCP Instructions\nasync workflow, layer isolation]
+    F -->|yes| G["MCP Instructions<br>async workflow, layer isolation"]
     A --> H{userContext?}
-    H -->|yes| I[User Context Section\nlocation, demographics, behaviors]
+    H -->|yes| I["User Context Section<br>location, demographics, behaviors"]
     A --> J{semanticContext?}
-    J -->|yes| K[Semantic Layer\ntable descriptions, fields, metrics]
+    J -->|yes| K["Semantic Layer<br>table descriptions, fields, metrics"]
     A --> L{additionalPrompt?}
-    L -->|yes| M[Custom Instructions\napp-specific rules]
+    L -->|yes| M["Custom Instructions<br>app-specific rules"]
 
     B & C & E & G & I & K & M --> N[Complete System Prompt]
 ```

@@ -2,6 +2,15 @@
 
 > Vue 3 integration with deck.gl map controlled by AI-powered natural language chat.
 
+## Quick Start
+
+```bash
+pnpm install
+cp .env.example .env
+# Edit .env with your CARTO credentials
+pnpm dev      # http://localhost:5174
+```
+
 ## Architecture
 
 The Vue integration uses **singleton composables** for dependency injection and shared state. Unlike React's nested Context Providers, Vue composables are module-scoped singletons created on first call and returned to all subsequent callers.
@@ -113,7 +122,7 @@ All components use Vue 3 Composition API with `<script setup>`.
 ## Shared Documentation
 
 - [Getting Started](../../../docs/GETTING_STARTED.md) — Prerequisites, installation, running
-- [Environment Configuration](../../../docs/ENVIRONMENT.md#vite-based-react-vue-vanilla) — Vite environment variables
+- [Environment Configuration](../../../docs/ENVIRONMENT.md#vite-based-frontends) — Vite environment variables
 - [Tool System](../../../docs/TOOLS.md) — set-deck-state, set-marker, set-mask-layer
 - [Communication Protocol](../../../docs/COMMUNICATION_PROTOCOL.md) — Message types and flow
 - [System Prompt](../../../docs/SYSTEM_PROMPT.md) — Prompt architecture

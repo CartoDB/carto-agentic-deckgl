@@ -1,5 +1,7 @@
 # Prompt System Architecture
 
+> **Scope**: Library internals — how `buildSystemPrompt()` composes its modular sections. For application-level prompt customization (combining library prompt with custom instructions), see [System Prompt Architecture](SYSTEM_PROMPT.md).
+
 Deep dive into how `@carto/agentic-deckgl` composes system prompts for AI agents that control deck.gl maps.
 
 ---
@@ -19,24 +21,24 @@ This modular design means:
 
 ```mermaid
 flowchart TD
-    A["buildSystemPrompt(options)"] --> B["1. Role Introduction\n'You are a helpful map assistant...'"]
-    B --> C["2. Tool Prompts\nfor each tool in toolNames"]
-    C --> D["3. Shared Sections\nworkflowPatterns + guidelines"]
+    A["buildSystemPrompt(options)"] --> B["1. Role Introduction<br>'You are a helpful map assistant...'"]
+    B --> C["2. Tool Prompts<br>for each tool in toolNames"]
+    C --> D["3. Shared Sections<br>workflowPatterns + guidelines"]
     D --> E{initialState?}
-    E -->|yes| F["4. Map State Section\nbuildMapStateSection()"]
-    E -->|no| G["5. Tool List\nTOOLS AVAILABLE: ..."]
+    E -->|yes| F["4. Map State Section<br>buildMapStateSection()"]
+    E -->|no| G["5. Tool List<br>TOOLS AVAILABLE: ..."]
     F --> G
     G --> H{mcpToolNames?}
-    H -->|yes| I["6. MCP Instructions\nasync workflow + layer isolation"]
+    H -->|yes| I["6. MCP Instructions<br>async workflow + layer isolation"]
     H -->|no| J{semanticContext?}
     I --> J
-    J -->|yes| K["7. Semantic Context\ntable descriptions, fields, metrics"]
+    J -->|yes| K["7. Semantic Context<br>table descriptions, fields, metrics"]
     J -->|no| L{userContext?}
     K --> L
-    L -->|yes| M["8. User Context\nbuildUserContextSection()"]
+    L -->|yes| M["8. User Context<br>buildUserContextSection()"]
     L -->|no| N{additionalPrompt?}
     M --> N
-    N -->|yes| O["9. Additional Prompt\napp-specific text"]
+    N -->|yes| O["9. Additional Prompt<br>app-specific text"]
     N -->|no| P[Complete System Prompt]
     O --> P
 ```
