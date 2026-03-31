@@ -61,7 +61,7 @@ flowchart LR
 
 3. **@deck.gl/json as Intermediate Representation** — All map operations are expressed as JSON specs with special prefixes (`@@type`, `@@function`, `@@=`, `@@#`), resolved by the frontend's JSONConverter. This decouples the AI from framework-specific code.
 
-4. **Frontend Tool Marker Pattern** — Backend SDK converters validate tool parameters and return a `{ __frontend_tool__: true, toolName, data }` marker. The agent runner detects this marker and forwards the tool call to the frontend via WebSocket, rather than executing it server-side.
+4. **Frontend Tool Marker Pattern** — Backend SDK converters validate tool parameters and return a `{ __frontend_tool__: true, toolName, data }` marker. The agent runner detects this marker and forwards the tool call to the frontend via WebSocket (or HTTP/SSE), rather than executing it server-side.
 
 ---
 
@@ -220,8 +220,8 @@ const response = await openai.chat.completions.create({
 ```typescript
 import { TOOL_NAMES } from '@carto/agentic-deckgl';
 
-// Execute tools received from WebSocket
-websocket.on('tool_call', async (message) => {
+// Execute tools received from backend (WebSocket or HTTP/SSE)
+connection.on('tool_call', async (message) => {
   const { toolName, data, callId } = message;
 
   switch (toolName) {
@@ -239,8 +239,8 @@ websocket.on('tool_call', async (message) => {
       break;
   }
 
-  // Send result back to backend
-  websocket.send({ type: 'tool_result', toolName, callId, success: true, message: 'Done' });
+  // Send result back to backend (WebSocket only — not available in HTTP/SSE mode)
+  connection.send({ type: 'tool_result', toolName, callId, success: true, message: 'Done' });
 });
 ```
 

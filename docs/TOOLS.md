@@ -1,6 +1,6 @@
 # Tool System
 
-The framework uses 3 consolidated frontend-executed tools that replace 40+ granular tools. The AI generates tool calls with JSON parameters; the backend forwards them to the frontend via WebSocket; the frontend executes them against the deck.gl map state.
+The framework uses 3 consolidated frontend-executed tools that replace 40+ granular tools. The AI generates tool calls with JSON parameters; the backend forwards them to the frontend via WebSocket (or HTTP/SSE); the frontend executes them against the deck.gl map state.
 
 ---
 
@@ -136,6 +136,6 @@ Mock fixtures are defined in `agent/mcp-mock-fixtures.ts` and return pre-defined
 
 - **Library**: See [Library Architecture](LIBRARY.md) for the full API reference, SDK converters, and how tool definitions are created from Zod schemas
 - **System Prompt**: See [System Prompt Architecture](SYSTEM_PROMPT.md) for how tools are described to the AI and included in the system prompt
-- **Communication Protocol**: See [Communication Protocol](COMMUNICATION_PROTOCOL.md) for how tool calls are transmitted from backend to frontend and how tool results are sent back (WebSocket only)
+- **Communication Protocol**: See [Communication Protocol](COMMUNICATION_PROTOCOL.md) for how tool calls are transmitted from backend to frontend and how tool results are sent back (tool results are WebSocket only — HTTP/SSE has no back-channel)
 - **Backend Integration**: See [Backend Integration Guide](LIBRARY_BACKEND_INTEGRATION.md) for how to register tools and detect frontend tool results
 - **Frontend Integration**: See [Frontend Integration Guide](LIBRARY_FRONTEND_INTEGRATION.md) for how to execute tool calls on the client

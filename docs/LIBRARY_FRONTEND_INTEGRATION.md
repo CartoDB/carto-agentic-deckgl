@@ -6,21 +6,21 @@ How to integrate `@carto/agentic-deckgl` with any frontend framework to execute 
 
 ## Overview
 
-The frontend receives tool calls from the backend via WebSocket and executes them against deck.gl. The library provides minimal runtime code on the frontend side — primarily constants and response utilities. The heavy lifting (state management, rendering) is framework-specific.
+The frontend receives tool calls from the backend via **WebSocket** (default) or **HTTP/SSE** and executes them against deck.gl. The library provides minimal runtime code on the frontend side — primarily constants and response utilities. The heavy lifting (state management, rendering) is framework-specific.
 
 **What the library provides:**
 - `TOOL_NAMES` — Constants for tool name matching
 - `parseToolResponse`, `isSuccessResponse` — Response parsing utilities
 
 **What you build:**
-- WebSocket connection and message handling
+- WebSocket or HTTP/SSE connection and message handling
 - Tool executor (maps tool names to state update functions)
 - deck.gl state management
 - JSONConverter setup for `@@` prefix resolution
 
 ```mermaid
 flowchart TD
-    WS[WebSocket Message\ntype: tool_call] --> TE[Tool Executor\nswitch on TOOL_NAMES]
+    WS[Incoming Message\ntype: tool_call] --> TE[Tool Executor\nswitch on TOOL_NAMES]
     TE --> SD[set-deck-state\nviewState, layers, basemap, widgets]
     TE --> SM[set-marker\nadd, remove, clear]
     TE --> SMK[set-mask-layer\nset, draw, clear]
@@ -32,7 +32,7 @@ flowchart TD
     DS --> JC[JSONConverter\nresolve @@ prefixes]
     JC --> DGL[deck.gl Render]
 
-    TE -->|success/failure| TR[Tool Result\nsendToolResult via WebSocket]
+    TE -->|success/failure| TR[Tool Result\nsendToolResult — WebSocket only]
 ```
 
 ---
@@ -54,16 +54,46 @@ import { TOOL_NAMES } from '@carto/agentic-deckgl';
 
 ---
 
-## Step 2: Connect to WebSocket
+## Step 2: Connect to the Backend
 
-Establish a WebSocket connection to the backend and handle incoming messages:
+The framework supports two transport modes: **WebSocket** (default, recommended) and **HTTP/SSE**. Both deliver the same JSON message types, so the message handling logic is identical — only the connection setup differs.
+
+### WebSocket (default)
+
+Establish a persistent, full-duplex connection:
 
 ```typescript
 const ws = new WebSocket('ws://localhost:3003/ws');
 
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
+  handleMessage(msg);
+};
+```
 
+### HTTP/SSE (alternative)
+
+Use `POST /api/chat` with Server-Sent Events for streaming. Useful in environments where WebSocket is unavailable (serverless, restrictive proxies):
+
+```typescript
+const response = await fetch('http://localhost:3003/api/chat', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ message: content, initialState }),
+});
+
+const reader = response.body.getReader();
+// Parse SSE `data:` lines — each contains the same JSON message types
+```
+
+> **Note:** In HTTP/SSE mode there is no back-channel — the client cannot send `tool_result` messages, so the AI cannot retry failed tool calls within the same turn. Conversation history is also not maintained across requests. See [Communication Protocol](COMMUNICATION_PROTOCOL.md) for a full comparison.
+
+### Message Handling (shared)
+
+Regardless of transport, incoming messages use the same `type` field:
+
+```typescript
+function handleMessage(msg: any) {
   switch (msg.type) {
     case 'stream_chunk':
       // Accumulate AI text response
@@ -89,7 +119,7 @@ ws.onmessage = (event) => {
       showError(msg.content);
       break;
   }
-};
+}
 ```
 
 For the complete message protocol, see [Communication Protocol](COMMUNICATION_PROTOCOL.md).
@@ -340,7 +370,7 @@ function renderDeckState(deckSpec) {
 
 ## Step 5: Provide Initial State
 
-Each `chat_message` should include the current map state so the AI knows what's on screen:
+Each `chat_message` should include the current map state so the AI knows what's on screen. In HTTP/SSE mode, the same `initialState` is sent as part of the POST body (see [Communication Protocol](COMMUNICATION_PROTOCOL.md)).
 
 ```typescript
 function sendMessage(content: string) {
@@ -379,9 +409,11 @@ function sendMessage(content: string) {
 
 ---
 
-## Step 6: Send Tool Results
+## Step 6: Send Tool Results (WebSocket Only)
 
 After executing a tool, send the result back to the backend so the AI knows what happened:
+
+> **HTTP/SSE note:** This step only applies to WebSocket connections. In HTTP/SSE mode the stream is unidirectional — tool results cannot be sent back, so the AI will not receive execution feedback or retry failed calls.
 
 ```typescript
 function sendToolResult(toolName: string, callId: string, result: ToolResult) {
@@ -437,28 +469,28 @@ This allows the AI to send partial updates (e.g., just change `getFillColor` on 
 - State: `useReducer` in a `DeckStateContext` provider
 - Tool executor: `createToolExecutor()` factory receiving state dispatch actions
 - Rendering: `useDeckProps()` hook calls `jsonConverter.convert()` on state changes
-- WebSocket: `WebSocketContext` provider with `useRef` for mutable state
+- Transport: `WebSocketContext` provider with `useRef` for mutable state (supports both WebSocket and HTTP/SSE via `VITE_USE_HTTP`)
 
 ### Angular
 
 - State: `DeckStateService` with `BehaviorSubject<DeckSpec>`
 - Tool executor: `ConsolidatedExecutorsService` injectable
 - Rendering: `DeckMapService.renderFromState()` subscribes to state changes
-- WebSocket: `WebSocketService` with RxJS Subjects
+- Transport: `WebSocketService` with RxJS Subjects (supports both WebSocket and HTTP/SSE via `environment.useHttp`)
 
 ### Vue
 
 - State: `useDeckMap()` composable with `ref()` and `computed()`
 - Tool executor: `createToolExecutor()` factory (identical to React)
 - Rendering: `watch()` on state, calls `jsonConverter.convert()`
-- WebSocket: `useWebSocket()` singleton composable
+- Transport: `useWebSocket()` singleton composable (supports both WebSocket and HTTP/SSE via `VITE_USE_HTTP`)
 
 ### Vanilla JS
 
 - State: `DeckState` class extending `EventEmitter`
 - Tool executor: `ToolExecutor` class
 - Rendering: Event listener on state change, calls `jsonConverter.convert()`
-- WebSocket: `WebSocketClient` class extending `EventEmitter`
+- Transport: `WebSocketClient` class extending `EventEmitter` (supports both WebSocket and HTTP/SSE via `VITE_USE_HTTP`)
 
 ---
 

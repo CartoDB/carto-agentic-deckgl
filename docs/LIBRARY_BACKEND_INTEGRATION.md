@@ -15,7 +15,7 @@ The library provides three things your backend needs:
 Your backend provides:
 
 1. **Agent runner** — SDK-specific orchestration (streaming, tool execution loop)
-2. **WebSocket/HTTP server** — Communication with the frontend
+2. **WebSocket/HTTP server** — Communication with the frontend (WebSocket recommended; HTTP/SSE available as fallback)
 3. **Custom tools** — Optional backend-only tools (geocoding, MCP integration)
 
 ```mermaid
@@ -193,7 +193,7 @@ See [Prompt System Architecture](LIBRARY_PROMPT_SYSTEM.md) for details on each s
 
 ## Step 4: Create the Agent Runner
 
-The agent runner orchestrates the AI conversation, detects frontend tool calls, and forwards them via WebSocket.
+The agent runner orchestrates the AI conversation, detects frontend tool calls, and forwards them via WebSocket (or HTTP/SSE).
 
 ### Core Pattern
 
@@ -252,7 +252,7 @@ function handleToolResult(event: ToolResultEvent, ws: WebSocket) {
 
   // For Vercel AI / Google ADK — output is an object
   if (isFrontendToolResult(output)) {
-    // Frontend tool → forward to client via WebSocket
+    // Frontend tool → forward to client via WebSocket (or HTTP/SSE stream)
     ws.send(JSON.stringify({
       type: 'tool_call',
       toolName: output.toolName,
@@ -315,6 +315,8 @@ function sanitizeMalformedKeys(data: unknown): unknown {
 ## Step 5: WebSocket Communication
 
 Set up WebSocket endpoints for bidirectional communication with the frontend.
+
+> **Note:** The backend also exposes an HTTP/SSE endpoint (`POST /api/chat`) as an alternative for environments where WebSocket is unavailable. In HTTP/SSE mode, tool results cannot be sent back from the client and conversation history is not maintained. See [Communication Protocol](COMMUNICATION_PROTOCOL.md) for details.
 
 ### Server Setup
 
