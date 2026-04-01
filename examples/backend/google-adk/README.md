@@ -1,6 +1,6 @@
 # Google ADK Backend
 
-> Backend server using Google Agent Development Kit (ADK) for AI orchestration with WebSocket streaming.
+> **Experimental** backend server using Google Agent Development Kit (ADK) for AI orchestration with WebSocket streaming.
 
 ## Quick Start
 

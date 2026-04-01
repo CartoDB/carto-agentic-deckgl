@@ -53,7 +53,7 @@ carto-agentic-deckgl/                        # Root IS the library package
 |   |   |   |   +-- agent/                   # Tool aggregation, providers, MCP
 |   |   |   |   +-- services/                # Agent runner, conversation manager
 |   |   |   |   +-- prompts/                 # System prompt, custom instructions
-|   |   |   |   +-- semantic/                # YAML data catalog (GeoCubes)
+|   |   |   |   +-- semantic/                # YAML data catalog (OSI v1.0)
 |   |   |   +-- tests/                       # Unit tests (Vitest)
 |   |   +-- vercel-ai-sdk/                   # Vercel AI SDK v6 backend
 |   |   +-- google-adk/                      # Google ADK backend
@@ -70,7 +70,8 @@ carto-agentic-deckgl/                        # Root IS the library package
 +-- rollup.config.js                         # Build config (ESM + CJS)
 +-- tsconfig.json                            # TypeScript config
 +-- vitest.config.ts                         # Test config
-+-- LIBRARY.md                               # Core library API reference
++-- docs/                                    # Centralized documentation
++-- CONTRIBUTING.md                          # Contribution guidelines
 ```
 
 ## Quick Start
@@ -202,7 +203,7 @@ Frontends communicate with the backend via WebSocket messages:
 
 ### Semantic Layer
 
-The backend loads YAML-based data catalogs (GeoCubes) that describe available tables, columns, and visualization hints. This context is injected into the AI's system prompt so it knows what data is available and how to visualize it.
+The backend loads YAML-based data catalogs (OSI v1.0) that describe available tables, columns, and visualization hints. This context is injected into the AI's system prompt so it knows what data is available and how to visualize it.
 
 ---
 

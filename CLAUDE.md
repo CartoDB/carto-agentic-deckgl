@@ -18,6 +18,7 @@ carto-agentic-deckgl/                        # Root IS the library package
 ├── src/                                     # Core library source (@carto/agentic-deckgl)
 ├── test/                                    # Core library tests
 ├── dist/                                    # Build output (ESM + CJS)
+├── docs/                                    # Centralized documentation guides
 ├── examples/
 │   ├── backend/
 │   │   ├── openai-agents-sdk/               # Backend server — OpenAI Agents SDK (default)

@@ -44,15 +44,16 @@ The library prompt includes:
 ### Function Signature
 
 ```typescript
-buildSystemPrompt(
-  mapState: {
-    viewState: ViewState;
-    layers: LayerSpec[];
-    basemap: string;
-  },
-  tools: ToolDefinition[],
-  mcpTools?: McpToolDefinition[]
-): string
+buildSystemPrompt(options: BuildSystemPromptOptions): string
+
+interface BuildSystemPromptOptions {
+  toolNames: string[];
+  initialState?: MapState;
+  userContext?: UserContext;
+  semanticContext?: string;
+  mcpToolNames?: string[];
+  additionalPrompt?: string;
+}
 ```
 
 ---
@@ -98,7 +99,7 @@ The custom prompt typically includes:
 The final system prompt is composed by combining all three layers:
 
 ```
-Final System Prompt = buildSystemPrompt(mapState, tools, mcpTools)
+Final System Prompt = buildSystemPrompt(options)
                     + Semantic Layer Context (markdown-rendered data catalog)
                     + Custom Prompt (application-specific rules)
 ```
