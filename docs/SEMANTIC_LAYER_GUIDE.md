@@ -6,15 +6,15 @@
 
 ### Core OSI Building Blocks
 
-| Concept | Purpose |
-|---|---|
-| **Semantic Model** | Top-level container with name, description, and `ai_context` |
-| **Dataset** | Logical entity (table) with `source`, `primary_key`, and `fields` |
-| **Field** | Column-level attribute with multi-dialect SQL `expression` and optional `dimension` |
-| **Relationship** | Foreign key join between datasets (`from_columns` / `to_columns`) |
-| **Metric** | Aggregate measure (e.g., `SUM(population)`) spanning datasets |
-| **Expression** | Multi-dialect SQL: `{dialects: [{dialect: "ANSI_SQL", expression: "..."}]}` |
-| **ai_context** | LLM instructions, synonyms, examples — can be a string or structured object |
+| Concept               | Purpose                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| **Semantic Model**    | Top-level container with name, description, and `ai_context`                                  |
+| **Dataset**           | Logical entity (table) with `source`, `primary_key`, and `fields`                             |
+| **Field**             | Column-level attribute with multi-dialect SQL `expression` and optional `dimension`           |
+| **Relationship**      | Foreign key join between datasets (`from_columns` / `to_columns`)                             |
+| **Metric**            | Aggregate measure (e.g., `SUM(population)`) spanning datasets                                 |
+| **Expression**        | Multi-dialect SQL: `{dialects: [{dialect: "ANSI_SQL", expression: "..."}]}`                   |
+| **ai_context**        | LLM instructions, synonyms, examples — can be a string or structured object                   |
 | **custom_extensions** | Vendor-specific metadata via `{vendor_name, data}` — extensibility without breaking core spec |
 
 Supported SQL dialects: `ANSI_SQL`, `SNOWFLAKE`, `MDX`, `TABLEAU`, `DATABRICKS`.
@@ -99,21 +99,24 @@ custom_extensions:
 
 The OSI integration flows through **four stages**:
 
-```
-YAML Files --> Zod Validation --> Markdown Rendering --> LLM System Prompt
-     |
-  API Endpoint --> Frontend Welcome UI
+```mermaid
+flowchart LR
+    A[YAML Files] --> B[Zod Validation]
+    B --> C[Markdown Rendering]
+    C --> D[LLM System Prompt]
+    A --> E[API Endpoint]
+    E --> F[Frontend Welcome UI]
 ```
 
 ### Stage 1: YAML Data Layer (`semantic/layers/*.yaml`)
 
 Three YAML files define the available geospatial datasets:
 
-| File | Dataset | Layer Type | Content |
-|---|---|---|---|
-| `counties.yaml` | `higher_edu_by_county` | VectorTileLayer (polygon) | Education rates, election results, income by US county |
+| File                       | Dataset                   | Layer Type                  | Content                                                    |
+| -------------------------- | ------------------------- | --------------------------- | ---------------------------------------------------------- |
+| `counties.yaml`            | `higher_edu_by_county`    | VectorTileLayer (polygon)   | Education rates, election results, income by US county     |
 | `h3-spatial-features.yaml` | `usa_spatial_features_h3` | H3TileLayer (spatial_index) | Demographics, POIs, elevation, monthly climate at H3 res 8 |
-| `osm-pois-usa.yaml` | *(OSM POIs)* | VectorTileLayer (point) | OpenStreetMap points of interest |
+| `osm-pois-usa.yaml`        | *(OSM POIs)*              | VectorTileLayer (point)     | OpenStreetMap points of interest                           |
 
 Each file is a self-contained OSI v1.0 semantic model with datasets, fields, metrics, relationships, and CARTO extensions. Files are located at:
 
@@ -156,16 +159,16 @@ Types are derived via `z.infer<>` — no separate interface files needed. Invali
 
 **Helper functions** extract typed CARTO extension data:
 
-| Function | Returns | Purpose |
-|---|---|---|
-| `getCartoExtension()` | `Record<string, unknown>` | Raw vendor data from any entity |
-| `getDatasetSpatialData()` | `CartoSpatialData` | Validated spatial metadata |
-| `getFieldVisualizationHint()` | `CartoVisualizationHint` | Validated styling hints |
-| `getModelCartoConfig()` | `CartoModelExtension` | Model-level config (connection, welcome, initial_view) |
-| `getMetricGroup()` | `string` | CARTO group tag for metric categorization |
-| `getInitialViewState()` | `{longitude, latitude, zoom, ...}` | Map initial view |
-| `getWelcomeMessage()` | `string` | Welcome message text |
-| `getWelcomeChips()` | `Array<{id, label, prompt}>` | Welcome suggestion chips |
+| Function                      | Returns                            | Purpose                                                |
+| ----------------------------- | ---------------------------------- | ------------------------------------------------------ |
+| `getCartoExtension()`         | `Record<string, unknown>`          | Raw vendor data from any entity                        |
+| `getDatasetSpatialData()`     | `CartoSpatialData`                 | Validated spatial metadata                             |
+| `getFieldVisualizationHint()` | `CartoVisualizationHint`           | Validated styling hints                                |
+| `getModelCartoConfig()`       | `CartoModelExtension`              | Model-level config (connection, welcome, initial_view) |
+| `getMetricGroup()`            | `string`                           | CARTO group tag for metric categorization              |
+| `getInitialViewState()`       | `{longitude, latitude, zoom, ...}` | Map initial view                                       |
+| `getWelcomeMessage()`         | `string`                           | Welcome message text                                   |
+| `getWelcomeChips()`           | `Array<{id, label, prompt}>`       | Welcome suggestion chips                               |
 
 ### Stage 4: Prompt Injection (`renderSemanticModelAsMarkdown()`)
 
@@ -227,37 +230,14 @@ The framework-agnostic library accepts `semanticContext?: string` in `BuildSyste
 
 ## 6. Data Flow Summary
 
-```
-                     +----------------------+
-                     |  YAML Files (OSI v1) |
-                     |  semantic/layers/    |
-                     +----------+-----------+
-                                |
-                                | loadSemanticModel()
-                                | (Zod validation + merge)
-                                v
-                     +----------------------+
-                     |  SemanticModel (TS)  |
-                     |  (cached in memory)  |
-                     +------+-------+-------+
-                            |       |
-          +-----------------+       +------------------+
-          v                                            v
- renderSemanticModelAsMarkdown()           GET /api/semantic-config
-          |                                            |
-          v                                            v
- +--------------------+                    +-------------------+
- |  System Prompt     |                    |  Frontend Chat UI |
- |  (LLM context)    |                    |  (welcome chips)  |
- +--------------------+                    +-------------------+
-          |
-          v
- +--------------------+
- |  AI Agent decides  |
- |  which dataset,    |
- |  layer type, and   |
- |  styling to use    |
- +--------------------+
+```mermaid
+flowchart TD
+    A["YAML Files (OSI v1)\nsemantic/layers/"] -->|"loadSemanticModel()\n(Zod validation + merge)"| B["SemanticModel (TS)\n(cached in memory)"]
+    B --> C["renderSemanticModelAsMarkdown()"]
+    B --> D["GET /api/semantic-config"]
+    C --> E["System Prompt\n(LLM context)"]
+    D --> F["Frontend Chat UI\n(welcome chips)"]
+    E --> G["AI Agent decides\nwhich dataset, layer type,\nand styling to use"]
 ```
 
 ---
@@ -266,36 +246,41 @@ The framework-agnostic library accepts `semanticContext?: string` in `BuildSyste
 
 ### Backend (identical across all 3 SDK backends)
 
-| File | Purpose |
-|---|---|
-| `src/semantic/schema.ts` | Zod schemas for OSI v1.0 + CARTO extensions |
-| `src/semantic/loader.ts` | YAML loading, merging, caching, markdown rendering |
-| `src/semantic/index.ts` | Re-exports all types and functions |
-| `src/semantic/layers/counties.yaml` | County education & election data |
-| `src/semantic/layers/h3-spatial-features.yaml` | H3 demographics, POIs, climate |
-| `src/semantic/layers/osm-pois-usa.yaml` | OpenStreetMap POIs |
-| `src/prompts/system-prompt.ts` | Loads semantic model and injects into LLM prompt |
-| `src/server.ts` | Exposes `/api/semantic-config` endpoint |
+| File                                           | Purpose                                            |
+| ---------------------------------------------- | -------------------------------------------------- |
+| `src/semantic/schema.ts`                       | Zod schemas for OSI v1.0 + CARTO extensions        |
+| `src/semantic/loader.ts`                       | YAML loading, merging, caching, markdown rendering |
+| `src/semantic/index.ts`                        | Re-exports all types and functions                 |
+| `src/semantic/layers/counties.yaml`            | County education & election data                   |
+| `src/semantic/layers/h3-spatial-features.yaml` | H3 demographics, POIs, climate                     |
+| `src/semantic/layers/osm-pois-usa.yaml`        | OpenStreetMap POIs                                 |
+| `src/prompts/system-prompt.ts`                 | Loads semantic model and injects into LLM prompt   |
+| `src/server.ts`                                | Exposes `/api/semantic-config` endpoint            |
 
 ### Core Library
 
-| File | Purpose |
-|---|---|
+| File                     | Purpose                                                  |
+| ------------------------ | -------------------------------------------------------- |
 | `src/prompts/builder.ts` | Accepts `semanticContext` and injects into system prompt |
-| `src/prompts/types.ts` | Defines `BuildSystemPromptOptions` interface |
+| `src/prompts/types.ts`   | Defines `BuildSystemPromptOptions` interface             |
 
 ### Frontend (all 4 frameworks)
 
-| File | Purpose |
-|---|---|
+| File                            | Purpose                                            |
+| ------------------------------- | -------------------------------------------------- |
 | `src/config/semantic-config.ts` | Fetches welcome config from backend, with fallback |
 
 ### Tests
 
-| File | Purpose |
-|---|---|
-| `tests/unit/semantic/schema.test.ts` | Validates all Zod schemas (valid + invalid inputs) |
-| `tests/unit/semantic/loader.test.ts` | Tests YAML loading, merging, rendering |
-| `e2e/tests/semantic-direct-layer.spec.ts` | E2E test for direct semantic layer chip |
-| `e2e/tests/semantic-mcp-tool.spec.ts` | E2E test for MCP workflow chips |
+| File                                      | Purpose                                            |
+| ----------------------------------------- | -------------------------------------------------- |
+| `tests/unit/semantic/schema.test.ts`      | Validates all Zod schemas (valid + invalid inputs) |
+| `tests/unit/semantic/loader.test.ts`      | Tests YAML loading, merging, rendering             |
+| `e2e/tests/semantic-direct-layer.spec.ts` | E2E test for direct semantic layer chip            |
+| `e2e/tests/semantic-mcp-tool.spec.ts`     | E2E test for MCP workflow chips                    |
 
+---
+
+## Cross-References
+
+- **System Prompt**: See [System Prompt Architecture](SYSTEM_PROMPT.md) for how semantic context is injected into the prompt
