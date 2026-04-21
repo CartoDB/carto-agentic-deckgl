@@ -714,7 +714,7 @@ Do NOT call set-marker for simple navigation/fly-to commands. If the user says "
 
 **WHEN TO CALL set-marker (ALL conditions must be met):**
 - The user explicitly says "add a marker", "mark this location", "pin this spot", "place a pin" — OR
-- An MCP spatial analysis tool was executed (buffer, drivetime, isoline) — these always get a marker after completion
+- An MCP spatial analysis tool will be executed (buffer, drivetime, isoline) — these always get a marker BEFORE the MCP tool call
 - When combined with navigation AND marker mention: "fly to Paris and add a marker"
 - The user says "clear markers", "remove all markers", "delete markers" → use action "clear-all"
 - The user says "remove the marker on X" → geocode X, then use action "remove" with the coordinates
