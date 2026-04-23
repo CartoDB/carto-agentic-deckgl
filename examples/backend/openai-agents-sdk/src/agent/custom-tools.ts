@@ -3,6 +3,9 @@
  *
  * Define custom backend-executed tools here.
  * These tools run on the server (unlike map tools which execute on the frontend).
+ *
+ * Note: Tool execute functions return plain objects (not JSON.stringify),
+ * matching the behavior of Google ADK and Vercel AI SDK backends.
  */
 
 import { tool, type FunctionTool } from '@openai/agents';
@@ -36,17 +39,17 @@ const ldsGeocodeTool = tool({
     // Validate that at least address or city is provided (country is required by schema)
     if (!address && !city) {
       console.log('[Geocode] ERROR: Neither address nor city provided');
-      return JSON.stringify({
+      return {
         error: 'At least one of address or city must be provided (country is required)',
-      });
+      };
     }
 
     // Check if CARTO_LDS_API_KEY is configured
     if (!CARTO_LDS_API_KEY) {
       console.error('[Geocode] ERROR: CARTO_LDS_API_KEY environment variable is not set');
-      return JSON.stringify({
+      return {
         error: 'Geocoding service is not configured. CARTO_LDS_API_KEY is missing.',
-      });
+      };
     }
 
     try {
@@ -80,9 +83,9 @@ const ldsGeocodeTool = tool({
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[Geocode] API error response:', errorText);
-        return JSON.stringify({
+        return {
           error: `Geocoding API error: ${response.status} ${response.statusText}`,
-        });
+        };
       }
 
       const data = await response.json();
@@ -93,10 +96,10 @@ const ldsGeocodeTool = tool({
         const firstResult = data[0];
 
         if (firstResult.error) {
-          return JSON.stringify({
+          return {
             error: `Geocoding error: ${firstResult.error}`,
             query: { address, city, country },
-          });
+          };
         }
 
         if (firstResult.value && Array.isArray(firstResult.value) && firstResult.value.length > 0) {
@@ -116,23 +119,23 @@ const ldsGeocodeTool = tool({
             };
 
             console.log('[Geocode] SUCCESS - Returning result:', result);
-            return JSON.stringify(result);
+            return result;
           }
         }
       }
 
       // If no results found
       console.log('[Geocode] No valid results found in response');
-      return JSON.stringify({
+      return {
         error: 'No results found for the provided location',
         query: { address, city, country },
-      });
+      };
 
     } catch (error) {
       console.error('[Geocode] EXCEPTION caught:', error);
-      return JSON.stringify({
+      return {
         error: error instanceof Error ? error.message : 'Unknown geocoding error',
-      });
+      };
     }
   },
 });

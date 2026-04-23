@@ -12,7 +12,7 @@
  *   E2E_MODELS="model1,model2"   # override model list (comma-separated)
  */
 import { execSync, spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -43,14 +43,14 @@ function slugify(model) {
 
 function killPort(port) {
   try {
-    execSync(`lsof -ti:${port} | xargs kill 2>/dev/null`, { stdio: 'ignore' });
+    execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null`, { stdio: 'ignore' });
   } catch {
     // Nothing running on port
   }
 }
 
 function getBackendEnvPath(backend) {
-  return resolve(FRONTEND_DIR, `../../backend-integration/${backend}/.env`);
+  return resolve(FRONTEND_DIR, `../../backend/${backend}/.env`);
 }
 
 function getEnvModel(backendEnv) {
@@ -190,6 +190,8 @@ async function main() {
 
     setEnvModel(backendEnv, model);
     killPort(3003);
+    // Wait for port to be fully released and buffers to clear
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     console.log(`\n${prefix}`);
     console.log(`${'─'.repeat(prefix.length)}`);
@@ -201,13 +203,34 @@ async function main() {
       console.log(`  \u2717 FAIL`);
       const combined = (result.stdout + '\n' + result.stderr).trim();
       const lines = combined.split('\n').filter(Boolean);
-      const context = lines.slice(-10).join('\n');
+
+      // Extract only relevant error lines (LiteLLM errors, system errors, or last lines)
+      let errorLines = lines.filter((l) => /litellm\.\w+Error|EADDRINUSE|TimeoutError/.test(l));
+
+      // If we found specific errors, show them with some context (up to 10 lines)
+      if (errorLines.length > 0) {
+        const firstErrorIdx = lines.findIndex((l) => errorLines.includes(l));
+        const contextStart = Math.max(0, firstErrorIdx - 2);
+        const contextEnd = Math.min(lines.length, firstErrorIdx + 8);
+        errorLines = lines.slice(contextStart, contextEnd);
+      } else {
+        // Fallback: show last 10 lines if no specific error found
+        errorLines = lines.slice(-10);
+      }
+
+      const context = errorLines.join('\n');
       if (context) {
         console.log(`\n${context}\n`);
       }
     }
 
-    results.push({ slug, passed: result.passed });
+    results.push({
+      model,
+      slug,
+      passed: result.passed,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
   }
 
   // Summary
@@ -221,7 +244,160 @@ async function main() {
   }
   console.log(`\nTotal: ${results.length} | Pass: ${passCount} | Fail: ${failCount}`);
 
+  // Generate detailed report for LLM team
+  generateDetailedReport(results, backend);
+
   process.exit(failCount > 0 ? 1 : 0);
+}
+
+function generateDetailedReport(results, backend) {
+  const now = new Date().toISOString().split('T')[0];
+  const passCount = results.filter((r) => r.passed).length;
+  const failCount = results.length - passCount;
+  const failedModels = results.filter((r) => !r.passed);
+
+  let report = `# Model Availability Test Report\n\n`;
+  report += `**Date:** ${now}\n`;
+  report += `**Backend:** ${backend}\n`;
+  report += `**Total Models:** ${results.length}\n`;
+  report += `**Available:** ${passCount} (${((passCount / results.length) * 100).toFixed(1)}%)\n`;
+  report += `**Unavailable:** ${failCount} (${((failCount / results.length) * 100).toFixed(1)}%)\n`;
+  report += `**Test Type:** Single LDS geocoding test per model\n\n`;
+
+  report += `---\n\n`;
+
+  // Summary table
+  report += `## Summary Table\n\n`;
+  report += `| # | Provider | Model | Status |\n`;
+  report += `|---|----------|-------|--------|\n`;
+
+  results.forEach((r, idx) => {
+    const parts = r.model.split('::');
+    const provider = parts[1] || 'Unknown';
+    const modelName = parts[2] || r.model;
+    const status = r.passed ? '✅ PASS' : '❌ FAIL';
+    report += `| ${idx + 1} | ${provider} | \`${modelName}\` | ${status} |\n`;
+  });
+
+  report += `\n---\n\n`;
+
+  // Failed models details
+  if (failedModels.length > 0) {
+    report += `## Failed Models - Detailed Analysis\n\n`;
+    report += `The following ${failedModels.length} model(s) are currently **unavailable** or **failing** the basic availability test:\n\n`;
+
+    failedModels.forEach((r) => {
+      const parts = r.model.split('::');
+      const provider = parts[1] || 'Unknown';
+      const modelName = parts[2] || r.model;
+
+      report += `### ${provider}: \`${modelName}\`\n\n`;
+      report += `**Full Model ID:** \`${r.model}\`\n\n`;
+
+      // Extract error details
+      const combined = (r.stdout + '\n' + r.stderr).trim();
+      const lines = combined.split('\n').filter(Boolean);
+
+      // Look for specific error patterns
+      const litellmError = lines.find((l) => /litellm\.\w+Error/.test(l));
+      const timeoutError = lines.find((l) => /TimeoutError/.test(l));
+      const addrInUse = lines.find((l) => /EADDRINUSE/.test(l));
+
+      if (litellmError) {
+        // Extract LiteLLM error message
+        const errorMatch = litellmError.match(/litellm\.(\w+Error)[:\s]+(.+)/);
+        if (errorMatch) {
+          report += `**Error Type:** ${errorMatch[1]}\n\n`;
+          report += `**Error Message:**\n\`\`\`\n${errorMatch[2].replace(/\x1b\[[0-9;]*m/g, '').trim()}\n\`\`\`\n\n`;
+        }
+
+        // Look for additional context
+        const modelGroupMatch = combined.match(/Received Model Group=([^\n]+)/);
+        if (modelGroupMatch) {
+          report += `**Attempted Model Group:** \`${modelGroupMatch[1].trim()}\`\n\n`;
+        }
+      } else if (timeoutError) {
+        report += `**Error Type:** TimeoutError\n\n`;
+        const timeoutMatch = timeoutError.match(/Timeout (\d+)ms exceeded/);
+        if (timeoutMatch) {
+          report += `**Details:** Test exceeded ${parseInt(timeoutMatch[1]) / 1000}s timeout\n\n`;
+        }
+        report += `**Possible Causes:**\n- Model is unresponsive\n- Network latency issues\n- Model processing time exceeds limit\n\n`;
+      } else if (addrInUse) {
+        report += `**Error Type:** Port Already in Use (EADDRINUSE)\n\n`;
+        report += `**Details:** Backend port 3003 was already occupied (test infrastructure issue, not model issue)\n\n`;
+      } else {
+        // Generic failure
+        report += `**Error Type:** Unknown/Generic Failure\n\n`;
+        const lastLines = lines.slice(-5).join('\n');
+        if (lastLines) {
+          report += `**Last Output:**\n\`\`\`\n${lastLines}\n\`\`\`\n\n`;
+        }
+      }
+
+      report += `---\n\n`;
+    });
+  }
+
+  // Recommendations section
+  report += `## Recommendations\n\n`;
+
+  if (failedModels.length > 0) {
+    const groupedByProvider = {};
+    failedModels.forEach((r) => {
+      const provider = r.model.split('::')[1] || 'Unknown';
+      if (!groupedByProvider[provider]) groupedByProvider[provider] = [];
+      groupedByProvider[provider].push(r);
+    });
+
+    Object.entries(groupedByProvider).forEach(([provider, models]) => {
+      report += `### ${provider}\n\n`;
+      models.forEach((r) => {
+        const modelName = r.model.split('::')[2] || r.model;
+        const combined = (r.stdout + '\n' + r.stderr).trim();
+
+        if (combined.includes('NotFoundError') || combined.includes('does not exist')) {
+          report += `- **${modelName}**: Deployment missing - verify model is properly deployed in ${provider}\n`;
+        } else if (combined.includes('annotations')) {
+          report += `- **${modelName}**: API incompatibility - remove \`annotations\` field from message format\n`;
+        } else if (combined.includes('$schema')) {
+          report += `- **${modelName}**: API incompatibility - remove \`$schema\` field from tool definitions\n`;
+        } else if (combined.includes('429') || combined.includes('rate limit')) {
+          report += `- **${modelName}**: Rate limiting - implement retry logic or increase quota\n`;
+        } else if (combined.includes('TimeoutError')) {
+          report += `- **${modelName}**: Performance issue - investigate model response time or increase timeout\n`;
+        } else {
+          report += `- **${modelName}**: Requires investigation - check detailed logs above\n`;
+        }
+      });
+      report += `\n`;
+    });
+  } else {
+    report += `✅ All models are currently available and passing the basic availability test.\n\n`;
+  }
+
+  // Test methodology
+  report += `---\n\n`;
+  report += `## Test Methodology\n\n`;
+  report += `**Test:** Single LDS geocoding test ("Fly to New York")\n\n`;
+  report += `**Purpose:** Verify basic model availability and API connectivity\n\n`;
+  report += `**What This Test Validates:**\n`;
+  report += `- Model is accessible via the API\n`;
+  report += `- Model can process a simple natural language request\n`;
+  report += `- Model can invoke a backend tool (LDS geocoding)\n`;
+  report += `- Basic request/response cycle completes successfully\n\n`;
+  report += `**What This Test Does NOT Validate:**\n`;
+  report += `- Full feature compatibility (markers, widgets, MCP tools, etc.)\n`;
+  report += `- Performance under load\n`;
+  report += `- Complex multi-turn conversations\n`;
+  report += `- All edge cases and error scenarios\n\n`;
+  report += `**Note:** For comprehensive testing, run the full test suite with \`pnpm e2e:matrix\`\n\n`;
+
+  // Write report
+  const reportPath = resolve(FRONTEND_DIR, 'e2e/test-results/model-availability-report.md');
+  mkdirSync(dirname(reportPath), { recursive: true });
+  writeFileSync(reportPath, report);
+  console.log(`\n📄 Detailed report saved: ${reportPath}`);
 }
 
 main();
