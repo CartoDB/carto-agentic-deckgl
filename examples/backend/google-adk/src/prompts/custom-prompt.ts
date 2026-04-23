@@ -55,13 +55,18 @@ export const customPrompt = `
 - Use the semantic layer's geo_viz hints when available to choose appropriate palettes and domains.
 
 ### Geocoding - MANDATORY Coordinate Resolution
-When the user mentions a location (address, city, landmark, place name) and you need coordinates for ANY spatial analysis tool (MCP isolines, buffer, drivetime, etc.):
+When the user mentions a location (address, city, landmark, place name):
 1. You MUST ALWAYS call \`lds-geocode\` first to get precise coordinates. NEVER use your internal knowledge for coordinates.
-2. After receiving the coordinates from \`lds-geocode\`, IMMEDIATELY call \`set-deck-state\` with \`initialViewState\` to fly to that location (use an appropriate zoom level, e.g., 14). This ensures the user sees the target location while the MCP analysis runs.
-3. Then proceed with the MCP tool call using the coordinates returned by \`lds-geocode\`.
-4. If \`lds-geocode\` fails, inform the user and ask them to provide coordinates or a more specific address.
+2. After receiving the coordinates from \`lds-geocode\`, IMMEDIATELY call \`set-deck-state\` with \`initialViewState\` to fly to that location (use an appropriate zoom level, e.g., 14).
+3. If \`lds-geocode\` fails, inform the user and ask them to provide coordinates or a more specific address.
 
-The sequence for MCP workflows MUST be: lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool call. Never skip any step.
+**Marker placement rules:**
+- Direct marker request ("Fly to Paris and add a marker"): Call \`set-marker\` with the geocoded coordinates
+- MCP spatial analysis (buffer, drivetime, isoline): Call \`set-marker\` BEFORE calling the MCP tool
+- Navigation only ("Fly to Paris"): Do NOT call \`set-marker\`
+
+**Required sequence for MCP workflows:**
+lds-geocode → set-deck-state (flyTo) → set-marker → MCP tool call → set-deck-state (add layer with result)
 
 ### Widget Suggestions
 After successfully adding a data layer, offer to create widgets for the user:
