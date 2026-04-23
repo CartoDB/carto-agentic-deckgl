@@ -12,7 +12,7 @@
  *   E2E_MODELS="model1,model2"   # override model list (comma-separated)
  */
 import { execSync, spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -308,7 +308,7 @@ function generateDetailedReport(results, backend) {
         const errorMatch = litellmError.match(/litellm\.(\w+Error)[:\s]+(.+)/);
         if (errorMatch) {
           report += `**Error Type:** ${errorMatch[1]}\n\n`;
-          report += `**Error Message:**\n\`\`\`\n${errorMatch[2].replace(/\[39m|\[32m|\[33m|\[1m|\[22m/g, '').trim()}\n\`\`\`\n\n`;
+          report += `**Error Message:**\n\`\`\`\n${errorMatch[2].replace(/\x1b\[[0-9;]*m/g, '').trim()}\n\`\`\`\n\n`;
         }
 
         // Look for additional context
@@ -395,6 +395,7 @@ function generateDetailedReport(results, backend) {
 
   // Write report
   const reportPath = resolve(FRONTEND_DIR, 'e2e/test-results/model-availability-report.md');
+  mkdirSync(dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, report);
   console.log(`\n📄 Detailed report saved: ${reportPath}`);
 }
