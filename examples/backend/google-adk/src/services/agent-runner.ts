@@ -1,8 +1,11 @@
 /**
  * Agent Runner for Google ADK
  *
- * Creates an LlmAgent and uses InMemoryRunner with streaming to process messages
- * and emit WebSocket events matching the same protocol as the other backends.
+ * Creates an LlmAgent and uses ADK's `Runner` with a shared
+ * `InMemorySessionService` so each WebSocket session keeps a persistent
+ * ADK session across turns. History is owned by ADK, not embedded as
+ * text in the user message — and a `TokenBasedContextCompactor` on the
+ * agent summarizes older events when the session grows large.
  *
  * Key differences from OpenAI Agents SDK version:
  * - ADK handles the tool execution loop internally (no manual tool loop)
@@ -13,10 +16,14 @@
 
 import {
   LlmAgent,
-  InMemoryRunner,
+  Runner,
   isFinalResponse,
+  isCompactedEvent,
   stringifyContent,
   StreamingMode,
+  TokenBasedContextCompactor,
+  LlmSummarizer,
+  type BaseSessionService,
 } from '@google/adk';
 import { createUserContent } from '@google/genai';
 import { WebSocket } from 'ws';
@@ -25,7 +32,11 @@ import { getCustomToolNames } from '../agent/custom-tools.js';
 import { getModel } from '../agent/providers.js';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
 import { sanitizeMalformedKeys, stripCredentials, escapeAdkTemplateVars } from './utils.js';
+import { ADK_APP_NAME } from './conversation-manager.js';
 import type { InitialState, ConversationMessage } from '../types/messages.js';
+
+const COMPACTION_TOKEN_THRESHOLD = 8000;
+const COMPACTION_EVENT_RETENTION = 4;
 
 /**
  * Extract latitude and longitude from MCP result data.
@@ -72,7 +83,8 @@ export async function runMapAgent(
   userMessage: string,
   ws: WebSocket,
   sessionId: string,
-  conversationHistory: ConversationMessage[],
+  sessionService: BaseSessionService,
+  adkSessionId: string,
   initialState?: InitialState,
   onConversationMessage?: (message: ConversationMessage) => void,
 ): Promise<ConversationMessage | null> {
@@ -82,33 +94,27 @@ export async function runMapAgent(
     const tools = getAllTools();
     const toolNames = getAllToolNames();
     const userContext = initialState?.userContext;
+    const model = getModel();
 
-    // Create agent with system prompt
+    // Create agent with system prompt and ADK context compaction.
+    // The compactor summarizes older session events with the same LLM once
+    // the token threshold is crossed, keeping the tail intact for continuity.
     const agent = new LlmAgent({
       name: 'MapControlAgent',
-      model: getModel(),
+      model,
       description: 'AI agent for map control and spatial analysis',
       instruction: escapeAdkTemplateVars(buildSystemPrompt(toolNames, initialState, userContext)),
       tools,
+      contextCompactors: [
+        new TokenBasedContextCompactor({
+          tokenThreshold: COMPACTION_TOKEN_THRESHOLD,
+          eventRetentionSize: COMPACTION_EVENT_RETENTION,
+          summarizer: new LlmSummarizer({ llm: model }),
+        }),
+      ],
     });
 
-    // Create runner and session
-    const runner = new InMemoryRunner({ agent, appName: 'carto_map_agent' });
-    const adkSessionId = `session_${sessionId}_${Date.now()}`;
-    await runner.sessionService.createSession({
-      appName: 'carto_map_agent',
-      userId: sessionId,
-      sessionId: adkSessionId,
-    });
-
-    // Embed conversation history as context in user message
-    let contextualMessage = userMessage;
-    if (conversationHistory.length > 0) {
-      const historyText = conversationHistory
-        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-        .join('\n');
-      contextualMessage = `[Previous conversation context]\n${historyText}\n\n[Current request]\n${userMessage}`;
-    }
+    const runner = new Runner({ agent, appName: ADK_APP_NAME, sessionService });
 
     // Track state for WebSocket messaging
     let fullText = '';
@@ -120,13 +126,16 @@ export async function runMapAgent(
     let mcpResultCoordinates: { latitude: number; longitude: number } | null = null;
     let layerAddedWithMcpTable = false;
 
-    // Run agent with streaming
+    // Run agent with streaming against the persistent ADK session
     for await (const event of runner.runAsync({
       userId: sessionId,
       sessionId: adkSessionId,
-      newMessage: createUserContent(contextualMessage),
+      newMessage: createUserContent(userMessage),
       runConfig: { streamingMode: StreamingMode.SSE },
     })) {
+      // CompactedEvents are internal ADK summaries produced by the context
+      // compactor — already persisted in the session; never forward to the user.
+      if (isCompactedEvent(event)) continue;
       if (!event.content?.parts) continue;
 
       for (const part of event.content.parts) {

@@ -48,24 +48,17 @@ wss.on('connection', (ws) => {
 
       if (rawMessage.type === 'chat_message') {
         const message = rawMessage as ChatMessage;
-        const history = conversationManager.getHistory(sid);
-        conversationManager.addMessage(sid, {
-          role: 'user',
-          content: message.content,
-        });
+        const adkSessionId = await conversationManager.getOrCreateAdkSession(sid);
 
-        const response = await runMapAgent(
+        await runMapAgent(
           message.content,
           ws,
           sid,
-          history,
+          conversationManager.sessionService,
+          adkSessionId,
           message.initialState,
-          (msg) => conversationManager.addMessage(sid, msg),
+          (msg) => conversationManager.appendContextNote(sid, msg.content),
         );
-
-        if (response) {
-          conversationManager.addMessage(sid, response);
-        }
       } else if (rawMessage.type === 'tool_result') {
         // Handle tool execution results from frontend
         const toolResult = rawMessage as ToolResultMessage;
@@ -82,19 +75,16 @@ wss.on('connection', (ws) => {
             historyContent += `\n[No layers currently on map]`;
           }
 
-          conversationManager.addMessage(sid, {
-            role: 'assistant',
-            content: historyContent,
-          });
+          await conversationManager.appendContextNote(sid, historyContent);
         } else {
           // Tool failed - send a correction message to inform the user
           const correctionMessage = `I apologize, but the ${toolResult.toolName} operation failed: ${toolResult.error || toolResult.message}`;
 
           // Add the failure to conversation history for context
-          conversationManager.addMessage(sid, {
-            role: 'assistant',
-            content: `[Tool execution failed: ${toolResult.toolName}] ${toolResult.error || toolResult.message}`,
-          });
+          await conversationManager.appendContextNote(
+            sid,
+            `[Tool execution failed: ${toolResult.toolName}] ${toolResult.error || toolResult.message}`,
+          );
 
           // Send correction as a stream chunk to the client
           const correctionId = `correction_${Date.now()}`;
@@ -129,7 +119,11 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     const sid = sessions.get(ws);
-    if (sid) conversationManager.clearHistory(sid);
+    if (sid) {
+      conversationManager.clearSession(sid).catch((err) => {
+        console.error('[WS] Failed to clear ADK session:', err);
+      });
+    }
     sessions.delete(ws);
     console.log('[WS] Connection closed');
   });
@@ -163,7 +157,20 @@ app.post('/api/chat', async (req, res) => {
       },
     } as WebSocket;
 
-    await runMapAgent(message, sseWriter, 'http-session', [], initialState);
+    const httpSid = `http_${randomUUID()}`;
+    const adkSessionId = await conversationManager.getOrCreateAdkSession(httpSid);
+    try {
+      await runMapAgent(
+        message,
+        sseWriter,
+        httpSid,
+        conversationManager.sessionService,
+        adkSessionId,
+        initialState,
+      );
+    } finally {
+      await conversationManager.clearSession(httpSid).catch(() => undefined);
+    }
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error) {

@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@carto/agentic-deckgl": "^0.1.0",
-    "@google/adk": "^0.4.0",
+    "@google/adk": "^1.1.0",
     "@google/genai": "^1.43.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "cors": "^2.8.6",

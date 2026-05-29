@@ -1,90 +1,79 @@
 import { describe, it, expect } from 'vitest';
-import { ConversationManager } from '../../../src/services/conversation-manager.js';
+import { ConversationManager, ADK_APP_NAME } from '../../../src/services/conversation-manager.js';
 
 describe('ConversationManager', () => {
-  it('returns empty array for unknown session', () => {
+  it('creates an ADK session lazily and returns the same id on subsequent calls', async () => {
     const manager = new ConversationManager();
-    expect(manager.getHistory('unknown')).toEqual([]);
+
+    const adkSessionId = await manager.getOrCreateAdkSession('s1');
+    expect(adkSessionId).toBe('adk_s1');
+
+    const again = await manager.getOrCreateAdkSession('s1');
+    expect(again).toBe(adkSessionId);
+
+    const session = await manager.sessionService.getSession({
+      appName: ADK_APP_NAME,
+      userId: 's1',
+      sessionId: adkSessionId,
+    });
+    expect(session).toBeDefined();
   });
 
-  it('adds and retrieves messages', () => {
+  it('appends context notes as user events on the ADK session', async () => {
     const manager = new ConversationManager();
-    manager.addMessage('s1', { role: 'user', content: 'hello' });
-    manager.addMessage('s1', { role: 'assistant', content: 'hi' });
+    await manager.appendContextNote('s1', 'note one');
+    await manager.appendContextNote('s1', 'note two');
 
-    const history = manager.getHistory('s1');
-    expect(history).toHaveLength(2);
-    expect(history[0].content).toBe('hello');
-    expect(history[1].content).toBe('hi');
+    const session = await manager.sessionService.getSession({
+      appName: ADK_APP_NAME,
+      userId: 's1',
+      sessionId: await manager.getOrCreateAdkSession('s1'),
+    });
+
+    expect(session).toBeDefined();
+    const textEvents = session!.events.filter(
+      (e) => e.author === 'user' && e.content?.parts?.some((p) => p.text),
+    );
+    expect(textEvents).toHaveLength(2);
+    expect(textEvents[0].content?.parts?.[0].text).toBe('note one');
+    expect(textEvents[1].content?.parts?.[0].text).toBe('note two');
   });
 
-  it('prunes history keeping first message and most recent', () => {
+  it('isolates multiple sessions', async () => {
     const manager = new ConversationManager();
-    for (let i = 0; i < 25; i++) {
-      manager.addMessage('s1', { role: 'user', content: `msg-${i}` });
-    }
+    await manager.appendContextNote('s1', 'a');
+    await manager.appendContextNote('s2', 'b');
 
-    const history = manager.getHistory('s1');
-    expect(history).toHaveLength(20);
-    expect(history[0].content).toBe('msg-0');
-    expect(history[history.length - 1].content).toBe('msg-24');
-  });
-
-  it('clears session history', () => {
-    const manager = new ConversationManager();
-    manager.addMessage('s1', { role: 'user', content: 'hello' });
-    manager.clearHistory('s1');
-    expect(manager.getHistory('s1')).toEqual([]);
-  });
-
-  it('tracks session IDs and count', () => {
-    const manager = new ConversationManager();
-    manager.addMessage('s1', { role: 'user', content: 'a' });
-    manager.addMessage('s2', { role: 'user', content: 'b' });
-
-    expect(manager.getSessionIds()).toEqual(['s1', 's2']);
+    expect(manager.getSessionIds().sort()).toEqual(['s1', 's2']);
     expect(manager.getActiveSessionCount()).toBe(2);
   });
 
-  it('isolates multiple independent sessions', () => {
+  it('clears the ADK session and forgets the mapping', async () => {
     const manager = new ConversationManager();
-    manager.addMessage('s1', { role: 'user', content: 'hello from s1' });
-    manager.addMessage('s2', { role: 'user', content: 'hello from s2' });
+    const adkSessionId = await manager.getOrCreateAdkSession('s1');
 
-    expect(manager.getHistory('s1')).toHaveLength(1);
-    expect(manager.getHistory('s1')[0].content).toBe('hello from s1');
-    expect(manager.getHistory('s2')).toHaveLength(1);
-    expect(manager.getHistory('s2')[0].content).toBe('hello from s2');
+    await manager.clearSession('s1');
+    expect(manager.getSessionIds()).toEqual([]);
+
+    const session = await manager.sessionService.getSession({
+      appName: ADK_APP_NAME,
+      userId: 's1',
+      sessionId: adkSessionId,
+    });
+    expect(session).toBeUndefined();
   });
 
-  it('preserves first message through heavy pruning', () => {
+  it('clearSession is a no-op for unknown sessions', async () => {
     const manager = new ConversationManager();
-    manager.addMessage('s1', { role: 'user', content: 'system-context' });
-    for (let i = 1; i <= 30; i++) {
-      manager.addMessage('s1', { role: 'user', content: `msg-${i}` });
-    }
-
-    const history = manager.getHistory('s1');
-    expect(history[0].content).toBe('system-context');
-    expect(history).toHaveLength(20);
-    expect(history[history.length - 1].content).toBe('msg-30');
+    await expect(manager.clearSession('nonexistent')).resolves.toBeUndefined();
   });
 
-  it('clearHistory is idempotent on unknown session', () => {
+  it('re-creates the session after clearing', async () => {
     const manager = new ConversationManager();
-    // Should not throw
-    manager.clearHistory('nonexistent');
-    expect(manager.getHistory('nonexistent')).toEqual([]);
-  });
-
-  it('session works after clear and re-add', () => {
-    const manager = new ConversationManager();
-    manager.addMessage('s1', { role: 'user', content: 'first' });
-    manager.clearHistory('s1');
-    expect(manager.getHistory('s1')).toEqual([]);
-
-    manager.addMessage('s1', { role: 'user', content: 'second' });
-    expect(manager.getHistory('s1')).toHaveLength(1);
-    expect(manager.getHistory('s1')[0].content).toBe('second');
+    const first = await manager.getOrCreateAdkSession('s1');
+    await manager.clearSession('s1');
+    const second = await manager.getOrCreateAdkSession('s1');
+    expect(second).toBe(first);
+    expect(manager.getActiveSessionCount()).toBe(1);
   });
 });
