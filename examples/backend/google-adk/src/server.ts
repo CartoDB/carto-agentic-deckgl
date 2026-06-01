@@ -34,87 +34,94 @@ const sessions = new Map<WebSocket, string>();
 wss.on('connection', (ws) => {
   const sessionId = randomUUID();
   sessions.set(ws, sessionId);
+  // Per-connection serialization chain. Without this, a `tool_result`
+  // message arriving while `runMapAgent` is still iterating events on the
+  // shared ADK session would call `appendEvent` concurrently with the
+  // runner — `InMemorySessionService` is not concurrency-safe.
+  let messageChain: Promise<void> = Promise.resolve();
   console.log(`[WS] New connection: ${sessionId}`);
 
-  ws.on('message', async (data) => {
-    try {
-      const rawMessage = JSON.parse(data.toString()) as { type: string };
-      const sid = sessions.get(ws);
+  ws.on('message', (data) => {
+    messageChain = messageChain.then(async () => {
+      try {
+        const rawMessage = JSON.parse(data.toString()) as { type: string };
+        const sid = sessions.get(ws);
 
-      if (!sid) {
-        console.error('[WS] No session ID found for connection');
-        return;
-      }
-
-      if (rawMessage.type === 'chat_message') {
-        const message = rawMessage as ChatMessage;
-        const adkSessionId = await conversationManager.getOrCreateAdkSession(sid);
-
-        await runMapAgent(
-          message.content,
-          ws,
-          sid,
-          conversationManager.sessionService,
-          adkSessionId,
-          message.initialState,
-          (msg) => conversationManager.appendContextNote(sid, msg.content),
-        );
-      } else if (rawMessage.type === 'tool_result') {
-        // Handle tool execution results from frontend
-        const toolResult = rawMessage as ToolResultMessage;
-        console.log(`[WS] Tool result received: ${toolResult.toolName} - ${toolResult.success ? 'success' : 'failed'}`);
-
-        if (toolResult.success) {
-          // Tool succeeded - add to conversation history so AI knows what exists
-          let historyContent = `[Tool executed successfully: ${toolResult.toolName}] ${toolResult.message}`;
-
-          // Include layer state in history for AI context across turns
-          if (toolResult.layerState && toolResult.layerState.length > 0) {
-            historyContent += `\n[Current layers on map: ${toolResult.layerState.map(l => `"${l.id}" (${l.type})`).join(', ')}]`;
-          } else if (toolResult.layerState) {
-            historyContent += `\n[No layers currently on map]`;
-          }
-
-          await conversationManager.appendContextNote(sid, historyContent);
-        } else {
-          // Tool failed - send a correction message to inform the user
-          const correctionMessage = `I apologize, but the ${toolResult.toolName} operation failed: ${toolResult.error || toolResult.message}`;
-
-          // Add the failure to conversation history for context
-          await conversationManager.appendContextNote(
-            sid,
-            `[Tool execution failed: ${toolResult.toolName}] ${toolResult.error || toolResult.message}`,
-          );
-
-          // Send correction as a stream chunk to the client
-          const correctionId = `correction_${Date.now()}`;
-          ws.send(
-            JSON.stringify({
-              type: 'stream_chunk',
-              content: correctionMessage,
-              messageId: correctionId,
-              isComplete: false,
-            })
-          );
-          ws.send(
-            JSON.stringify({
-              type: 'stream_chunk',
-              content: '',
-              messageId: correctionId,
-              isComplete: true,
-            })
-          );
+        if (!sid) {
+          console.error('[WS] No session ID found for connection');
+          return;
         }
+
+        if (rawMessage.type === 'chat_message') {
+          const message = rawMessage as ChatMessage;
+          const adkSessionId = await conversationManager.getOrCreateAdkSession(sid);
+
+          await runMapAgent(
+            message.content,
+            ws,
+            sid,
+            conversationManager.sessionService,
+            adkSessionId,
+            message.initialState,
+            (msg) => conversationManager.appendContextNote(sid, msg.content),
+          );
+        } else if (rawMessage.type === 'tool_result') {
+          // Handle tool execution results from frontend
+          const toolResult = rawMessage as ToolResultMessage;
+          console.log(`[WS] Tool result received: ${toolResult.toolName} - ${toolResult.success ? 'success' : 'failed'}`);
+
+          if (toolResult.success) {
+            // Tool succeeded - add to conversation history so AI knows what exists
+            let historyContent = `[Tool executed successfully: ${toolResult.toolName}] ${toolResult.message}`;
+
+            // Include layer state in history for AI context across turns
+            if (toolResult.layerState && toolResult.layerState.length > 0) {
+              historyContent += `\n[Current layers on map: ${toolResult.layerState.map(l => `"${l.id}" (${l.type})`).join(', ')}]`;
+            } else if (toolResult.layerState) {
+              historyContent += `\n[No layers currently on map]`;
+            }
+
+            await conversationManager.appendContextNote(sid, historyContent);
+          } else {
+            // Tool failed - send a correction message to inform the user
+            const correctionMessage = `I apologize, but the ${toolResult.toolName} operation failed: ${toolResult.error || toolResult.message}`;
+
+            // Add the failure to conversation history for context
+            await conversationManager.appendContextNote(
+              sid,
+              `[Tool execution failed: ${toolResult.toolName}] ${toolResult.error || toolResult.message}`,
+            );
+
+            // Send correction as a stream chunk to the client
+            const correctionId = `correction_${Date.now()}`;
+            ws.send(
+              JSON.stringify({
+                type: 'stream_chunk',
+                content: correctionMessage,
+                messageId: correctionId,
+                isComplete: false,
+              })
+            );
+            ws.send(
+              JSON.stringify({
+                type: 'stream_chunk',
+                content: '',
+                messageId: correctionId,
+                isComplete: true,
+              })
+            );
+          }
+        }
+      } catch (error) {
+        console.error('[WS] Error:', error);
+        ws.send(
+          JSON.stringify({
+            type: 'error',
+            content: 'Invalid message format',
+          })
+        );
       }
-    } catch (error) {
-      console.error('[WS] Error:', error);
-      ws.send(
-        JSON.stringify({
-          type: 'error',
-          content: 'Invalid message format',
-        })
-      );
-    }
+    });
   });
 
   ws.on('close', () => {

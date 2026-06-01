@@ -86,7 +86,7 @@ export async function runMapAgent(
   sessionService: BaseSessionService,
   adkSessionId: string,
   initialState?: InitialState,
-  onConversationMessage?: (message: ConversationMessage) => void,
+  onConversationMessage?: (message: ConversationMessage) => Promise<void> | void,
 ): Promise<ConversationMessage | null> {
   const messageId = `msg_${Date.now()}`;
 
@@ -236,11 +236,15 @@ export async function runMapAgent(
 
               // Store MCP table name in conversation history for follow-up mask requests
               if (onConversationMessage) {
-                onConversationMessage({
-                  role: 'assistant',
-                  content: `[MCP Result Table Available] The MCP workflow result is stored in table "${pendingMcpTableName}". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "${pendingMcpTableName}" }.`,
-                });
-                console.log(`[Agent] Stored MCP table name in conversation history for mask layer use`);
+                try {
+                  await onConversationMessage({
+                    role: 'assistant',
+                    content: `[MCP Result Table Available] The MCP workflow result is stored in table "${pendingMcpTableName}". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "${pendingMcpTableName}" }.`,
+                  });
+                  console.log(`[Agent] Stored MCP table name in conversation history for mask layer use`);
+                } catch (noteErr) {
+                  console.error(`[Agent] Failed to store MCP table name note:`, noteErr);
+                }
               }
             }
 

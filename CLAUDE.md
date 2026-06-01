@@ -140,8 +140,8 @@ flowchart TD
 All three backends share the same directory structure with SDK-specific differences:
 
 - `server.ts` — Express + WebSocket server, session management
-- `services/agent-runner.ts` — AI orchestration (Vercel: `streamText`, OpenAI: `Agent` + `run()`, ADK: `LlmAgent` + `InMemoryRunner`)
-- `services/conversation-manager.ts` — Per-session conversation history (max 20 messages)
+- `services/agent-runner.ts` — AI orchestration (Vercel: `streamText`, OpenAI: `Agent` + `run()`, ADK: `LlmAgent` + `Runner`)
+- `services/conversation-manager.ts` — Per-session conversation history (OpenAI/Vercel: capped at 20 messages; ADK: owns the `InMemorySessionService`, history persisted as session events with context compaction)
 - `agent/providers.ts` — LLM provider configuration (SDK-specific)
 - `agent/tools.ts` — Tool aggregation (local + custom + MCP tools)
 - `agent/custom-tools.ts` — Backend-only tools (e.g., LDS geocode)
