@@ -33,7 +33,7 @@ import { getModel } from '../agent/providers.js';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
 import { sanitizeMalformedKeys, stripCredentials, escapeAdkTemplateVars } from './utils.js';
 import { ADK_APP_NAME } from './conversation-manager.js';
-import type { InitialState, ConversationMessage } from '../types/messages.js';
+import type { InitialState } from '../types/messages.js';
 
 const COMPACTION_TOKEN_THRESHOLD = 8000;
 const COMPACTION_EVENT_RETENTION = 4;
@@ -77,7 +77,12 @@ function extractCoordinatesFromMcpResult(output: unknown): { latitude: number; l
 }
 
 /**
- * Run the map agent and stream results via WebSocket
+ * Run the map agent and stream results via WebSocket.
+ *
+ * ADK's `Runner` persists user + model events to the session itself, so this
+ * function does not need to return the assistant turn. `appendContextNote`,
+ * when provided, is called *after* the runner loop completes — appending
+ * mid-iteration would mutate the same session the runner is reading.
  */
 export async function runMapAgent(
   userMessage: string,
@@ -86,8 +91,8 @@ export async function runMapAgent(
   sessionService: BaseSessionService,
   adkSessionId: string,
   initialState?: InitialState,
-  onConversationMessage?: (message: ConversationMessage) => Promise<void> | void,
-): Promise<ConversationMessage | null> {
+  appendContextNote?: (content: string) => Promise<void>,
+): Promise<void> {
   const messageId = `msg_${Date.now()}`;
 
   try {
@@ -125,6 +130,9 @@ export async function runMapAgent(
     let pendingMcpTableName: string | null = null;
     let mcpResultCoordinates: { latitude: number; longitude: number } | null = null;
     let layerAddedWithMcpTable = false;
+    // Notes captured during the run; flushed to the session after the
+    // runner loop ends so we don't mutate the session mid-iteration.
+    const pendingContextNotes: string[] = [];
 
     // Run agent with streaming against the persistent ADK session
     for await (const event of runner.runAsync({
@@ -234,18 +242,11 @@ export async function runMapAgent(
                 console.log(`[Agent] Extracted coordinates from MCP result: lat=${coords.latitude}, lng=${coords.longitude}`);
               }
 
-              // Store MCP table name in conversation history for follow-up mask requests
-              if (onConversationMessage) {
-                try {
-                  await onConversationMessage({
-                    role: 'assistant',
-                    content: `[MCP Result Table Available] The MCP workflow result is stored in table "${pendingMcpTableName}". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "${pendingMcpTableName}" }.`,
-                  });
-                  console.log(`[Agent] Stored MCP table name in conversation history for mask layer use`);
-                } catch (noteErr) {
-                  console.error(`[Agent] Failed to store MCP table name note:`, noteErr);
-                }
-              }
+              // Buffer table name note; flushed after the runner loop ends
+              // so we don't mutate the session ADK is iterating.
+              pendingContextNotes.push(
+                `[MCP Result Table Available] The MCP workflow result is stored in table "${pendingMcpTableName}". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "${pendingMcpTableName}" }.`,
+              );
             }
 
             // Check for errors in result
@@ -346,10 +347,17 @@ export async function runMapAgent(
       isComplete: true,
     }));
 
-    return {
-      role: 'assistant',
-      content: fullText || 'I performed the requested actions.',
-    };
+    // Flush buffered notes now that the runner is no longer iterating
+    // the session.
+    if (appendContextNote && pendingContextNotes.length > 0) {
+      for (const note of pendingContextNotes) {
+        try {
+          await appendContextNote(note);
+        } catch (noteErr) {
+          console.error('[Agent] Failed to append context note:', noteErr);
+        }
+      }
+    }
   } catch (error) {
     const err = error as Error & { code?: string };
     console.error('[Agent] Error:', err);
@@ -358,6 +366,5 @@ export async function runMapAgent(
       content: err.message || 'An error occurred',
       code: err.code,
     }));
-    return null;
   }
 }

@@ -63,7 +63,7 @@ wss.on('connection', (ws) => {
             conversationManager.sessionService,
             adkSessionId,
             message.initialState,
-            (msg) => conversationManager.appendContextNote(sid, msg.content),
+            (content) => conversationManager.appendContextNote(sid, content),
           );
         } else if (rawMessage.type === 'tool_result') {
           // Handle tool execution results from frontend
@@ -127,9 +127,14 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const sid = sessions.get(ws);
     if (sid) {
-      conversationManager.clearSession(sid).catch((err) => {
-        console.error('[WS] Failed to clear ADK session:', err);
-      });
+      // Chain through messageChain so cleanup waits for any in-flight
+      // runner; deleting the ADK session while runMapAgent is still
+      // iterating events would race with appendEvent.
+      messageChain = messageChain.then(() =>
+        conversationManager.clearSession(sid).catch((err) => {
+          console.error('[WS] Failed to clear ADK session:', err);
+        }),
+      );
     }
     sessions.delete(ws);
     console.log('[WS] Connection closed');
