@@ -62,17 +62,28 @@ const COMPACTION_EVENT_RETENTION = envInt('CARTO_ADK_COMPACTION_EVENT_RETENTION'
 let cachedTools: ReturnType<typeof getAllTools> | null = null;
 let cachedToolNames: ReturnType<typeof getAllToolNames> | null = null;
 let cachedCompactor: TokenBasedContextCompactor | null = null;
+let cachedCustomToolNameSet: Set<string> | null = null;
 
 function getStaticAgentDeps() {
   cachedTools ??= getAllTools();
   cachedToolNames ??= getAllToolNames();
+  cachedCustomToolNameSet ??= new Set(getCustomToolNames());
   cachedCompactor ??= new TokenBasedContextCompactor({
     tokenThreshold: COMPACTION_TOKEN_THRESHOLD,
     eventRetentionSize: COMPACTION_EVENT_RETENTION,
     summarizer: new LlmSummarizer({ llm: getModel() }),
   });
-  return { tools: cachedTools, toolNames: cachedToolNames, compactor: cachedCompactor };
+  return {
+    tools: cachedTools,
+    toolNames: cachedToolNames,
+    customToolNames: cachedCustomToolNameSet,
+    compactor: cachedCompactor,
+  };
 }
+
+// Verbose logging of full tool-result payloads is opt-in to avoid serializing
+// (potentially multi-MB) MCP outputs into the log buffer on every backend call.
+const DEBUG_TOOL_RESULTS = process.env.CARTO_ADK_DEBUG_TOOL_RESULTS === 'true';
 
 /**
  * Run the map agent and stream results via WebSocket.
@@ -94,7 +105,7 @@ export async function runMapAgent(
   const messageId = `msg_${Date.now()}`;
 
   try {
-    const { tools, toolNames, compactor } = getStaticAgentDeps();
+    const { tools, toolNames, customToolNames, compactor } = getStaticAgentDeps();
     const userContext = initialState?.userContext;
 
     // The agent is rebuilt per-turn because its instruction embeds
@@ -193,15 +204,21 @@ export async function runMapAgent(
 
             console.log(`[Agent] Frontend tool call detected: ${frontendResult.toolName}`);
 
-            // Track if set-deck-state was called with layers containing the MCP table
-            if (frontendResult.toolName === 'set-deck-state' && pendingMcpTableName) {
-              const data = frontendResult.data as Record<string, unknown>;
-              if (data.layers && Array.isArray(data.layers) && data.layers.length > 0) {
-                const layersJson = JSON.stringify(data.layers);
-                if (layersJson.includes(pendingMcpTableName)) {
-                  layerAddedWithMcpTable = true;
-                  console.log(`[Agent] Layer with MCP tableName confirmed in set-deck-state`);
-                }
+            // Track if set-deck-state was called with a layer pointing at the
+            // MCP result table. Short-circuit once confirmed and check the
+            // canonical `layer.data.tableName` slot directly instead of
+            // stringifying the whole layer spec.
+            if (
+              !layerAddedWithMcpTable &&
+              frontendResult.toolName === 'set-deck-state' &&
+              pendingMcpTableName
+            ) {
+              const data = frontendResult.data as { layers?: Array<{ data?: { tableName?: string } }> };
+              if (Array.isArray(data.layers) && data.layers.some(
+                (layer) => layer?.data?.tableName === pendingMcpTableName,
+              )) {
+                layerAddedWithMcpTable = true;
+                console.log(`[Agent] Layer with MCP tableName confirmed in set-deck-state`);
               }
             }
 
@@ -216,12 +233,13 @@ export async function runMapAgent(
             }));
           } else {
             // Backend tool result - check if it's a custom tool or MCP tool
-            const customToolNames = getCustomToolNames();
-            const isCustomTool = customToolNames.includes(toolName);
+            const isCustomTool = customToolNames.has(toolName);
             const toolType = isCustomTool ? 'Custom' : 'MCP';
 
             console.log(`[Agent] ${toolType} tool result for ${toolName}:`);
-            console.log(`[Agent] Result preview: ${JSON.stringify(output).substring(0, 5000)}`);
+            if (DEBUG_TOOL_RESULTS) {
+              console.log(`[Agent] Result preview: ${JSON.stringify(output).substring(0, 5000)}`);
+            }
 
             // Extract coordinates from MCP workflow results for fallback layer
             if (toolName.includes('async_workflow_job_get_results') && pendingMcpTableName) {
