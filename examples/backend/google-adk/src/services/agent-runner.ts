@@ -31,7 +31,12 @@ import { getAllTools, getAllToolNames, isFrontendToolResult } from '../agent/too
 import { getCustomToolNames } from '../agent/custom-tools.js';
 import { getModel } from '../agent/providers.js';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
-import { sanitizeMalformedKeys, stripCredentials, escapeAdkTemplateVars } from './utils.js';
+import {
+  sanitizeMalformedKeys,
+  stripCredentials,
+  escapeAdkTemplateVars,
+  extractCoordinatesFromMcpResult,
+} from './utils.js';
 import { ADK_APP_NAME } from './conversation-manager.js';
 import type { InitialState } from '../types/messages.js';
 
@@ -67,44 +72,6 @@ function getStaticAgentDeps() {
     summarizer: new LlmSummarizer({ llm: getModel() }),
   });
   return { tools: cachedTools, toolNames: cachedToolNames, compactor: cachedCompactor };
-}
-
-/**
- * Extract latitude and longitude from MCP result data.
- * Searches through rows for lat/lng fields.
- */
-function extractCoordinatesFromMcpResult(output: unknown): { latitude: number; longitude: number } | null {
-  if (!output || typeof output !== 'object') return null;
-
-  const obj = output as Record<string, unknown>;
-
-  // Try direct fields (parsed JSON result)
-  if (typeof obj.data === 'object' && obj.data !== null) {
-    const data = obj.data as Record<string, unknown>;
-    if (Array.isArray(data.rows) && data.rows.length > 0) {
-      const row = data.rows[0] as Record<string, unknown>;
-      if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
-        return { latitude: row.latitude, longitude: row.longitude };
-      }
-    }
-  }
-
-  // Try text-wrapped result (when MCP returns text instead of parsed JSON)
-  if (typeof obj.text === 'string') {
-    try {
-      const parsed = JSON.parse(obj.text);
-      if (parsed?.data?.rows?.[0]) {
-        const row = parsed.data.rows[0];
-        if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
-          return { latitude: row.latitude, longitude: row.longitude };
-        }
-      }
-    } catch {
-      // Not parseable, ignore
-    }
-  }
-
-  return null;
 }
 
 /**
