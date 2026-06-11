@@ -35,8 +35,39 @@ import { sanitizeMalformedKeys, stripCredentials, escapeAdkTemplateVars } from '
 import { ADK_APP_NAME } from './conversation-manager.js';
 import type { InitialState } from '../types/messages.js';
 
-const COMPACTION_TOKEN_THRESHOLD = 8000;
-const COMPACTION_EVENT_RETENTION = 4;
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+// Compaction thresholds. Defaults are conservative for any modern context
+// window (gpt-4o is 128k, so 8k is ~6% — plenty of headroom). Override per
+// deployment via env if you want compaction to kick in later or retain more
+// raw events past the summary boundary.
+const COMPACTION_TOKEN_THRESHOLD = envInt('CARTO_ADK_COMPACTION_TOKEN_THRESHOLD', 8000);
+const COMPACTION_EVENT_RETENTION = envInt('CARTO_ADK_COMPACTION_EVENT_RETENTION', 4);
+
+// Lazy module-level caches for static agent deps. Tools and tool names come
+// from caches populated at server startup, and the compactor depends only on
+// the (already-singleton) model — none of these vary across turns or sessions.
+// The agent + runner themselves stay per-turn because the instruction embeds
+// `initialState` (viewState, layers, activeLayerId).
+let cachedTools: ReturnType<typeof getAllTools> | null = null;
+let cachedToolNames: ReturnType<typeof getAllToolNames> | null = null;
+let cachedCompactor: TokenBasedContextCompactor | null = null;
+
+function getStaticAgentDeps() {
+  cachedTools ??= getAllTools();
+  cachedToolNames ??= getAllToolNames();
+  cachedCompactor ??= new TokenBasedContextCompactor({
+    tokenThreshold: COMPACTION_TOKEN_THRESHOLD,
+    eventRetentionSize: COMPACTION_EVENT_RETENTION,
+    summarizer: new LlmSummarizer({ llm: getModel() }),
+  });
+  return { tools: cachedTools, toolNames: cachedToolNames, compactor: cachedCompactor };
+}
 
 /**
  * Extract latitude and longitude from MCP result data.
@@ -96,27 +127,18 @@ export async function runMapAgent(
   const messageId = `msg_${Date.now()}`;
 
   try {
-    const tools = getAllTools();
-    const toolNames = getAllToolNames();
+    const { tools, toolNames, compactor } = getStaticAgentDeps();
     const userContext = initialState?.userContext;
-    const model = getModel();
 
-    // Create agent with system prompt and ADK context compaction.
-    // The compactor summarizes older session events with the same LLM once
-    // the token threshold is crossed, keeping the tail intact for continuity.
+    // The agent is rebuilt per-turn because its instruction embeds
+    // `initialState`. Tools and the compactor are shared singletons.
     const agent = new LlmAgent({
       name: 'MapControlAgent',
-      model,
+      model: getModel(),
       description: 'AI agent for map control and spatial analysis',
       instruction: escapeAdkTemplateVars(buildSystemPrompt(toolNames, initialState, userContext)),
       tools,
-      contextCompactors: [
-        new TokenBasedContextCompactor({
-          tokenThreshold: COMPACTION_TOKEN_THRESHOLD,
-          eventRetentionSize: COMPACTION_EVENT_RETENTION,
-          summarizer: new LlmSummarizer({ llm: model }),
-        }),
-      ],
+      contextCompactors: [compactor],
     });
 
     const runner = new Runner({ agent, appName: ADK_APP_NAME, sessionService });

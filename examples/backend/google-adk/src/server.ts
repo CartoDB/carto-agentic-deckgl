@@ -169,6 +169,10 @@ app.post('/api/chat', async (req, res) => {
       },
     } as WebSocket;
 
+    // HTTP is single-shot: each request gets a fresh ADK session that's
+    // cleared in `finally`. No multi-turn memory and no `appendContextNote`
+    // callback — those are WS-only by design, since the HTTP endpoint has
+    // no client identity that persists between requests.
     const httpSid = `http_${randomUUID()}`;
     const adkSessionId = await conversationManager.getOrCreateAdkSession(httpSid);
     try {
