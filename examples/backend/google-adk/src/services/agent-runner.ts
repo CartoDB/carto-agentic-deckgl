@@ -121,9 +121,13 @@ export async function runMapAgent(
 
     const runner = new Runner({ agent, appName: ADK_APP_NAME, sessionService });
 
-    // Track state for WebSocket messaging
+    // Track state for WebSocket messaging.
+    // `fullText` is the canonical "everything we have streamed to the client".
+    // `lastPartText` is the most recent partial `part.text` we observed in the
+    // current accumulation session — ADK sends accumulated text within a
+    // session and may restart with a shorter string after a tool call.
     let fullText = '';
-    let lastSentLength = 0; // For computing text deltas from accumulated text
+    let lastPartText = '';
     let stepCounter = 0;
 
     // MCP layer tracking
@@ -149,9 +153,15 @@ export async function runMapAgent(
       for (const part of event.content.parts) {
         // --- Streaming text ---
         if (part.text && (event as any).partial) {
-          // ADK sends accumulated text, compute delta
-          const delta = part.text.substring(lastSentLength);
-          lastSentLength = part.text.length;
+          // Continuing the same accumulation session → emit the new suffix.
+          // Restart (e.g. fresh text after a tool call, where `part.text`
+          // shrinks back) → treat the whole value as new content. Without
+          // this branch the post-tool text gets silently dropped from the
+          // live stream and only appears via the final-response catch-up.
+          const delta = part.text.startsWith(lastPartText)
+            ? part.text.slice(lastPartText.length)
+            : part.text;
+          lastPartText = part.text;
           if (delta) {
             fullText += delta;
             ws.send(JSON.stringify({
@@ -284,8 +294,13 @@ export async function runMapAgent(
       // --- Final response ---
       if (isFinalResponse(event)) {
         const finalText = stringifyContent(event).trim();
-        if (finalText && finalText !== fullText) {
-          // Send any remaining text not yet streamed
+        // Emit only the suffix the client hasn't received yet. Guard with a
+        // prefix check — ADK may concatenate parts with separators that
+        // differ from our delta concatenation, in which case
+        // `finalText.substring(fullText.length)` would slice mid-character.
+        // If we can't safely diff, leave the catch-up to the agent's next
+        // turn rather than risk a corrupt tail.
+        if (finalText && finalText !== fullText && finalText.startsWith(fullText)) {
           const remaining = finalText.substring(fullText.length);
           if (remaining) {
             ws.send(JSON.stringify({
