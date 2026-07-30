@@ -216,16 +216,24 @@ export async function runMapAgent(
 
             // Track if set-deck-state was called with a layer pointing at the
             // MCP result table. Short-circuit once confirmed and check the
-            // canonical `layer.data.tableName` slot directly instead of
-            // stringifying the whole layer spec.
+            // canonical data-source slots directly instead of stringifying the
+            // whole layer spec: `data.tableName` for `vectorTableSource`, and
+            // the `data.sqlQuery` text for `vectorQuerySource` (where the model
+            // references the table inside the SQL rather than in a table slot).
             if (
               !layerAddedWithMcpTable &&
               frontendResult.toolName === 'set-deck-state' &&
               pendingMcpTableName
             ) {
-              const data = frontendResult.data as { layers?: Array<{ data?: { tableName?: string } }> };
+              const mcpTableName = pendingMcpTableName;
+              const data = frontendResult.data as {
+                layers?: Array<{ data?: { tableName?: string; sqlQuery?: string } }>;
+              };
               if (Array.isArray(data.layers) && data.layers.some(
-                (layer) => layer?.data?.tableName === pendingMcpTableName,
+                (layer) =>
+                  layer?.data?.tableName === mcpTableName ||
+                  (typeof layer?.data?.sqlQuery === 'string' &&
+                    layer.data.sqlQuery.includes(mcpTableName)),
               )) {
                 layerAddedWithMcpTable = true;
                 console.log(`[Agent] Layer with MCP tableName confirmed in set-deck-state`);
