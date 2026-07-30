@@ -1,58 +1,87 @@
 /**
  * Conversation Manager
  *
- * Maintains per-session conversation history for context continuity
+ * Owns the ADK `InMemorySessionService` and tracks the ADK session
+ * associated with each WebSocket session. ADK manages history events
+ * directly inside its session; this class only handles lifecycle and
+ * injection of synthetic context notes (e.g. frontend tool results).
+ *
+ * Compaction itself is configured on the `LlmAgent` via
+ * `TokenBasedContextCompactor`, so we no longer truncate at the app level.
  */
 
-import type { ConversationMessage } from '../types/messages.js';
+import { InMemorySessionService, createEvent } from '@google/adk';
 
-const MAX_HISTORY_LENGTH = 20; // Max messages per session
+export const ADK_APP_NAME = 'carto_map_agent';
 
 export class ConversationManager {
-  private sessions: Map<string, ConversationMessage[]> = new Map();
+  readonly sessionService = new InMemorySessionService();
+  private readonly adkSessionIds = new Map<string, string>();
 
   /**
-   * Get conversation history for a session
+   * Get the ADK session ID for a WS session, creating the ADK session on first call.
    */
-  getHistory(sessionId: string): ConversationMessage[] {
-    return this.sessions.get(sessionId) || [];
+  async getOrCreateAdkSession(sid: string): Promise<string> {
+    let adkSessionId = this.adkSessionIds.get(sid);
+    if (adkSessionId) return adkSessionId;
+
+    adkSessionId = `adk_${sid}`;
+    await this.sessionService.createSession({
+      appName: ADK_APP_NAME,
+      userId: sid,
+      sessionId: adkSessionId,
+    });
+    this.adkSessionIds.set(sid, adkSessionId);
+    return adkSessionId;
   }
 
   /**
-   * Add a message to the conversation history
+   * Append a synthetic note to the ADK session so the agent can see it
+   * on its next turn. Used for frontend tool execution results and
+   * other out-of-band state updates.
+   *
+   * Authored as `user` so the model treats it as input context rather
+   * than its own prior output.
    */
-  addMessage(sessionId: string, message: ConversationMessage): void {
-    const history = this.getHistory(sessionId);
-    history.push(message);
+  async appendContextNote(sid: string, content: string): Promise<void> {
+    const adkSessionId = await this.getOrCreateAdkSession(sid);
+    const session = await this.sessionService.getSession({
+      appName: ADK_APP_NAME,
+      userId: sid,
+      sessionId: adkSessionId,
+    });
+    if (!session) return;
 
-    // Prune old messages if exceeding max length
-    if (history.length > MAX_HISTORY_LENGTH) {
-      // Keep the first message (usually important context) and the most recent ones
-      const pruned = [history[0], ...history.slice(-MAX_HISTORY_LENGTH + 1)];
-      this.sessions.set(sessionId, pruned);
-    } else {
-      this.sessions.set(sessionId, history);
-    }
+    await this.sessionService.appendEvent({
+      session,
+      event: createEvent({
+        author: 'user',
+        invocationId: `note_${Date.now()}`,
+        content: { role: 'user', parts: [{ text: content }] },
+      }),
+    });
   }
 
   /**
-   * Clear history for a session
+   * Delete the ADK session and forget the mapping.
    */
-  clearHistory(sessionId: string): void {
-    this.sessions.delete(sessionId);
+  async clearSession(sid: string): Promise<void> {
+    const adkSessionId = this.adkSessionIds.get(sid);
+    if (!adkSessionId) return;
+
+    await this.sessionService.deleteSession({
+      appName: ADK_APP_NAME,
+      userId: sid,
+      sessionId: adkSessionId,
+    });
+    this.adkSessionIds.delete(sid);
   }
 
-  /**
-   * Get all session IDs
-   */
   getSessionIds(): string[] {
-    return Array.from(this.sessions.keys());
+    return Array.from(this.adkSessionIds.keys());
   }
 
-  /**
-   * Get count of active sessions
-   */
   getActiveSessionCount(): number {
-    return this.sessions.size;
+    return this.adkSessionIds.size;
   }
 }

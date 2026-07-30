@@ -1,8 +1,11 @@
 /**
  * Agent Runner for Google ADK
  *
- * Creates an LlmAgent and uses InMemoryRunner with streaming to process messages
- * and emit WebSocket events matching the same protocol as the other backends.
+ * Creates an LlmAgent and uses ADK's `Runner` with a shared
+ * `InMemorySessionService` so each WebSocket session keeps a persistent
+ * ADK session across turns. History is owned by ADK, not embedded as
+ * text in the user message — and a `TokenBasedContextCompactor` on the
+ * agent summarizes older events when the session grows large.
  *
  * Key differences from OpenAI Agents SDK version:
  * - ADK handles the tool execution loop internally (no manual tool loop)
@@ -13,10 +16,14 @@
 
 import {
   LlmAgent,
-  InMemoryRunner,
+  Runner,
   isFinalResponse,
+  isCompactedEvent,
   stringifyContent,
   StreamingMode,
+  TokenBasedContextCompactor,
+  LlmSummarizer,
+  type BaseSessionService,
 } from '@google/adk';
 import { createUserContent } from '@google/genai';
 import { WebSocket } from 'ws';
@@ -25,7 +32,42 @@ import { getCustomToolNames } from '../agent/custom-tools.js';
 import { getModel } from '../agent/providers.js';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
 import { sanitizeMalformedKeys, stripCredentials, escapeAdkTemplateVars } from './utils.js';
-import type { InitialState, ConversationMessage } from '../types/messages.js';
+import { ADK_APP_NAME } from './conversation-manager.js';
+import type { InitialState } from '../types/messages.js';
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+// Compaction thresholds. Defaults are conservative for any modern context
+// window (gpt-4o is 128k, so 8k is ~6% — plenty of headroom). Override per
+// deployment via env if you want compaction to kick in later or retain more
+// raw events past the summary boundary.
+const COMPACTION_TOKEN_THRESHOLD = envInt('CARTO_ADK_COMPACTION_TOKEN_THRESHOLD', 8000);
+const COMPACTION_EVENT_RETENTION = envInt('CARTO_ADK_COMPACTION_EVENT_RETENTION', 4);
+
+// Lazy module-level caches for static agent deps. Tools and tool names come
+// from caches populated at server startup, and the compactor depends only on
+// the (already-singleton) model — none of these vary across turns or sessions.
+// The agent + runner themselves stay per-turn because the instruction embeds
+// `initialState` (viewState, layers, activeLayerId).
+let cachedTools: ReturnType<typeof getAllTools> | null = null;
+let cachedToolNames: ReturnType<typeof getAllToolNames> | null = null;
+let cachedCompactor: TokenBasedContextCompactor | null = null;
+
+function getStaticAgentDeps() {
+  cachedTools ??= getAllTools();
+  cachedToolNames ??= getAllToolNames();
+  cachedCompactor ??= new TokenBasedContextCompactor({
+    tokenThreshold: COMPACTION_TOKEN_THRESHOLD,
+    eventRetentionSize: COMPACTION_EVENT_RETENTION,
+    summarizer: new LlmSummarizer({ llm: getModel() }),
+  });
+  return { tools: cachedTools, toolNames: cachedToolNames, compactor: cachedCompactor };
+}
 
 /**
  * Extract latitude and longitude from MCP result data.
@@ -66,49 +108,40 @@ function extractCoordinatesFromMcpResult(output: unknown): { latitude: number; l
 }
 
 /**
- * Run the map agent and stream results via WebSocket
+ * Run the map agent and stream results via WebSocket.
+ *
+ * ADK's `Runner` persists user + model events to the session itself, so this
+ * function does not need to return the assistant turn. `appendContextNote`,
+ * when provided, is called *after* the runner loop completes — appending
+ * mid-iteration would mutate the same session the runner is reading.
  */
 export async function runMapAgent(
   userMessage: string,
   ws: WebSocket,
   sessionId: string,
-  conversationHistory: ConversationMessage[],
+  sessionService: BaseSessionService,
+  adkSessionId: string,
   initialState?: InitialState,
-  onConversationMessage?: (message: ConversationMessage) => void,
-): Promise<ConversationMessage | null> {
+  appendContextNote?: (content: string) => Promise<void>,
+): Promise<void> {
   const messageId = `msg_${Date.now()}`;
 
   try {
-    const tools = getAllTools();
-    const toolNames = getAllToolNames();
+    const { tools, toolNames, compactor } = getStaticAgentDeps();
     const userContext = initialState?.userContext;
 
-    // Create agent with system prompt
+    // The agent is rebuilt per-turn because its instruction embeds
+    // `initialState`. Tools and the compactor are shared singletons.
     const agent = new LlmAgent({
       name: 'MapControlAgent',
       model: getModel(),
       description: 'AI agent for map control and spatial analysis',
       instruction: escapeAdkTemplateVars(buildSystemPrompt(toolNames, initialState, userContext)),
       tools,
+      contextCompactors: [compactor],
     });
 
-    // Create runner and session
-    const runner = new InMemoryRunner({ agent, appName: 'carto_map_agent' });
-    const adkSessionId = `session_${sessionId}_${Date.now()}`;
-    await runner.sessionService.createSession({
-      appName: 'carto_map_agent',
-      userId: sessionId,
-      sessionId: adkSessionId,
-    });
-
-    // Embed conversation history as context in user message
-    let contextualMessage = userMessage;
-    if (conversationHistory.length > 0) {
-      const historyText = conversationHistory
-        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-        .join('\n');
-      contextualMessage = `[Previous conversation context]\n${historyText}\n\n[Current request]\n${userMessage}`;
-    }
+    const runner = new Runner({ agent, appName: ADK_APP_NAME, sessionService });
 
     // Track state for WebSocket messaging
     let fullText = '';
@@ -119,14 +152,20 @@ export async function runMapAgent(
     let pendingMcpTableName: string | null = null;
     let mcpResultCoordinates: { latitude: number; longitude: number } | null = null;
     let layerAddedWithMcpTable = false;
+    // Notes captured during the run; flushed to the session after the
+    // runner loop ends so we don't mutate the session mid-iteration.
+    const pendingContextNotes: string[] = [];
 
-    // Run agent with streaming
+    // Run agent with streaming against the persistent ADK session
     for await (const event of runner.runAsync({
       userId: sessionId,
       sessionId: adkSessionId,
-      newMessage: createUserContent(contextualMessage),
+      newMessage: createUserContent(userMessage),
       runConfig: { streamingMode: StreamingMode.SSE },
     })) {
+      // CompactedEvents are internal ADK summaries produced by the context
+      // compactor — already persisted in the session; never forward to the user.
+      if (isCompactedEvent(event)) continue;
       if (!event.content?.parts) continue;
 
       for (const part of event.content.parts) {
@@ -225,14 +264,11 @@ export async function runMapAgent(
                 console.log(`[Agent] Extracted coordinates from MCP result: lat=${coords.latitude}, lng=${coords.longitude}`);
               }
 
-              // Store MCP table name in conversation history for follow-up mask requests
-              if (onConversationMessage) {
-                onConversationMessage({
-                  role: 'assistant',
-                  content: `[MCP Result Table Available] The MCP workflow result is stored in table "${pendingMcpTableName}". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "${pendingMcpTableName}" }.`,
-                });
-                console.log(`[Agent] Stored MCP table name in conversation history for mask layer use`);
-              }
+              // Buffer table name note; flushed after the runner loop ends
+              // so we don't mutate the session ADK is iterating.
+              pendingContextNotes.push(
+                `[MCP Result Table Available] The MCP workflow result is stored in table "${pendingMcpTableName}". When the user asks to filter or mask by this area, call set-mask-layer { action: "set", tableName: "${pendingMcpTableName}" }.`,
+              );
             }
 
             // Check for errors in result
@@ -333,10 +369,17 @@ export async function runMapAgent(
       isComplete: true,
     }));
 
-    return {
-      role: 'assistant',
-      content: fullText || 'I performed the requested actions.',
-    };
+    // Flush buffered notes now that the runner is no longer iterating
+    // the session.
+    if (appendContextNote && pendingContextNotes.length > 0) {
+      for (const note of pendingContextNotes) {
+        try {
+          await appendContextNote(note);
+        } catch (noteErr) {
+          console.error('[Agent] Failed to append context note:', noteErr);
+        }
+      }
+    }
   } catch (error) {
     const err = error as Error & { code?: string };
     console.error('[Agent] Error:', err);
@@ -345,6 +388,5 @@ export async function runMapAgent(
       content: err.message || 'An error occurred',
       code: err.code,
     }));
-    return null;
   }
 }

@@ -140,8 +140,8 @@ flowchart TD
 All three backends share the same directory structure with SDK-specific differences:
 
 - `server.ts` — Express + WebSocket server, session management
-- `services/agent-runner.ts` — AI orchestration (Vercel: `streamText`, OpenAI: `Agent` + `run()`, ADK: `LlmAgent` + `InMemoryRunner`)
-- `services/conversation-manager.ts` — Per-session conversation history (max 20 messages)
+- `services/agent-runner.ts` — AI orchestration (Vercel: `streamText`, OpenAI: `Agent` + `run()`, ADK: `LlmAgent` + `Runner`)
+- `services/conversation-manager.ts` — Per-session conversation history (OpenAI/Vercel: capped at 20 messages; ADK: owns the `InMemorySessionService`, history persisted as session events with context compaction)
 - `agent/providers.ts` — LLM provider configuration (SDK-specific)
 - `agent/tools.ts` — Tool aggregation (local + custom + MCP tools)
 - `agent/custom-tools.ts` — Backend-only tools (e.g., LDS geocode)
@@ -219,6 +219,8 @@ MCP_WHITELIST_CARTO=tool1,tool2      # Optional: comma-separated MCP tool whitel
 CARTO_LDS_API_BASE_URL=https://...   # Optional: LDS geocoding endpoint
 CARTO_LDS_API_KEY=your-key           # Optional: LDS API key
 MCP_MOCK_MODE=true                   # Optional: use fixture-backed MCP tools (for testing)
+CARTO_ADK_COMPACTION_TOKEN_THRESHOLD=8000  # Optional (google-adk only): tokens before context compaction fires
+CARTO_ADK_COMPACTION_EVENT_RETENTION=4     # Optional (google-adk only): raw events kept past the summary boundary
 ```
 
 ### Frontend — Angular (`examples/frontend/angular/src/environments/environment.ts`)
