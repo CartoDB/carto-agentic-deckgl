@@ -16,14 +16,13 @@
 
 import {
   LlmAgent,
-  Runner,
   isFinalResponse,
   isCompactedEvent,
   stringifyContent,
   StreamingMode,
   TokenBasedContextCompactor,
   LlmSummarizer,
-  type BaseSessionService,
+  type Runner,
 } from '@google/adk';
 import { createUserContent } from '@google/genai';
 import { WebSocket } from 'ws';
@@ -37,7 +36,6 @@ import {
   escapeAdkTemplateVars,
   extractCoordinatesFromMcpResult,
 } from './utils.js';
-import { ADK_APP_NAME } from './conversation-manager.js';
 import type { InitialState } from '../types/messages.js';
 
 function envInt(name: string, fallback: number): number {
@@ -89,15 +87,17 @@ const DEBUG_TOOL_RESULTS = process.env.CARTO_ADK_DEBUG_TOOL_RESULTS === 'true';
  * Run the map agent and stream results via WebSocket.
  *
  * ADK's `Runner` persists user + model events to the session itself, so this
- * function does not need to return the assistant turn. `appendContextNote`,
- * when provided, is called *after* the runner loop completes — appending
+ * function does not need to return the assistant turn. The runner is built via
+ * the injected `createRunner` so the raw, concurrency-unsafe session service
+ * stays encapsulated in `ConversationManager`. `appendContextNote`, when
+ * provided, is called *after* the runner loop completes — appending
  * mid-iteration would mutate the same session the runner is reading.
  */
 export async function runMapAgent(
   userMessage: string,
   ws: WebSocket,
   sessionId: string,
-  sessionService: BaseSessionService,
+  createRunner: (agent: LlmAgent) => Runner,
   adkSessionId: string,
   initialState?: InitialState,
   appendContextNote?: (content: string) => Promise<void>,
@@ -119,7 +119,7 @@ export async function runMapAgent(
       contextCompactors: [compactor],
     });
 
-    const runner = new Runner({ agent, appName: ADK_APP_NAME, sessionService });
+    const runner = createRunner(agent);
 
     // Track state for WebSocket messaging.
     // `fullText` is the canonical "everything we have streamed to the client".
