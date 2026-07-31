@@ -1,8 +1,11 @@
 /**
- * Semantic Model Loader (OSI v1.0)
+ * Semantic Model Loader (Apache Ossie)
  *
- * Loads, validates, merges, and caches semantic model YAML files.
- * Renders semantic models as markdown for prompt injection.
+ * Loads, validates, merges, and caches semantic model YAML files following
+ * the Apache Ossie core metadata spec (formerly OSI). Ossie documents carry
+ * `semantic_model` as a list; this loader normalizes each file into the
+ * internal single-model shape and merges across files. Renders semantic
+ * models as markdown for prompt injection.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'fs';
@@ -10,11 +13,12 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 import {
-  semanticModelSchema,
+  ossieDocumentSchema,
   cartoSpatialDataSchema,
   cartoVisualizationHintSchema,
   cartoModelExtensionSchema,
   type SemanticModel,
+  type SemanticModelBody,
   type Dataset,
   type Field,
   type Metric,
@@ -107,9 +111,51 @@ export function clearSemanticModelCache(): void {
 // ─── Loader ─────────────────────────────────────────────────
 
 /**
+ * Merge a semantic model body into an accumulator body, in place.
+ * Concatenates datasets/metrics/relationships and, for the CARTO extension,
+ * concatenates welcome_chips so multi-file models keep every chip.
+ */
+function mergeBody(into: SemanticModelBody, from: SemanticModelBody): void {
+  if (from.datasets) {
+    into.datasets.push(...from.datasets);
+  }
+  if (from.metrics) {
+    into.metrics ??= [];
+    into.metrics.push(...from.metrics);
+  }
+  if (from.relationships) {
+    into.relationships ??= [];
+    into.relationships.push(...from.relationships);
+  }
+  // Merge custom_extensions: concatenate welcome_chips from CARTO extensions
+  if (from.custom_extensions) {
+    if (!into.custom_extensions) {
+      into.custom_extensions = from.custom_extensions;
+    } else {
+      const intoCarto = into.custom_extensions.find((e) => e.vendor_name === 'CARTO');
+      const fromCarto = from.custom_extensions.find((e) => e.vendor_name === 'CARTO');
+      if (intoCarto && fromCarto && typeof intoCarto.data === 'object' && typeof fromCarto.data === 'object') {
+        const intoData = intoCarto.data as Record<string, unknown>;
+        const fromData = fromCarto.data as Record<string, unknown>;
+        // Concatenate welcome_chips arrays
+        if (fromData.welcome_chips) {
+          const existingChips = (intoData.welcome_chips as unknown[]) ?? [];
+          const newChips = fromData.welcome_chips as unknown[];
+          intoData.welcome_chips = [...existingChips, ...newChips];
+        }
+      } else if (!intoCarto && fromCarto) {
+        into.custom_extensions.push(fromCarto);
+      }
+    }
+  }
+}
+
+/**
  * Load semantic model(s) from YAML files in the semantic/layers directory.
- * Validates each file with Zod, merges datasets/metrics/relationships,
- * and caches the result.
+ * Validates each file against the Apache Ossie document schema, normalizes
+ * the `semantic_model` list (a single object is also accepted), merges every
+ * model body across files, and caches the result as the internal single-model
+ * shape.
  */
 export function loadSemanticModel(): SemanticModel | null {
   if (cachedModel !== undefined) return cachedModel;
@@ -132,13 +178,13 @@ export function loadSemanticModel(): SemanticModel | null {
     return null;
   }
 
-  let merged: SemanticModel | null = null;
+  let merged: SemanticModelBody | null = null;
 
   for (const file of files) {
     try {
       const content = readFileSync(join(semanticDir, file), 'utf-8');
       const raw = yaml.load(content);
-      const result = semanticModelSchema.safeParse(raw);
+      const result = ossieDocumentSchema.safeParse(raw);
 
       if (!result.success) {
         const errors = result.error.issues
@@ -148,54 +194,16 @@ export function loadSemanticModel(): SemanticModel | null {
         continue;
       }
 
-      const parsed = result.data;
+      // Normalize the Ossie list form (or a legacy single object) to bodies.
+      const { semantic_model } = result.data;
+      const bodies = Array.isArray(semantic_model) ? semantic_model : [semantic_model];
 
-      if (!merged) {
-        // First valid file becomes the base
-        merged = parsed;
-      } else {
-        // Merge: concatenate datasets, metrics, relationships
-        if (parsed.semantic_model.datasets) {
-          merged.semantic_model.datasets.push(...parsed.semantic_model.datasets);
-        }
-        if (parsed.semantic_model.metrics) {
-          if (!merged.semantic_model.metrics) {
-            merged.semantic_model.metrics = [];
-          }
-          merged.semantic_model.metrics.push(...parsed.semantic_model.metrics);
-        }
-        if (parsed.semantic_model.relationships) {
-          if (!merged.semantic_model.relationships) {
-            merged.semantic_model.relationships = [];
-          }
-          merged.semantic_model.relationships.push(
-            ...parsed.semantic_model.relationships
-          );
-        }
-        // Merge custom_extensions: concatenate welcome_chips from CARTO extensions
-        if (parsed.semantic_model.custom_extensions) {
-          if (!merged.semantic_model.custom_extensions) {
-            merged.semantic_model.custom_extensions = parsed.semantic_model.custom_extensions;
-          } else {
-            const mergedCarto = merged.semantic_model.custom_extensions.find(
-              (e) => e.vendor_name === 'CARTO'
-            );
-            const parsedCarto = parsed.semantic_model.custom_extensions.find(
-              (e) => e.vendor_name === 'CARTO'
-            );
-            if (mergedCarto && parsedCarto && typeof mergedCarto.data === 'object' && typeof parsedCarto.data === 'object') {
-              const mergedData = mergedCarto.data as Record<string, unknown>;
-              const parsedData = parsedCarto.data as Record<string, unknown>;
-              // Concatenate welcome_chips arrays
-              if (parsedData.welcome_chips) {
-                const existingChips = (mergedData.welcome_chips as unknown[]) ?? [];
-                const newChips = parsedData.welcome_chips as unknown[];
-                mergedData.welcome_chips = [...existingChips, ...newChips];
-              }
-            } else if (!mergedCarto && parsedCarto) {
-              merged.semantic_model.custom_extensions.push(parsedCarto);
-            }
-          }
+      for (const body of bodies) {
+        if (!merged) {
+          // First valid model becomes the base
+          merged = body;
+        } else {
+          mergeBody(merged, body);
         }
       }
     } catch (error) {
@@ -204,15 +212,15 @@ export function loadSemanticModel(): SemanticModel | null {
   }
 
   if (merged) {
-    const datasetCount = merged.semantic_model.datasets.length;
-    const metricCount = merged.semantic_model.metrics?.length ?? 0;
+    const datasetCount = merged.datasets.length;
+    const metricCount = merged.metrics?.length ?? 0;
     console.log(
       `[Semantic] Loaded semantic model: ${datasetCount} dataset(s), ${metricCount} metric(s) from ${files.length} file(s)`
     );
   }
 
-  cachedModel = merged;
-  return merged;
+  cachedModel = merged ? { semantic_model: merged } : null;
+  return cachedModel;
 }
 
 // ─── Markdown Rendering ─────────────────────────────────────

@@ -1,10 +1,23 @@
-# How the OSI Semantic Model Is Used in `carto-agentic-deckgl`
+# How the Apache Ossie Semantic Model Is Used in `carto-agentic-deckgl`
 
-## 1. What Is OSI?
+## 1. What Is Apache Ossie?
 
-**Open Semantic Interchange (OSI)** is an open-source specification (Apache 2.0 / CC BY) for standardizing semantic model exchange across data analytics, AI, and BI tools. It defines a vendor-agnostic YAML/JSON format so that data definitions (datasets, fields, relationships, metrics) remain consistent as they move between AI agents, BI platforms, and other tools. The spec lives at [github.com/open-semantic-interchange/OSI](https://github.com/open-semantic-interchange/OSI).
+**Apache Ossie** (incubating) — formerly **Open Semantic Interchange (OSI)** — is an open-source specification (Apache 2.0) for standardizing semantic model exchange across data analytics, AI, and BI tools. It defines a vendor-agnostic YAML/JSON format so that data definitions (datasets, fields, relationships, metrics) remain consistent as they move between AI agents, BI platforms, and other tools. The spec lives at [github.com/apache/ossie](https://github.com/apache/ossie/blob/main/core-spec/spec.md).
 
-### Core OSI Building Blocks
+### Document Shape
+
+An Ossie document carries an optional top-level `version` and a **list** of semantic models:
+
+```yaml
+version: 0.2.0.dev0
+semantic_model:
+  - name: data_analysis
+    datasets: [...]
+```
+
+> **Migration note:** legacy OSI v1.0 authored `semantic_model` as a single mapping (no `version`). The loader still accepts that shape for backward compatibility and normalizes both into one merged internal model.
+
+### Core Ossie Building Blocks
 
 | Concept               | Purpose                                                                                       |
 | --------------------- | --------------------------------------------------------------------------------------------- |
@@ -17,13 +30,13 @@
 | **ai_context**        | LLM instructions, synonyms, examples — can be a string or structured object                   |
 | **custom_extensions** | Vendor-specific metadata via `{vendor_name, data}` — extensibility without breaking core spec |
 
-Supported SQL dialects: `ANSI_SQL`, `SNOWFLAKE`, `MDX`, `TABLEAU`, `DATABRICKS`.
+Supported SQL dialects: `ANSI_SQL`, `SNOWFLAKE`, `MDX`, `TABLEAU`, `DATABRICKS`, `BIGQUERY`, `MAQL`.
 
 ---
 
-## 2. Why OSI Matters Here
+## 2. Why Apache Ossie Matters Here
 
-1. **Portability** — The same YAML files could be consumed by any OSI-compatible tool (BI platform, another AI agent, etc.)
+1. **Portability** — The same YAML files could be consumed by any Ossie-compatible tool (BI platform, another AI agent, etc.)
 2. **AI-First Design** — `ai_context` at every level (model, dataset, field, metric) gives LLMs rich instructions, synonyms, and examples
 3. **Clean Extension Model** — CARTO geospatial metadata lives in `custom_extensions` rather than polluting the core spec
 4. **Multi-Dialect SQL** — Expressions work across ANSI SQL, Snowflake, Databricks, etc.
@@ -32,9 +45,11 @@ Supported SQL dialects: `ANSI_SQL`, `SNOWFLAKE`, `MDX`, `TABLEAU`, `DATABRICKS`.
 
 ---
 
-## 3. How This Project Extends OSI: CARTO Custom Extensions
+## 3. How This Project Extends Apache Ossie: CARTO Custom Extensions
 
-The project uses OSI's `custom_extensions` mechanism with `vendor_name: "CARTO"` to carry geospatial metadata. This keeps models OSI-compliant while adding domain-specific context. Extensions are defined at three levels:
+The project uses Ossie's `custom_extensions` mechanism with `vendor_name: "CARTO"` to carry geospatial metadata. This keeps models Ossie-compliant while adding domain-specific context. Extensions are defined at three levels:
+
+> **`data` encoding:** the Ossie spec types `custom_extensions[].data` as a JSON-encoded **string**. To keep the CARTO models readable, we author `data` as nested YAML objects (shown below) and the loader accepts **both** forms — parsing a string with `JSON.parse` and using an object as-is. When emitting Ossie for an external consumer, serialize `data` to a JSON string.
 
 ### a) Dataset-Level: `spatial_data`
 
@@ -97,7 +112,7 @@ custom_extensions:
 
 ## 4. Implementation Architecture
 
-The OSI integration flows through **four stages**:
+The Ossie integration flows through **four stages**:
 
 ```mermaid
 flowchart LR
@@ -118,7 +133,7 @@ Three YAML files define the available geospatial datasets:
 | `h3-spatial-features.yaml` | `usa_spatial_features_h3` | H3TileLayer (spatial_index) | Demographics, POIs, elevation, monthly climate at H3 res 8 |
 | `osm-pois-usa.yaml`        | *(OSM POIs)*              | VectorTileLayer (point)     | OpenStreetMap points of interest                           |
 
-Each file is a self-contained OSI v1.0 semantic model with datasets, fields, metrics, relationships, and CARTO extensions. Files are located at:
+Each file is a self-contained Apache Ossie document (`version` + a `semantic_model` list) with datasets, fields, metrics, relationships, and CARTO extensions. Files are located at:
 
 ```
 examples/backend/<sdk>/src/semantic/layers/
@@ -128,10 +143,12 @@ examples/backend/<sdk>/src/semantic/layers/
 
 ### Stage 2: Schema Validation (`semantic/schema.ts`)
 
-All YAML is validated at runtime using **Zod schemas** that mirror the OSI v1.0 spec:
+All YAML is validated at runtime using **Zod schemas** that mirror the Apache Ossie core metadata spec:
 
-**OSI core schemas:**
-- `semanticModelSchema` — top-level container
+**Ossie core schemas:**
+- `ossieDocumentSchema` — the on-disk/wire document (`version` + `semantic_model` list; also accepts a legacy single object)
+- `semanticModelBodySchema` — a single model body (the object under a list item)
+- `semanticModelSchema` — the internal, already-merged single-model shape the app consumes
 - `datasetSchema` — dataset with name, source, primary_key, fields
 - `fieldSchema` — field with expression, dimension, ai_context
 - `relationshipSchema` — foreign key join
@@ -153,9 +170,10 @@ Types are derived via `z.infer<>` — no separate interface files needed. Invali
 `loadSemanticModel()` performs:
 
 1. Reads all `.yaml` files from `semantic/layers/` (sorted alphabetically)
-2. Validates each against `semanticModelSchema` using Zod
-3. Merges into a single model: concatenates datasets, metrics, relationships, and welcome_chips
-4. Caches the result in memory
+2. Validates each against `ossieDocumentSchema` using Zod
+3. Normalizes the `semantic_model` list (or a legacy single object) into model bodies
+4. Merges into a single model: concatenates datasets, metrics, relationships, and welcome_chips
+5. Caches the result in memory
 
 **Helper functions** extract typed CARTO extension data:
 
@@ -232,7 +250,7 @@ The framework-agnostic library accepts `semanticContext?: string` in `BuildSyste
 
 ```mermaid
 flowchart TD
-    A["YAML Files (OSI v1)\nsemantic/layers/"] -->|"loadSemanticModel()\n(Zod validation + merge)"| B["SemanticModel (TS)\n(cached in memory)"]
+    A["YAML Files (Apache Ossie)\nsemantic/layers/"] -->|"loadSemanticModel()\n(Zod validation + normalize + merge)"| B["SemanticModel (TS)\n(cached in memory)"]
     B --> C["renderSemanticModelAsMarkdown()"]
     B --> D["GET /api/semantic-config"]
     C --> E["System Prompt\n(LLM context)"]
@@ -248,7 +266,7 @@ flowchart TD
 
 | File                                           | Purpose                                            |
 | ---------------------------------------------- | -------------------------------------------------- |
-| `src/semantic/schema.ts`                       | Zod schemas for OSI v1.0 + CARTO extensions        |
+| `src/semantic/schema.ts`                       | Zod schemas for Apache Ossie + CARTO extensions    |
 | `src/semantic/loader.ts`                       | YAML loading, merging, caching, markdown rendering |
 | `src/semantic/index.ts`                        | Re-exports all types and functions                 |
 | `src/semantic/layers/counties.yaml`            | County education & election data                   |
