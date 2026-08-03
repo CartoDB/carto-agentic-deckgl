@@ -74,6 +74,46 @@ export function escapeAdkTemplateVars(instruction: string): string {
   );
 }
 
+/**
+ * Extract latitude and longitude from MCP result data.
+ * Searches direct `data.rows[0]` and text-wrapped JSON payloads.
+ */
+export function extractCoordinatesFromMcpResult(
+  output: unknown,
+): { latitude: number; longitude: number } | null {
+  if (!output || typeof output !== 'object') return null;
+
+  const obj = output as Record<string, unknown>;
+
+  // Try direct fields (parsed JSON result)
+  if (typeof obj.data === 'object' && obj.data !== null) {
+    const data = obj.data as Record<string, unknown>;
+    if (Array.isArray(data.rows) && data.rows.length > 0) {
+      const row = data.rows[0] as Record<string, unknown>;
+      if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
+        return { latitude: row.latitude, longitude: row.longitude };
+      }
+    }
+  }
+
+  // Try text-wrapped result (when MCP returns text instead of parsed JSON)
+  if (typeof obj.text === 'string') {
+    try {
+      const parsed = JSON.parse(obj.text);
+      if (parsed?.data?.rows?.[0]) {
+        const row = parsed.data.rows[0];
+        if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
+          return { latitude: row.latitude, longitude: row.longitude };
+        }
+      }
+    } catch {
+      // Not parseable, ignore
+    }
+  }
+
+  return null;
+}
+
 export const stripCredentials = (data: unknown): unknown => {
   if (data === null || data === undefined) {
     return data;

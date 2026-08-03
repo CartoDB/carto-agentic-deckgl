@@ -60,7 +60,7 @@ wss.on('connection', (ws) => {
             message.content,
             ws,
             sid,
-            conversationManager.sessionService,
+            (agent) => conversationManager.createRunner(agent),
             adkSessionId,
             message.initialState,
             (content) => conversationManager.appendContextNote(sid, content),
@@ -180,12 +180,14 @@ app.post('/api/chat', async (req, res) => {
         message,
         sseWriter,
         httpSid,
-        conversationManager.sessionService,
+        (agent) => conversationManager.createRunner(agent),
         adkSessionId,
         initialState,
       );
     } finally {
-      await conversationManager.clearSession(httpSid).catch(() => undefined);
+      await conversationManager.clearSession(httpSid).catch((err) =>
+        console.error('[HTTP] Failed to clear ADK session:', err),
+      );
     }
     res.write('data: [DONE]\n\n');
     res.end();

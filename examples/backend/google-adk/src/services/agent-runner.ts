@@ -16,14 +16,13 @@
 
 import {
   LlmAgent,
-  Runner,
   isFinalResponse,
   isCompactedEvent,
   stringifyContent,
   StreamingMode,
   TokenBasedContextCompactor,
   LlmSummarizer,
-  type BaseSessionService,
+  type Runner,
 } from '@google/adk';
 import { createUserContent } from '@google/genai';
 import { WebSocket } from 'ws';
@@ -31,8 +30,12 @@ import { getAllTools, getAllToolNames, isFrontendToolResult } from '../agent/too
 import { getCustomToolNames } from '../agent/custom-tools.js';
 import { getModel } from '../agent/providers.js';
 import { buildSystemPrompt } from '../prompts/system-prompt.js';
-import { sanitizeMalformedKeys, stripCredentials, escapeAdkTemplateVars } from './utils.js';
-import { ADK_APP_NAME } from './conversation-manager.js';
+import {
+  sanitizeMalformedKeys,
+  stripCredentials,
+  escapeAdkTemplateVars,
+  extractCoordinatesFromMcpResult,
+} from './utils.js';
 import type { InitialState } from '../types/messages.js';
 
 function envInt(name: string, fallback: number): number {
@@ -57,69 +60,44 @@ const COMPACTION_EVENT_RETENTION = envInt('CARTO_ADK_COMPACTION_EVENT_RETENTION'
 let cachedTools: ReturnType<typeof getAllTools> | null = null;
 let cachedToolNames: ReturnType<typeof getAllToolNames> | null = null;
 let cachedCompactor: TokenBasedContextCompactor | null = null;
+let cachedCustomToolNameSet: Set<string> | null = null;
 
 function getStaticAgentDeps() {
   cachedTools ??= getAllTools();
   cachedToolNames ??= getAllToolNames();
+  cachedCustomToolNameSet ??= new Set(getCustomToolNames());
   cachedCompactor ??= new TokenBasedContextCompactor({
     tokenThreshold: COMPACTION_TOKEN_THRESHOLD,
     eventRetentionSize: COMPACTION_EVENT_RETENTION,
     summarizer: new LlmSummarizer({ llm: getModel() }),
   });
-  return { tools: cachedTools, toolNames: cachedToolNames, compactor: cachedCompactor };
+  return {
+    tools: cachedTools,
+    toolNames: cachedToolNames,
+    customToolNames: cachedCustomToolNameSet,
+    compactor: cachedCompactor,
+  };
 }
 
-/**
- * Extract latitude and longitude from MCP result data.
- * Searches through rows for lat/lng fields.
- */
-function extractCoordinatesFromMcpResult(output: unknown): { latitude: number; longitude: number } | null {
-  if (!output || typeof output !== 'object') return null;
-
-  const obj = output as Record<string, unknown>;
-
-  // Try direct fields (parsed JSON result)
-  if (typeof obj.data === 'object' && obj.data !== null) {
-    const data = obj.data as Record<string, unknown>;
-    if (Array.isArray(data.rows) && data.rows.length > 0) {
-      const row = data.rows[0] as Record<string, unknown>;
-      if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
-        return { latitude: row.latitude, longitude: row.longitude };
-      }
-    }
-  }
-
-  // Try text-wrapped result (when MCP returns text instead of parsed JSON)
-  if (typeof obj.text === 'string') {
-    try {
-      const parsed = JSON.parse(obj.text);
-      if (parsed?.data?.rows?.[0]) {
-        const row = parsed.data.rows[0];
-        if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
-          return { latitude: row.latitude, longitude: row.longitude };
-        }
-      }
-    } catch {
-      // Not parseable, ignore
-    }
-  }
-
-  return null;
-}
+// Verbose logging of full tool-result payloads is opt-in to avoid serializing
+// (potentially multi-MB) MCP outputs into the log buffer on every backend call.
+const DEBUG_TOOL_RESULTS = process.env.CARTO_ADK_DEBUG_TOOL_RESULTS === 'true';
 
 /**
  * Run the map agent and stream results via WebSocket.
  *
  * ADK's `Runner` persists user + model events to the session itself, so this
- * function does not need to return the assistant turn. `appendContextNote`,
- * when provided, is called *after* the runner loop completes — appending
+ * function does not need to return the assistant turn. The runner is built via
+ * the injected `createRunner` so the raw, concurrency-unsafe session service
+ * stays encapsulated in `ConversationManager`. `appendContextNote`, when
+ * provided, is called *after* the runner loop completes — appending
  * mid-iteration would mutate the same session the runner is reading.
  */
 export async function runMapAgent(
   userMessage: string,
   ws: WebSocket,
   sessionId: string,
-  sessionService: BaseSessionService,
+  createRunner: (agent: LlmAgent) => Runner,
   adkSessionId: string,
   initialState?: InitialState,
   appendContextNote?: (content: string) => Promise<void>,
@@ -127,7 +105,7 @@ export async function runMapAgent(
   const messageId = `msg_${Date.now()}`;
 
   try {
-    const { tools, toolNames, compactor } = getStaticAgentDeps();
+    const { tools, toolNames, customToolNames, compactor } = getStaticAgentDeps();
     const userContext = initialState?.userContext;
 
     // The agent is rebuilt per-turn because its instruction embeds
@@ -141,11 +119,15 @@ export async function runMapAgent(
       contextCompactors: [compactor],
     });
 
-    const runner = new Runner({ agent, appName: ADK_APP_NAME, sessionService });
+    const runner = createRunner(agent);
 
-    // Track state for WebSocket messaging
+    // Track state for WebSocket messaging.
+    // `fullText` is the canonical "everything we have streamed to the client".
+    // `lastPartText` is the most recent partial `part.text` we observed in the
+    // current accumulation session — ADK sends accumulated text within a
+    // session and may restart with a shorter string after a tool call.
     let fullText = '';
-    let lastSentLength = 0; // For computing text deltas from accumulated text
+    let lastPartText = '';
     let stepCounter = 0;
 
     // MCP layer tracking
@@ -171,9 +153,15 @@ export async function runMapAgent(
       for (const part of event.content.parts) {
         // --- Streaming text ---
         if (part.text && (event as any).partial) {
-          // ADK sends accumulated text, compute delta
-          const delta = part.text.substring(lastSentLength);
-          lastSentLength = part.text.length;
+          // Continuing the same accumulation session → emit the new suffix.
+          // Restart (e.g. fresh text after a tool call, where `part.text`
+          // shrinks back) → treat the whole value as new content. Without
+          // this branch the post-tool text gets silently dropped from the
+          // live stream and only appears via the final-response catch-up.
+          const delta = part.text.startsWith(lastPartText)
+            ? part.text.slice(lastPartText.length)
+            : part.text;
+          lastPartText = part.text;
           if (delta) {
             fullText += delta;
             ws.send(JSON.stringify({
@@ -226,15 +214,29 @@ export async function runMapAgent(
 
             console.log(`[Agent] Frontend tool call detected: ${frontendResult.toolName}`);
 
-            // Track if set-deck-state was called with layers containing the MCP table
-            if (frontendResult.toolName === 'set-deck-state' && pendingMcpTableName) {
-              const data = frontendResult.data as Record<string, unknown>;
-              if (data.layers && Array.isArray(data.layers) && data.layers.length > 0) {
-                const layersJson = JSON.stringify(data.layers);
-                if (layersJson.includes(pendingMcpTableName)) {
-                  layerAddedWithMcpTable = true;
-                  console.log(`[Agent] Layer with MCP tableName confirmed in set-deck-state`);
-                }
+            // Track if set-deck-state was called with a layer pointing at the
+            // MCP result table. Short-circuit once confirmed and check the
+            // canonical data-source slots directly instead of stringifying the
+            // whole layer spec: `data.tableName` for `vectorTableSource`, and
+            // the `data.sqlQuery` text for `vectorQuerySource` (where the model
+            // references the table inside the SQL rather than in a table slot).
+            if (
+              !layerAddedWithMcpTable &&
+              frontendResult.toolName === 'set-deck-state' &&
+              pendingMcpTableName
+            ) {
+              const mcpTableName = pendingMcpTableName;
+              const data = frontendResult.data as {
+                layers?: Array<{ data?: { tableName?: string; sqlQuery?: string } }>;
+              };
+              if (Array.isArray(data.layers) && data.layers.some(
+                (layer) =>
+                  layer?.data?.tableName === mcpTableName ||
+                  (typeof layer?.data?.sqlQuery === 'string' &&
+                    layer.data.sqlQuery.includes(mcpTableName)),
+              )) {
+                layerAddedWithMcpTable = true;
+                console.log(`[Agent] Layer with MCP tableName confirmed in set-deck-state`);
               }
             }
 
@@ -249,12 +251,13 @@ export async function runMapAgent(
             }));
           } else {
             // Backend tool result - check if it's a custom tool or MCP tool
-            const customToolNames = getCustomToolNames();
-            const isCustomTool = customToolNames.includes(toolName);
+            const isCustomTool = customToolNames.has(toolName);
             const toolType = isCustomTool ? 'Custom' : 'MCP';
 
             console.log(`[Agent] ${toolType} tool result for ${toolName}:`);
-            console.log(`[Agent] Result preview: ${JSON.stringify(output).substring(0, 5000)}`);
+            if (DEBUG_TOOL_RESULTS) {
+              console.log(`[Agent] Result preview: ${JSON.stringify(output).substring(0, 5000)}`);
+            }
 
             // Extract coordinates from MCP workflow results for fallback layer
             if (toolName.includes('async_workflow_job_get_results') && pendingMcpTableName) {
@@ -299,8 +302,13 @@ export async function runMapAgent(
       // --- Final response ---
       if (isFinalResponse(event)) {
         const finalText = stringifyContent(event).trim();
-        if (finalText && finalText !== fullText) {
-          // Send any remaining text not yet streamed
+        // Emit only the suffix the client hasn't received yet. Guard with a
+        // prefix check — ADK may concatenate parts with separators that
+        // differ from our delta concatenation, in which case
+        // `finalText.substring(fullText.length)` would slice mid-character.
+        // If we can't safely diff, leave the catch-up to the agent's next
+        // turn rather than risk a corrupt tail.
+        if (finalText && finalText !== fullText && finalText.startsWith(fullText)) {
           const remaining = finalText.substring(fullText.length);
           if (remaining) {
             ws.send(JSON.stringify({

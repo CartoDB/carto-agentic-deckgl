@@ -10,13 +10,22 @@
  * `TokenBasedContextCompactor`, so we no longer truncate at the app level.
  */
 
-import { InMemorySessionService, createEvent } from '@google/adk';
+import { InMemorySessionService, Runner, createEvent, type LlmAgent } from '@google/adk';
 
 export const ADK_APP_NAME = 'carto_map_agent';
 
 export class ConversationManager {
-  readonly sessionService = new InMemorySessionService();
+  private readonly sessionService = new InMemorySessionService();
   private readonly adkSessionIds = new Map<string, string>();
+
+  /**
+   * Build an ADK `Runner` bound to the managed session service. Callers get
+   * what they need to drive a turn without touching the raw, concurrency-unsafe
+   * `InMemorySessionService` directly — the class stays the sole owner.
+   */
+  createRunner(agent: LlmAgent): Runner {
+    return new Runner({ agent, appName: ADK_APP_NAME, sessionService: this.sessionService });
+  }
 
   /**
    * Get the ADK session ID for a WS session, creating the ADK session on first call.
