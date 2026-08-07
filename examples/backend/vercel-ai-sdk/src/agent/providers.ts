@@ -30,3 +30,10 @@ export function getProvider(): LanguageModel {
   }
   return carto.chat(CARTO_AI_API_MODEL);
 }
+
+/**
+ * Get the configured model name
+ */
+export function getModelName(): string {
+  return process.env.CARTO_AI_API_MODEL || 'gpt-4o';
+}
