@@ -14,6 +14,7 @@ import { randomUUID } from 'crypto';
 import { runMapAgent } from './services/agent-runner.js';
 import { ConversationManager } from './services/conversation-manager.js';
 import { loadSemanticModel, getWelcomeMessage, getWelcomeChips } from './semantic/index.js';
+import { getModelName } from './agent/providers.js';
 import type { ChatMessage, ToolResultMessage } from './types/messages.js';
 import type { Express } from 'express';
 
@@ -193,6 +194,7 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     sdk: 'openai-agents',
     provider: 'carto',
+    model: getModelName(),
     activeSessions: conversationManager.getActiveSessionCount(),
   });
 });
