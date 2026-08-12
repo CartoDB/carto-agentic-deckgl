@@ -127,25 +127,44 @@ function mergeBody(into: SemanticModelBody, from: SemanticModelBody): void {
     into.relationships ??= [];
     into.relationships.push(...from.relationships);
   }
-  // Merge custom_extensions: concatenate welcome_chips from CARTO extensions
-  if (from.custom_extensions) {
-    if (!into.custom_extensions) {
-      into.custom_extensions = from.custom_extensions;
-    } else {
-      const intoCarto = into.custom_extensions.find((e) => e.vendor_name === 'CARTO');
-      const fromCarto = from.custom_extensions.find((e) => e.vendor_name === 'CARTO');
-      if (intoCarto && fromCarto && typeof intoCarto.data === 'object' && typeof fromCarto.data === 'object') {
-        const intoData = intoCarto.data as Record<string, unknown>;
-        const fromData = fromCarto.data as Record<string, unknown>;
-        // Concatenate welcome_chips arrays
-        if (fromData.welcome_chips) {
-          const existingChips = (intoData.welcome_chips as unknown[]) ?? [];
-          const newChips = fromData.welcome_chips as unknown[];
-          intoData.welcome_chips = [...existingChips, ...newChips];
-        }
-      } else if (!intoCarto && fromCarto) {
-        into.custom_extensions.push(fromCarto);
-      }
+  // Merge custom_extensions across files.
+  if (!from.custom_extensions) return;
+  if (!into.custom_extensions) {
+    into.custom_extensions = from.custom_extensions;
+    return;
+  }
+
+  const intoCarto = into.custom_extensions.find((e) => e.vendor_name === 'CARTO');
+  const fromCarto = from.custom_extensions.find((e) => e.vendor_name === 'CARTO');
+
+  if (fromCarto && !intoCarto) {
+    // `into` has no CARTO extension yet — adopt `from`'s wholesale.
+    into.custom_extensions.push(fromCarto);
+  } else if (fromCarto && intoCarto) {
+    // Both carry a CARTO extension: concatenate welcome_chips so multi-file
+    // models keep every chip (other model-level keys follow first-file-wins).
+    // getCartoExtension resolves both the object and JSON-string `data`
+    // encodings the schema allows, so a JSON-string layer merges correctly
+    // instead of being silently skipped.
+    const intoData = getCartoExtension([intoCarto]);
+    const fromData = getCartoExtension([fromCarto]);
+    if (!intoData || !fromData) {
+      console.warn(
+        "[Semantic] Could not merge CARTO extension (unparseable 'data'); later welcome_chips dropped"
+      );
+    } else if (fromData.welcome_chips) {
+      const existingChips = (intoData.welcome_chips as unknown[]) ?? [];
+      const newChips = fromData.welcome_chips as unknown[];
+      intoData.welcome_chips = [...existingChips, ...newChips];
+      // Write back in object form (the read path accepts object or JSON string).
+      intoCarto.data = intoData;
+    }
+  }
+
+  // Carry over every non-CARTO vendor extension unconditionally.
+  for (const ext of from.custom_extensions) {
+    if (ext.vendor_name !== 'CARTO') {
+      into.custom_extensions.push(ext);
     }
   }
 }
@@ -179,6 +198,7 @@ export function loadSemanticModel(): SemanticModel | null {
   }
 
   let merged: SemanticModelBody | null = null;
+  let loadedCount = 0;
 
   for (const file of files) {
     try {
@@ -194,11 +214,9 @@ export function loadSemanticModel(): SemanticModel | null {
         continue;
       }
 
-      // Normalize the Ossie list form (or a legacy single object) to bodies.
-      const { semantic_model } = result.data;
-      const bodies = Array.isArray(semantic_model) ? semantic_model : [semantic_model];
-
-      for (const body of bodies) {
+      // ossieDocumentSchema normalizes the Ossie list form (and a legacy
+      // single object) into a non-empty array of bodies.
+      for (const body of result.data.semantic_model) {
         if (!merged) {
           // First valid model becomes the base
           merged = body;
@@ -206,6 +224,7 @@ export function loadSemanticModel(): SemanticModel | null {
           mergeBody(merged, body);
         }
       }
+      loadedCount++;
     } catch (error) {
       console.warn(`[Semantic] Error loading ${file}:`, error);
     }
@@ -215,7 +234,7 @@ export function loadSemanticModel(): SemanticModel | null {
     const datasetCount = merged.datasets.length;
     const metricCount = merged.metrics?.length ?? 0;
     console.log(
-      `[Semantic] Loaded semantic model: ${datasetCount} dataset(s), ${metricCount} metric(s) from ${files.length} file(s)`
+      `[Semantic] Loaded semantic model: ${datasetCount} dataset(s), ${metricCount} metric(s) from ${loadedCount}/${files.length} file(s)`
     );
   }
 

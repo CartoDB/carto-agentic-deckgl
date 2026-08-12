@@ -225,12 +225,19 @@ export const semanticModelSchema = z.object({
 // Apache Ossie on-disk/wire document: optional `version` and a list of
 // models. A single object is accepted for backward compatibility with
 // legacy OSI v1.0 files (`semantic_model:` as a mapping).
+//
+// The list (or legacy single object) is normalized to a non-empty array
+// *before* validation via z.preprocess, so two failure modes are handled
+// correctly: (1) a validation error keeps its real path (e.g.
+// `semantic_model.0.datasets.0.name`) instead of a z.union collapsing it to
+// this top-level node, and (2) an empty `semantic_model: []` is rejected by
+// `.min(1)` rather than silently validating with zero models.
 export const ossieDocumentSchema = z.object({
   version: z.string().optional(),
-  semantic_model: z.union([
-    z.array(semanticModelBodySchema),
-    semanticModelBodySchema,
-  ]),
+  semantic_model: z.preprocess(
+    (value) => (Array.isArray(value) ? value : [value]),
+    z.array(semanticModelBodySchema).min(1)
+  ),
 });
 
 // ─── Derived Types ──────────────────────────────────────────

@@ -140,19 +140,30 @@ describe('ossieDocumentSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts a legacy single-object semantic_model (backward compat)', () => {
+  it('accepts a legacy single-object semantic_model and normalizes it to a list (backward compat)', () => {
     const result = ossieDocumentSchema.safeParse({ semantic_model: model });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(Array.isArray(result.data.semantic_model)).toBe(false);
+      expect(Array.isArray(result.data.semantic_model)).toBe(true);
+      expect(result.data.semantic_model).toHaveLength(1);
+      expect(result.data.semantic_model[0].name).toBe(model.name);
     }
   });
 
-  it('rejects a model in the list missing datasets', () => {
+  it('rejects an empty semantic_model list', () => {
+    const result = ossieDocumentSchema.safeParse({ semantic_model: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a model in the list missing datasets, keeping the field path', () => {
     const result = ossieDocumentSchema.safeParse({
       semantic_model: [{ name: 'NoDatasets' }],
     });
     expect(result.success).toBe(false);
+    if (!result.success) {
+      // The path survives normalization (a z.union would collapse it).
+      expect(result.error.issues[0].path).toContain('datasets');
+    }
   });
 
   it('accepts the new BIGQUERY dialect and field datatype', () => {
