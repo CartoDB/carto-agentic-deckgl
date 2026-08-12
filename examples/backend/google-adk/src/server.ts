@@ -14,6 +14,7 @@ import { randomUUID } from 'crypto';
 import { runMapAgent } from './services/agent-runner.js';
 import { ConversationManager } from './services/conversation-manager.js';
 import { loadSemanticModel, getWelcomeMessage, getWelcomeChips } from './semantic/index.js';
+import { getModelName } from './agent/providers.js';
 import type { ChatMessage, ToolResultMessage } from './types/messages.js';
 import type { Express } from 'express';
 
@@ -60,7 +61,7 @@ wss.on('connection', (ws) => {
             message.content,
             ws,
             sid,
-            conversationManager.sessionService,
+            (agent) => conversationManager.createRunner(agent),
             adkSessionId,
             message.initialState,
             (content) => conversationManager.appendContextNote(sid, content),
@@ -180,12 +181,14 @@ app.post('/api/chat', async (req, res) => {
         message,
         sseWriter,
         httpSid,
-        conversationManager.sessionService,
+        (agent) => conversationManager.createRunner(agent),
         adkSessionId,
         initialState,
       );
     } finally {
-      await conversationManager.clearSession(httpSid).catch(() => undefined);
+      await conversationManager.clearSession(httpSid).catch((err) =>
+        console.error('[HTTP] Failed to clear ADK session:', err),
+      );
     }
     res.write('data: [DONE]\n\n');
     res.end();
@@ -215,6 +218,7 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     sdk: 'google-adk',
     provider: 'carto',
+    model: getModelName(),
     activeSessions: conversationManager.getActiveSessionCount(),
   });
 });

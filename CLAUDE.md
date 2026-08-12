@@ -221,6 +221,7 @@ CARTO_LDS_API_KEY=your-key           # Optional: LDS API key
 MCP_MOCK_MODE=true                   # Optional: use fixture-backed MCP tools (for testing)
 CARTO_ADK_COMPACTION_TOKEN_THRESHOLD=8000  # Optional (google-adk only): tokens before context compaction fires
 CARTO_ADK_COMPACTION_EVENT_RETENTION=4     # Optional (google-adk only): raw events kept past the summary boundary
+CARTO_ADK_DEBUG_TOOL_RESULTS=true          # Optional (google-adk only): log full tool-result payloads (off by default)
 ```
 
 ### Frontend — Angular (`examples/frontend/angular/src/environments/environment.ts`)
