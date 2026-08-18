@@ -235,7 +235,14 @@ export const semanticModelSchema = z.object({
 export const ossieDocumentSchema = z.object({
   version: z.string().optional(),
   semantic_model: z.preprocess(
-    (value) => (Array.isArray(value) ? value : [value]),
+    // Pass undefined/null through untouched so a missing (or null)
+    // `semantic_model` key reports the error on the key itself
+    // (`semantic_model: Required`) instead of wrapping to `[undefined]`
+    // and pointing at a phantom list element (`semantic_model.0: ...`).
+    (value) =>
+      value === undefined || value === null || Array.isArray(value)
+        ? value
+        : [value],
     z.array(semanticModelBodySchema).min(1)
   ),
 });

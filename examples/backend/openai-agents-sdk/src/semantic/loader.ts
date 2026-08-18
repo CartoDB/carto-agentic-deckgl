@@ -12,8 +12,10 @@ import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
+import { z } from 'zod';
 import {
   ossieDocumentSchema,
+  welcomeChipSchema,
   cartoSpatialDataSchema,
   cartoVisualizationHintSchema,
   cartoModelExtensionSchema,
@@ -155,9 +157,23 @@ function mergeBody(into: SemanticModelBody, from: SemanticModelBody): void {
     } else if (fromData.welcome_chips) {
       const existingChips = (intoData.welcome_chips as unknown[]) ?? [];
       const newChips = fromData.welcome_chips as unknown[];
-      intoData.welcome_chips = [...existingChips, ...newChips];
-      // Write back in object form (the read path accepts object or JSON string).
-      intoCarto.data = intoData;
+      // Validate the merged chips instead of storing them as unknown[]: an
+      // invalid chip would otherwise make getModelCartoConfig's all-or-nothing
+      // safeParse drop the WHOLE model-level CARTO config (welcome message,
+      // chips, initial_view) at read time. On failure, warn and keep the
+      // already-valid `into` chips rather than poisoning the config.
+      const mergedChips = z
+        .array(welcomeChipSchema)
+        .safeParse([...existingChips, ...newChips]);
+      if (!mergedChips.success) {
+        console.warn(
+          '[Semantic] Invalid welcome_chips while merging CARTO extensions; keeping existing chips'
+        );
+      } else {
+        intoData.welcome_chips = mergedChips.data;
+        // Write back in object form (the read path accepts object or JSON string).
+        intoCarto.data = intoData;
+      }
     }
   }
 

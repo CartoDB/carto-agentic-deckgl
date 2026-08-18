@@ -155,6 +155,23 @@ describe('ossieDocumentSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('reports the error on the key when semantic_model is missing (not a phantom list element)', () => {
+    const result = ossieDocumentSchema.safeParse({ version: '0.2.0.dev0' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      // Error lands on `semantic_model` itself, not `semantic_model.0`.
+      expect(result.error.issues[0].path).toEqual(['semantic_model']);
+    }
+  });
+
+  it('reports the error on the key when semantic_model is null', () => {
+    const result = ossieDocumentSchema.safeParse({ semantic_model: null });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['semantic_model']);
+    }
+  });
+
   it('rejects a model in the list missing datasets, keeping the field path', () => {
     const result = ossieDocumentSchema.safeParse({
       semantic_model: [{ name: 'NoDatasets' }],
