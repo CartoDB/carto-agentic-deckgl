@@ -1,15 +1,25 @@
 /**
- * Semantic Model Schema (OSI v1.0 + CARTO custom_extensions)
+ * Semantic Model Schema (Apache Ossie Core Metadata Spec + CARTO custom_extensions)
  *
- * Zod schemas following the Open Semantic Interchange v1.0 specification
- * with CARTO geospatial extensions delivered via OSI's custom_extensions mechanism.
+ * Zod schemas following the Apache Ossie (incubating) core metadata
+ * specification — formerly Open Semantic Interchange (OSI) — with CARTO
+ * geospatial extensions delivered via Ossie's custom_extensions mechanism.
+ *
+ * Spec: https://github.com/apache/ossie/blob/main/core-spec/spec.md
+ *
+ * Two schemas are exported:
+ * - `ossieDocumentSchema` — the on-disk/wire format: an optional top-level
+ *   `version` plus `semantic_model` as a list of models (a single object is
+ *   also accepted for backward compatibility with legacy OSI v1.0 files).
+ * - `semanticModelSchema` — the internal, already-merged single-model shape
+ *   the rest of the app consumes. The loader normalizes documents into it.
  *
  * Types are derived via z.infer<> — no separate interfaces needed.
  */
 
 import { z } from 'zod';
 
-// ─── OSI Core Schemas ───────────────────────────────────────
+// ─── Ossie Core Schemas ─────────────────────────────────────
 
 export const dialectEnumSchema = z.enum([
   'ANSI_SQL',
@@ -17,6 +27,24 @@ export const dialectEnumSchema = z.enum([
   'MDX',
   'TABLEAU',
   'DATABRICKS',
+  'BIGQUERY',
+  'MAQL',
+]);
+
+// Logical field/metric result types (Ossie DataType enum). Optional
+// everywhere — CARTO models don't rely on it, but accepting it keeps us
+// forward-compatible with spec-authored models.
+export const datatypeEnumSchema = z.enum([
+  'String',
+  'Integer',
+  'Decimal',
+  'Float',
+  'Boolean',
+  'Date',
+  'Time',
+  'DateTime',
+  'DateTimeTz',
+  'Opaque',
 ]);
 
 export const dialectExpressionSchema = z.object({
@@ -120,7 +148,7 @@ export const cartoModelExtensionSchema = z.object({
   proximity_priorities: z.array(z.record(z.string(), z.unknown())).optional(),
 });
 
-// ─── OSI Entity Schemas ─────────────────────────────────────
+// ─── Ossie Entity Schemas ───────────────────────────────────
 
 export const fieldSchema = z.object({
   name: z.string(),
@@ -128,6 +156,7 @@ export const fieldSchema = z.object({
   dimension: dimensionSchema.optional(),
   label: z.string().optional(),
   description: z.string().optional(),
+  datatype: datatypeEnumSchema.optional(),
   values: z.array(z.union([z.string(), z.number(), z.null()])).optional(),
   ai_context: aiContextSchema.optional(),
   custom_extensions: z.array(customExtensionSchema).optional(),
@@ -140,7 +169,16 @@ export const datasetSchema = z.object({
     .union([z.array(z.string()), z.string()])
     .optional()
     .transform((val) => (typeof val === 'string' ? [val] : val)),
-  unique_keys: z.array(z.string()).optional(),
+  // Ossie models composite unique keys as an array of arrays; accept the
+  // legacy flat string[] too and normalize to string[][].
+  unique_keys: z
+    .union([z.array(z.array(z.string())), z.array(z.string())])
+    .optional()
+    .transform((val) =>
+      val && val.length > 0 && typeof val[0] === 'string'
+        ? [val as string[]]
+        : (val as string[][] | undefined),
+    ),
   description: z.string().optional(),
   ai_context: aiContextSchema.optional(),
   fields: z.array(fieldSchema).optional(),
@@ -153,6 +191,7 @@ export const relationshipSchema = z.object({
   to: z.string(),
   from_columns: z.array(z.string()),
   to_columns: z.array(z.string()),
+  ai_context: aiContextSchema.optional(),
   custom_extensions: z.array(customExtensionSchema).optional(),
 });
 
@@ -160,20 +199,52 @@ export const metricSchema = z.object({
   name: z.string(),
   expression: expressionSchema,
   description: z.string().optional(),
+  datatype: datatypeEnumSchema.optional(),
   ai_context: aiContextSchema.optional(),
   custom_extensions: z.array(customExtensionSchema).optional(),
 });
 
+// A single semantic model body (the object under a `semantic_model` list item).
+export const semanticModelBodySchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  ai_context: aiContextSchema.optional(),
+  datasets: z.array(datasetSchema),
+  relationships: z.array(relationshipSchema).optional(),
+  metrics: z.array(metricSchema).optional(),
+  custom_extensions: z.array(customExtensionSchema).optional(),
+});
+
+// Internal, already-merged single-model shape consumed across the app.
+// Kept stable (a `{ semantic_model: body }` wrapper) so the loader/renderer
+// and callers are unaffected by the on-disk list format.
 export const semanticModelSchema = z.object({
-  semantic_model: z.object({
-    name: z.string(),
-    description: z.string().optional(),
-    ai_context: aiContextSchema.optional(),
-    datasets: z.array(datasetSchema),
-    relationships: z.array(relationshipSchema).optional(),
-    metrics: z.array(metricSchema).optional(),
-    custom_extensions: z.array(customExtensionSchema).optional(),
-  }),
+  semantic_model: semanticModelBodySchema,
+});
+
+// Apache Ossie on-disk/wire document: optional `version` and a list of
+// models. A single object is accepted for backward compatibility with
+// legacy OSI v1.0 files (`semantic_model:` as a mapping).
+//
+// The list (or legacy single object) is normalized to a non-empty array
+// *before* validation via z.preprocess, so two failure modes are handled
+// correctly: (1) a validation error keeps its real path (e.g.
+// `semantic_model.0.datasets.0.name`) instead of a z.union collapsing it to
+// this top-level node, and (2) an empty `semantic_model: []` is rejected by
+// `.min(1)` rather than silently validating with zero models.
+export const ossieDocumentSchema = z.object({
+  version: z.string().optional(),
+  semantic_model: z.preprocess(
+    // Pass undefined/null through untouched so a missing (or null)
+    // `semantic_model` key reports the error on the key itself
+    // (`semantic_model: Required`) instead of wrapping to `[undefined]`
+    // and pointing at a phantom list element (`semantic_model.0: ...`).
+    (value) =>
+      value === undefined || value === null || Array.isArray(value)
+        ? value
+        : [value],
+    z.array(semanticModelBodySchema).min(1)
+  ),
 });
 
 // ─── Derived Types ──────────────────────────────────────────
@@ -182,12 +253,15 @@ export type DialectExpression = z.infer<typeof dialectExpressionSchema>;
 export type Expression = z.infer<typeof expressionSchema>;
 export type AiContext = z.infer<typeof aiContextSchema>;
 export type Dimension = z.infer<typeof dimensionSchema>;
+export type Datatype = z.infer<typeof datatypeEnumSchema>;
 export type CustomExtension = z.infer<typeof customExtensionSchema>;
 export type Field = z.infer<typeof fieldSchema>;
 export type Dataset = z.infer<typeof datasetSchema>;
 export type Relationship = z.infer<typeof relationshipSchema>;
 export type Metric = z.infer<typeof metricSchema>;
+export type SemanticModelBody = z.infer<typeof semanticModelBodySchema>;
 export type SemanticModel = z.infer<typeof semanticModelSchema>;
+export type OssieDocument = z.infer<typeof ossieDocumentSchema>;
 
 // CARTO extension types
 export type CartoSpatialData = z.infer<typeof cartoSpatialDataSchema>;

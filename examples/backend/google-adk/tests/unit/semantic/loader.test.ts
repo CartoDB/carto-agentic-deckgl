@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Mock fs so loadSemanticModel can be driven with in-memory YAML fixtures.
+vi.mock('fs', () => ({
+  readFileSync: vi.fn(),
+  readdirSync: vi.fn(),
+  existsSync: vi.fn(),
+}));
+
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import {
   getCartoExtension,
   getDatasetSpatialData,
@@ -9,6 +18,8 @@ import {
   getWelcomeMessage,
   getWelcomeChips,
   renderSemanticModelAsMarkdown,
+  loadSemanticModel,
+  clearSemanticModelCache,
 } from '../../../src/semantic/loader.js';
 import type {
   CustomExtension,
@@ -482,5 +493,123 @@ describe('renderSemanticModelAsMarkdown', () => {
     const md = renderSemanticModelAsMarkdown(minimalModel({ name: 'M', datasets: [ds] }));
     expect(md).toContain('### Quick Reference: Tables by Layer Type');
     expect(md).toContain('`project.schema.my_table`');
+  });
+});
+
+// ─── loadSemanticModel (fs-mocked) ──────────────────────────
+
+describe('loadSemanticModel', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    clearSemanticModelCache();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('loads the Ossie list form (semantic_model as a list of models)', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue(['model.yaml'] as any);
+    vi.mocked(readFileSync).mockReturnValue(`
+version: 0.2.0.dev0
+semantic_model:
+  - name: First
+    datasets:
+      - name: dataset_a
+        source: table_a
+  - name: Second
+    datasets:
+      - name: dataset_b
+        source: table_b
+`);
+    const result = loadSemanticModel();
+    expect(result).not.toBeNull();
+    // First model in the list becomes the base; the rest merge into it.
+    expect(result!.semantic_model.name).toBe('First');
+    expect(result!.semantic_model.datasets).toHaveLength(2);
+  });
+
+  it('concatenates welcome_chips across files (object and JSON-string data)', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue(['a.yaml', 'b.yaml'] as any);
+    vi.mocked(readFileSync)
+      .mockReturnValueOnce(`
+semantic_model:
+  name: Base
+  datasets:
+    - name: dataset_a
+      source: table_a
+  custom_extensions:
+    - vendor_name: CARTO
+      data:
+        welcome_message: Hello
+        welcome_chips:
+          - id: c1
+            label: First
+            prompt: p1
+`)
+      // Second file encodes its CARTO extension as a JSON string.
+      .mockReturnValueOnce(`
+semantic_model:
+  name: Extra
+  datasets:
+    - name: dataset_b
+      source: table_b
+  custom_extensions:
+    - vendor_name: CARTO
+      data: '{"welcome_chips":[{"id":"c2","label":"Second","prompt":"p2"}]}'
+`);
+    const result = loadSemanticModel();
+    expect(result).not.toBeNull();
+    const chips = getWelcomeChips(result!);
+    expect(chips.map((c) => c.id)).toEqual(['c1', 'c2']);
+    // The first-file welcome_message survives (first-file-wins for scalars).
+    expect(getWelcomeMessage(result!)).toBe('Hello');
+  });
+
+  it('warns and keeps existing chips when a merged welcome_chip is malformed', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue(['a.yaml', 'b.yaml'] as any);
+    vi.mocked(readFileSync)
+      .mockReturnValueOnce(`
+semantic_model:
+  name: Base
+  datasets:
+    - name: dataset_a
+      source: table_a
+  custom_extensions:
+    - vendor_name: CARTO
+      data:
+        welcome_message: Hello
+        welcome_chips:
+          - id: c1
+            label: First
+            prompt: p1
+`)
+      // Missing the required \`prompt\` field → invalid chip.
+      .mockReturnValueOnce(`
+semantic_model:
+  name: Extra
+  datasets:
+    - name: dataset_b
+      source: table_b
+  custom_extensions:
+    - vendor_name: CARTO
+      data:
+        welcome_chips:
+          - id: c2
+            label: Second
+`);
+    const result = loadSemanticModel();
+    expect(result).not.toBeNull();
+    // Invalid chips are rejected wholesale; the valid base config survives
+    // instead of getModelCartoConfig dropping the entire CARTO config.
+    expect(getWelcomeChips(result!).map((c) => c.id)).toEqual(['c1']);
+    expect(getWelcomeMessage(result!)).toBe('Hello');
+    const warnings = warnSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(warnings).toMatch(/Invalid welcome_chips/);
   });
 });

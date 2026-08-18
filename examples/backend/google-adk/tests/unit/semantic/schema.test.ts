@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   semanticModelSchema,
+  ossieDocumentSchema,
   cartoSpatialDataSchema,
   cartoVisualizationHintSchema,
   cartoModelExtensionSchema,
@@ -104,6 +105,113 @@ describe('semanticModelSchema', () => {
     };
     const result = semanticModelSchema.safeParse(input);
     expect(result.success).toBe(true);
+  });
+});
+
+// ─── ossieDocumentSchema (Apache Ossie on-disk/wire format) ──
+
+describe('ossieDocumentSchema', () => {
+  const model = {
+    name: 'Test',
+    datasets: [{ name: 'ds1', source: 'project.schema.table' }],
+  };
+
+  it('accepts the Ossie format (version + semantic_model list)', () => {
+    const result = ossieDocumentSchema.safeParse({
+      version: '0.2.0.dev0',
+      semantic_model: [model],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(Array.isArray(result.data.semantic_model)).toBe(true);
+    }
+  });
+
+  it('accepts multiple models in the list', () => {
+    const result = ossieDocumentSchema.safeParse({
+      version: '0.2.0.dev0',
+      semantic_model: [model, { name: 'Other', datasets: [{ name: 'ds2', source: 't2' }] }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts an omitted version', () => {
+    const result = ossieDocumentSchema.safeParse({ semantic_model: [model] });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a legacy single-object semantic_model and normalizes it to a list (backward compat)', () => {
+    const result = ossieDocumentSchema.safeParse({ semantic_model: model });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(Array.isArray(result.data.semantic_model)).toBe(true);
+      expect(result.data.semantic_model).toHaveLength(1);
+      expect(result.data.semantic_model[0].name).toBe(model.name);
+    }
+  });
+
+  it('rejects an empty semantic_model list', () => {
+    const result = ossieDocumentSchema.safeParse({ semantic_model: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it('reports the error on the key when semantic_model is missing (not a phantom list element)', () => {
+    const result = ossieDocumentSchema.safeParse({ version: '0.2.0.dev0' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      // Error lands on `semantic_model` itself, not `semantic_model.0`.
+      expect(result.error.issues[0].path).toEqual(['semantic_model']);
+    }
+  });
+
+  it('reports the error on the key when semantic_model is null', () => {
+    const result = ossieDocumentSchema.safeParse({ semantic_model: null });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['semantic_model']);
+    }
+  });
+
+  it('rejects a model in the list missing datasets, keeping the field path', () => {
+    const result = ossieDocumentSchema.safeParse({
+      semantic_model: [{ name: 'NoDatasets' }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      // The path survives normalization (a z.union would collapse it).
+      expect(result.error.issues[0].path).toContain('datasets');
+    }
+  });
+
+  it('accepts the new BIGQUERY dialect and field datatype', () => {
+    const result = ossieDocumentSchema.safeParse({
+      semantic_model: [{
+        name: 'Typed',
+        datasets: [{
+          name: 'ds1',
+          source: 'table',
+          fields: [{
+            name: 'revenue',
+            datatype: 'Decimal',
+            expression: { dialects: [{ dialect: 'BIGQUERY', expression: 'revenue' }] },
+          }],
+        }],
+      }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('normalizes flat unique_keys to an array of composite keys', () => {
+    const result = ossieDocumentSchema.safeParse({
+      semantic_model: [{
+        name: 'Keyed',
+        datasets: [{ name: 'ds1', source: 'table', unique_keys: ['a', 'b'] }],
+      }],
+    });
+    expect(result.success).toBe(true);
+    if (result.success && Array.isArray(result.data.semantic_model)) {
+      expect(result.data.semantic_model[0].datasets[0].unique_keys).toEqual([['a', 'b']]);
+    }
   });
 });
 
